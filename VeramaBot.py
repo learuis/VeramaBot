@@ -20,6 +20,7 @@ intents = discord.Intents.all()
 intents.message_content = True
 
 #sync me
+# this was added in pythonista on iphone
 #modified again
 #can i make this get out of sync?
 #test comment for working copy
