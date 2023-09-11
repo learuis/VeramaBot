@@ -19,6 +19,7 @@ GUILD = os.getenv('DISCORD_GUILD')
 intents = discord.Intents.all()
 intents.message_content = True
 
+#test comment for working copy
 #bot: Bot = commands.Bot(command_prefix=['v/', 'V/'], intents=intents)
 bot: Bot = commands.Bot(command_prefix=['vt/', 'Vt/'], intents=intents)
 
