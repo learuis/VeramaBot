@@ -19,6 +19,7 @@ GUILD = os.getenv('DISCORD_GUILD')
 intents = discord.Intents.all()
 intents.message_content = True
 
+#sync me
 #modified again
 #can i make this get out of sync?
 #test comment for working copy
