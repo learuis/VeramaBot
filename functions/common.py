@@ -65,6 +65,8 @@ class RegistrationForm(ui.Modal, title='Band of Outcasts Character Registration'
         await interaction.response.send_message(f'Registered character: {self.charName} '
                                                 f'with Funcom ID: {self.funcomId} '
                                                 f'to user {interaction.user.mention}', ephemeral=True)
+                                                
+        await interaction.user.edit (nick=self.charName)
 
         channel = interaction.client.get_channel(1150628473061253251)
         await channel.send(f'__Character Name:__ {self.charName}\n'
