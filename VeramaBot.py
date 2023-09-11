@@ -20,6 +20,7 @@ intents = discord.Intents.all()
 intents.message_content = True
 
 #modified again
+#can i make this get out of sync?
 #test comment for working copy
 #bot: Bot = commands.Bot(command_prefix=['v/', 'V/'], intents=intents)
 bot: Bot = commands.Bot(command_prefix=['vt/', 'Vt/'], intents=intents)
