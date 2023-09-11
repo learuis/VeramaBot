@@ -22,6 +22,7 @@ intents.message_content = True
 #sync me
 # this was added in pythonista on iphone
 #modified again
+#added on pythonista on ipad
 #can i make this get out of sync?
 #test comment for working copy
 #bot: Bot = commands.Bot(command_prefix=['v/', 'V/'], intents=intents)
