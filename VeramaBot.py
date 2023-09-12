@@ -1,13 +1,8 @@
 # VeramaBot.py
-#import io
-#import random
-#import time
 import sys
 
 from time import strftime, localtime
 from discord.ext.commands import Bot
-#from dotenv import load_dotenv
-from discord.ext import commands
 
 from functions.common import *
 from functions.externalConnections import *
@@ -19,12 +14,6 @@ GUILD = os.getenv('DISCORD_GUILD')
 intents = discord.Intents.all()
 intents.message_content = True
 
-#sync me
-# this was added in pythonista on iphone
-#modified again
-#added on pythonista on ipad
-#can i make this get out of sync?
-#test comment for working copy
 #bot: Bot = commands.Bot(command_prefix=['v/', 'V/'], intents=intents)
 bot: Bot = commands.Bot(command_prefix=['vt/', 'Vt/'], intents=intents)
 

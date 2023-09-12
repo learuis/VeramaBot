@@ -56,9 +56,10 @@ class TestRegistrationButton(discord.ui.View):
     async def register_character(self, interaction: discord.Interaction, button: discord.ui.button):
         await interaction.response.send_modal(RegistrationForm())
 
-class RegistrationForm(ui.Modal, title='Band of Outcasts Character Registration'):
-    charName = ui.TextInput(label='Character Name')
-    funcomId = ui.TextInput(label='Funcom ID')
+class RegistrationForm(ui.Modal, title='Character Registration'):
+    charName = ui.TextInput(label=f'Character Name', placeholder='Your discord nickname will be changed to this!')
+    funcomId = ui.TextInput(label=f'Funcom ID', placeholder='Find this in game by pressing L')
+    clanName = ui.TextInput(label=f'Clan Name', placeholder='Verama will make this a dropdown maybe?')
 
     async def on_submit(self, interaction: discord.Interaction):
 

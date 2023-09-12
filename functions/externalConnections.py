@@ -6,7 +6,7 @@ from ftplib import FTP
 
 from dotenv import load_dotenv
 
-load_dotenv('bandofoutcasts_env.txt')
+load_dotenv('data/bandofoutcasts.env')
 RCON_HOST = os.getenv('RCON_HOST')
 RCON_PORT = os.getenv('RCON_PORT')
 RCON_PASS = os.getenv('RCON_PASS')
@@ -30,7 +30,7 @@ def downloadSave():
 
     lines = []
     ftp.retrlines('RETR ConanSandbox.log', lambda d: lines.append(d + '\n'))
-    f = open('ConanSandbox.log', 'w')
+    f = open('data/ConanSandbox.log', 'w')
     f.writelines(lines)
     returnFile = f
     f.close()
