@@ -1,0 +1,5 @@
+*.dat
+*.sqlite
+*.log
+*.env
+data/**

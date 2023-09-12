@@ -47,6 +47,15 @@ class RegistrationButton(discord.ui.View):
     async def register_character(self, interaction: discord.Interaction, button: discord.ui.button):
         await interaction.response.send_modal(RegistrationForm())
 
+class TestRegistrationButton(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Register your Character (TEST)", style=discord.ButtonStyle.green,
+                       custom_id="test_registration")
+    async def register_character(self, interaction: discord.Interaction, button: discord.ui.button):
+        await interaction.response.send_modal(RegistrationForm())
+
 class RegistrationForm(ui.Modal, title='Band of Outcasts Character Registration'):
     charName = ui.TextInput(label='Character Name')
     funcomId = ui.TextInput(label='Funcom ID')
@@ -66,7 +75,7 @@ class RegistrationForm(ui.Modal, title='Band of Outcasts Character Registration'
                                                 f'with Funcom ID: {self.funcomId} '
                                                 f'to user {interaction.user.mention}', ephemeral=True)
                                                 
-        await interaction.user.edit (nick=self.charName)
+        await interaction.user.edit(nick=str(self.charName))
 
         channel = interaction.client.get_channel(1150628473061253251)
         await channel.send(f'__Character Name:__ {self.charName}\n'

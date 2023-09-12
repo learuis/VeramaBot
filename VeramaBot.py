@@ -12,7 +12,7 @@ from discord.ext import commands
 from functions.common import *
 from functions.externalConnections import *
 
-load_dotenv('bandofoutcasts_env.txt')
+load_dotenv('data/bandofoutcasts.env')
 TOKEN = os.getenv('DISCORD_TOKEN')
 GUILD = os.getenv('DISCORD_GUILD')
 
@@ -43,11 +43,17 @@ async def on_ready():
         await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
 
     bot.add_view(RegistrationButton())
+    bot.add_view(TestRegistrationButton())
 
 @bot.command(name='prepare')
 @commands.is_owner()
 async def prepare(ctx: commands.Context):
     await ctx.send("Click this button to register your character.", view=RegistrationButton())
+
+@bot.command(name='testprepare')
+@commands.is_owner()
+async def testprepare(ctx: commands.Context):
+    await ctx.send("Click this button to register your character. (TEST)", view=TestRegistrationButton())
 
 @bot.command(name='break', aliases=['breaking', 'broke', 'why'])
 @commands.has_any_role('Admin', 'Moderator')
