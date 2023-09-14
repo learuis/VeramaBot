@@ -9,8 +9,7 @@ from functions.externalConnections import *
 
 load_dotenv('data/bandofoutcasts.env')
 TOKEN = os.getenv('DISCORD_TOKEN')
-print(TOKEN)
-print(os.getcwd())
+print(f'you did it! great job')
 GUILD = os.getenv('DISCORD_GUILD')
 
 intents = discord.Intents.all()
