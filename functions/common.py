@@ -50,7 +50,7 @@ def is_docker():
     )
 
 async def editStatus(message):
-    currentTime = strftime('%A %m/%d/%y at %I:%M %p', localtime(time.time()))
+    currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
 
     response = requests.get("https://api.g-portal.us/gameserver/query/846857").json()
     ipAddress = response.get('ipAddress')
