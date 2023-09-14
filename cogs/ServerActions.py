@@ -1,10 +1,13 @@
 import requests
 import io
 import random
+import json
+import time
+from time import strftime, localtime
 
 from discord.ext import commands
 from functions.externalConnections import *
-from functions.common import custom_cooldown, checkChannel
+from functions.common import custom_cooldown, checkChannel, editStatus
 
 class ServerActions(commands.Cog):
     """Cog class containing commands related to server status."""
@@ -30,11 +33,11 @@ class ServerActions(commands.Cog):
 
         """
 
-        response = requests.get("https://api.g-portal.us/gameserver/query/846857").json()
-        await ctx.send('IP Address: ' + str(response.get('ipAddress')) + ':32600' +
-                       '\nServer Online: ' + str(response.get('online')) +
-                       '\nPlayers Connected: ' + str(response.get('currentPlayers')) + ' / ' +
-                       str(response.get('maxPlayers')))
+        channel = ctx.bot.get_channel(1027396030469255178)
+        message = await channel.fetch_message(1151908253752635412)
+
+        await editStatus(message)
+
 
     @commands.command(name='listplayers',
                       aliases=['list', 'lp'])

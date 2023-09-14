@@ -1,10 +1,13 @@
 import discord
 import re
 import time
+import requests
+import os
 from discord import ui
 from discord.ext import commands
 import sqlite3
 from datetime import date
+from time import strftime, localtime
 
 def custom_cooldown(ctx):
     whitelist = {'Admin', 'Moderator'}
@@ -38,6 +41,29 @@ def percentage(int1, int2):
     ratio = (int1 / int2) * 100
     ratio = round(ratio)
     return ratio
+
+def is_docker():
+    path = '/proc/self/cgroup'
+    return (
+        os.path.exists('/.dockerenv') or
+        os.path.isfile(path) and any('docker' in line for line in open(path))
+    )
+
+async def editStatus(message):
+    currentTime = strftime('%A %m/%d/%y at %I:%M %p', localtime(time.time()))
+
+    response = requests.get("https://api.g-portal.us/gameserver/query/846857").json()
+    ipAddress = response.get('ipAddress')
+    onlineStatus = response.get('online')
+    currentPlayers = response.get('currentPlayers')
+    maxPlayers = response.get('maxPlayers')
+
+    await message.edit(content=f'**Band of Outcasts Server Status**\n'
+                               f'__{currentTime}__\n'
+                               f'- IP Address: {ipAddress}:32600\n'
+                               f'- Server Online: {onlineStatus}\n'
+                               f'- Players Connected: {currentPlayers} / {maxPlayers}\n'
+                               f'Server restarts are at 8:00am and 2:45pm Eastern')
 
 class RegistrationButton(discord.ui.View):
     def __init__(self):

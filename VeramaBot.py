@@ -3,6 +3,7 @@ import sys
 
 from time import strftime, localtime
 from discord.ext.commands import Bot
+from discord.ext import tasks
 
 from functions.common import *
 from functions.externalConnections import *
@@ -15,8 +16,11 @@ GUILD = os.getenv('DISCORD_GUILD')
 intents = discord.Intents.all()
 intents.message_content = True
 
-#bot: Bot = commands.Bot(command_prefix=['v/', 'V/'], intents=intents)
-bot: Bot = commands.Bot(command_prefix=['vt/', 'Vt/'], intents=intents)
+
+if is_docker():
+    bot: Bot = commands.Bot(command_prefix=['v/', 'V/'], intents=intents)
+else:
+    bot: Bot = commands.Bot(command_prefix=['vt/', 'Vt/'], intents=intents)
 
 @bot.event
 async def on_ready():
@@ -34,6 +38,18 @@ async def on_ready():
 
     bot.add_view(RegistrationButton())
     bot.add_view(TestRegistrationButton())
+
+    if not liveStatus.is_running():
+        liveStatus.start()
+
+@tasks.loop(minutes=1)
+async def liveStatus():
+
+    print('1 minute loop trigger')
+    channel = bot.get_channel(1027396030469255178)
+    message = await channel.fetch_message(1151908253752635412)
+
+    await editStatus(message)
 
 @bot.command(name='prepare')
 @commands.is_owner()
