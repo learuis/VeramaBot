@@ -31,9 +31,16 @@ async def on_ready():
     channel = bot.get_channel(1144882044552364093)
 
     # determine if application is a script file or frozen exe
+    """
     if getattr(sys, 'frozen', False):
-        await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')
+    await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')
     elif __file__:
+    await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
+    """
+
+    if is_docker():
+        await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')
+    else:
         await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
 
     bot.add_view(RegistrationButton())
