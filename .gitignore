@@ -3,3 +3,7 @@
 *.sqlite
 *.log
 *.env
+/Dockerfile
+/requirements.txt
+/compose.yaml
+/.dockerignore
