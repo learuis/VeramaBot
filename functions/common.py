@@ -5,6 +5,7 @@ import requests
 import os
 from discord import ui
 from discord.ext import commands
+from functions.externalConnections import runRcon
 import sqlite3
 from datetime import date
 from time import strftime, localtime
@@ -48,6 +49,31 @@ def is_docker():
         os.path.exists('/.dockerenv') or
         os.path.isfile(path) and any('docker' in line for line in open(path))
     )
+
+def is_registered(discord_user):
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'select id from registration where discord_user = \'{discord_user}\'')
+    result = cur.fetchone()
+
+    con.close()
+
+    if result:
+        return int(result[0])
+    else:
+        return False
+
+def has_feat(charId: int, featId: int):
+
+    rconResponse = runRcon(f'sql select template_id from item_inventory where owner_id = {charId} '
+                           f'and template_id = {featId} and inv_type = 6')
+
+    for x in rconResponse:
+        print(x)
+        return True
+
+    return False
 
 async def editStatus(message):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
