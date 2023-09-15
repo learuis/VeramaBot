@@ -418,15 +418,16 @@ class CommunityBoons(commands.Cog):
                 con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
                 cur = con.cursor()
 
-                cur.execute(f'select contributor, sum(remaining), item from boonlog where contributor like \
-                            \'%{command}%\' group by item order by sum(remaining) desc')
+                cur.execute(f'select contributor, sum(remaining), item, sum(quantity) from boonlog '
+                            f'where contributor like \'%{command}%\' group by item order by sum(remaining) desc')
                 res = cur.fetchall()
 
-                outputString = f'__Boon contribution totals for {command.casefold().capitalize()}:__\n'
+                outputString = (f'**Boon contribution totals for {command.casefold().capitalize()}:**\n'
+                                f'*Current Quota Period - (All of season 4)*\n')
 
                 if res:
                     for x in res:
-                        outputString += f'**{str(x[2])}**: {int(x[1]):,}\n'
+                        outputString += f'__{str(x[2])}__: {int(x[1]):,} - ({int(x[3]):,})\n'
 
                 await ctx.send(outputString)
 

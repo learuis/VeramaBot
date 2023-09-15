@@ -296,7 +296,7 @@ class Admin(commands.Cog):
         -------
 
         """
-        outputString = ''
+        outputString = f'id,discord_user,character_name,funcom_id,registration_date,season,game_char_id\n'
 
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur = con.cursor()

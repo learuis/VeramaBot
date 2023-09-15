@@ -91,18 +91,30 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
         con_sub = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur_sub = con_sub.cursor()
+
+        cur_sub.execute(f'select id from game_char_mapping where name like \'%{self.charName}%\'')
+        res = cur_sub.fetchone()
+
+        if res:
+            charId = int(res[0])
+        else:
+            charId = 0
+
         cur_sub.execute(f'insert into registration '
-                        f'(discord_user,character_name,funcom_id,registration_date,season) values '
+                        f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
                         f'(\'{interaction.user}\',\'{self.charName}\',\'{self.funcomId}\','
-                        f'\'{date.today()}\',3)')
+                        f'\'{date.today()}\',3,{charId})')
         con_sub.commit()
         con_sub.close()
 
-        await interaction.response.send_message(f'Registered character: {self.charName} '
+        await interaction.response.send_message(f'Registered character: {self.charName} (id {charId}) '
                                                 f'with Funcom ID: {self.funcomId} '
                                                 f'to user {interaction.user.mention}', ephemeral=True)
                                                 
-        await interaction.user.edit(nick=str(self.charName))
+        try:
+            await interaction.user.edit(nick=str(self.charName))
+        except discord.errors.Forbidden:
+            print(f'Missing persmissions to change nickname on {interaction.user.name}')
 
         channel = interaction.client.get_channel(1150628473061253251)
         await channel.send(f'__Character Name:__ {self.charName}\n'
