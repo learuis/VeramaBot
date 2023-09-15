@@ -12,20 +12,20 @@ class FeatClaim(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def restoreFeats(self, ctx):
+    async def restoreFeats(self, ctx, feat: int):
         """
 
         Parameters
         ----------
         ctx
         name
+        feat
 
         Returns
         -------
 
         """
-        feat = 91334
-        charId = is_registered(ctx.message.author.casefold())
+        charId = is_registered(ctx.message.author)
 
         if charId:
             if has_feat(charId, feat):

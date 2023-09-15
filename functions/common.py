@@ -51,10 +51,11 @@ def is_docker():
     )
 
 def is_registered(discord_user):
+    name = str(discord_user).casefold()
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
-    cur.execute(f'select id from registration where discord_user = \'{discord_user}\'')
+    cur.execute(f'select game_char_id from registration where discord_user = \'{name}\'')
     result = cur.fetchone()
 
     con.close()
@@ -68,12 +69,13 @@ def has_feat(charId: int, featId: int):
 
     rconResponse = runRcon(f'sql select template_id from item_inventory where owner_id = {charId} '
                            f'and template_id = {featId} and inv_type = 6')
+    print(rconResponse.output)
 
-    for x in rconResponse:
-        print(x)
+    #problem is that this always will be true. need to look at second line and on.
+    if featId in rconResponse.output:
         return True
-
-    return False
+    else:
+        return False
 
 async def editStatus(message):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
