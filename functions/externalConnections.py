@@ -4,6 +4,7 @@ import requests
 from rcon import Console
 from rcon.util import remove_formatting_codes
 from ftplib import FTP
+import sqlite3
 
 from dotenv import load_dotenv
 
@@ -39,6 +40,15 @@ def downloadSave():
     ftp.close()
 
     return returnFile
+
+def db_query(query: str):
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+    cur.execute(query)
+    result = cur.fetchall()
+    con.close()
+
+    return result
 
 def runRcon(command: str):
 

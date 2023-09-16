@@ -81,7 +81,7 @@ class ServerActions(commands.Cog):
             if name:
                 if name.casefold() in x[1].casefold():
                     outputlist = f'{x[0]} - {x[1]}\n'
-                    await ctx.send(f'Specific player listing:\n {outputlist}')
+                    await ctx.send(f'Player `{name}` is online with rcon ID `{x[0]}`.')
                     return
             else:
                 outputlist += f'{x[0]} - {x[1]}\n'
@@ -89,7 +89,7 @@ class ServerActions(commands.Cog):
         if outputlist:
             await ctx.send(str(len(connected_chars)) + f' connected player(s):\n{outputlist}')
         else:
-            await ctx.send(f'Player matching the string \'{name}\' was not found.')
+            await ctx.send(f'Player \'{name}\' is not currently online.')
         #I could add a lookup for their account ID here also and link back to their character ID.
 
     @commands.command(name='markers')

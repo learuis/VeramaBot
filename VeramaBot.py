@@ -91,16 +91,21 @@ async def breaking(ctx):
 async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send('Missing parameter! See v/help for details.')
+        return
     if isinstance(error, commands.errors.CheckFailure):
         print(f'Command from {ctx.message.author} failed checks. '
               f'{ctx.message.channel.id} / {ctx.message.channel.name}.')
         await ctx.send(error)
+        return
     if isinstance(error, commands.errors.CommandOnCooldown):
         await ctx.send(error)
+        return
     if isinstance(error, commands.errors.BadArgument):
         await ctx.send(error)
+        return
     if isinstance(error, commands.errors.CommandNotFound):
         await ctx.send(f'Invalid command `{ctx.message.content}`! Use `v/help`')
+        return
     else:
         await ctx.send(error)
         raise error

@@ -50,30 +50,50 @@ def is_docker():
         os.path.isfile(path) and any('docker' in line for line in open(path))
     )
 
+def popup_to_player(charName: str, message: str):
+    rconId = get_rcon_id(charName)
+    rconResponse = runRcon(f'con {rconId} PlayerMessage \"{charName}\" \"{message}\"')
+    print(rconResponse.output)
+    print(f'PlayerMessage \"{charName}\" \"{message}\"')
+
+def get_rcon_id(name: str):
+    connected_chars = []
+
+    rconResponse = runRcon('listplayers')
+
+    for x in rconResponse.output:
+        if x[0] == 'Idx':
+            pass
+        else:
+            connected_chars.append(x)
+
+    if not connected_chars:
+        return False
+
+    for x in connected_chars:
+        if name.casefold() in x[1].casefold():
+            return x[0]
 def is_registered(discord_user):
+    class Registration:
+        def __init__(self):
+            self.id = 0
+            self.char_name = ''
+
+    returnValue = Registration()
     name = str(discord_user).casefold()
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
-    cur.execute(f'select game_char_id from registration where discord_user = \'{name}\'')
+    cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{name}\'')
     result = cur.fetchone()
 
     con.close()
 
+    returnValue.id = result[0]
+    returnValue.char_name = result[1]
+
     if result:
-        return int(result[0])
-    else:
-        return False
-
-def has_feat(charId: int, featId: int):
-
-    rconResponse = runRcon(f'sql select template_id from item_inventory where owner_id = {charId} '
-                           f'and template_id = {featId} and inv_type = 6')
-    print(rconResponse.output)
-
-    #problem is that this always will be true. need to look at second line and on.
-    if featId in rconResponse.output:
-        return True
+        return returnValue
     else:
         return False
 
@@ -86,11 +106,31 @@ async def editStatus(message):
     currentPlayers = response.get('currentPlayers')
     maxPlayers = response.get('maxPlayers')
 
+    if onlineStatus == 'False':
+        statusSymbol = '<:redtick:1152409914430455839>'
+    else:
+        statusSymbol = '<:greentick:1152409721966432376>'
+
+    onlineSymbol = ':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+
+    if int(currentPlayers) == 30:
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle:'
+    if int(currentPlayers) < 30:
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::blue_circle:'
+    if int(currentPlayers) < 24:
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::blue_circle::blue_circle:'
+    if int(currentPlayers) < 18:
+        onlineSymbol = f':orange_circle::orange_circle::blue_circle::blue_circle::blue_circle:'
+    if int(currentPlayers) < 12:
+        onlineSymbol = f':orange_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+    if int(currentPlayers) < 6:
+        onlineSymbol = f':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+
     await message.edit(content=f'**Band of Outcasts Server Status**\n'
                                f'__{currentTime}__\n'
                                f'- IP Address: {ipAddress}:32600\n'
-                               f'- Server Online: {onlineStatus}\n'
-                               f'- Players Connected: {currentPlayers} / {maxPlayers}\n'
+                               f'- Server Online: {onlineStatus} {statusSymbol}\n'
+                               f'- Players Connected: {currentPlayers} / {maxPlayers} {onlineSymbol}\n'
                                f'Server restarts are at 8:00am and 2:45pm Eastern')
 
 class RegistrationButton(discord.ui.View):
