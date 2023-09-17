@@ -30,14 +30,6 @@ async def on_ready():
     loadtime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
     channel = bot.get_channel(1144882044552364093)
 
-    # determine if application is a script file or frozen exe
-    """
-    if getattr(sys, 'frozen', False):
-    await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')
-    elif __file__:
-    await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
-    """
-
     if is_docker():
         await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')
     else:
@@ -53,10 +45,11 @@ async def on_ready():
 async def liveStatus():
 
     print('1 minute loop trigger')
+
     channel = bot.get_channel(1027396030469255178)
     message = await channel.fetch_message(1151908253752635412)
 
-    await editStatus(message)
+    await editStatus(message, bot)
 
 @bot.command(name='prepare')
 @commands.is_owner()

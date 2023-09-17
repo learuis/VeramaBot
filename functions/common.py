@@ -10,6 +10,11 @@ import sqlite3
 from datetime import date
 from time import strftime, localtime
 
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+QUERY_URL = os.getenv('QUERY_URL')
+
 def custom_cooldown(ctx):
     whitelist = {'Admin', 'Moderator'}
     roles = {role.name for role in ctx.author.roles}
@@ -73,6 +78,7 @@ def get_rcon_id(name: str):
     for x in connected_chars:
         if name.casefold() in x[1].casefold():
             return x[0].strip()
+
 def is_registered(discord_user):
     class Registration:
         def __init__(self):
@@ -97,10 +103,10 @@ def is_registered(discord_user):
     else:
         return False
 
-async def editStatus(message):
+async def editStatus(message, bot):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
 
-    response = requests.get("https://api.g-portal.us/gameserver/query/846857").json()
+    response = requests.get(QUERY_URL).json()
     ipAddress = response.get('ipAddress')
     onlineStatus = response.get('online')
     currentPlayers = response.get('currentPlayers')
@@ -108,8 +114,10 @@ async def editStatus(message):
 
     if onlineStatus == 'False':
         statusSymbol = '<:redtick:1152409914430455839>'
+        await bot.change_presence(activity=discord.Activity(name=f'-/{maxPlayers} OFFLINE', type=3))
     else:
         statusSymbol = '<:greentick:1152409721966432376>'
+        await bot.change_presence(activity=discord.Activity(name=f'{currentPlayers}/{maxPlayers} ONLINE', type=3))
 
     onlineSymbol = ':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
