@@ -38,7 +38,6 @@ class ServerActions(commands.Cog):
 
         await editStatus(message)
 
-
     @commands.command(name='listplayers',
                       aliases=['list', 'lp'])
     @commands.has_any_role('Admin', 'Moderator')
@@ -64,14 +63,15 @@ class ServerActions(commands.Cog):
 
         connected_chars = []
         outputlist = ''
+        string = ''
 
         rconResponse = runRcon('listplayers')
+        rconResponse.output.pop(0)
 
         for x in rconResponse.output:
-            if x[0] == 'Idx':
-                pass
-            else:
-                connected_chars.append(x)
+            match = re.findall(r'\s+\d+ | [^|]*', x)
+            connected_chars.append(match)
+            print(connected_chars)
 
         if not connected_chars:
             await ctx.send('0 Players connected.')
@@ -80,11 +80,11 @@ class ServerActions(commands.Cog):
         for x in connected_chars:
             if name:
                 if name.casefold() in x[1].casefold():
-                    outputlist = f'{x[0]} - {x[1]}\n'
-                    await ctx.send(f'Player `{name}` is online with rcon ID `{x[0]}`.')
+                    #outputlist = f'{x[0].strip()} - {x[1].strip()}\n'
+                    await ctx.send(f'Player `{x[1].strip()}` is online with rcon ID `{x[0].strip()}`.')
                     return
             else:
-                outputlist += f'{x[0]} - {x[1]}\n'
+                outputlist += f'{x[0].strip()} - {x[1].strip()}\n'
 
         if outputlist:
             await ctx.send(str(len(connected_chars)) + f' connected player(s):\n{outputlist}')

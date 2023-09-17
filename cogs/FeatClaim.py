@@ -47,24 +47,38 @@ class FeatClaim(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def restoreFeats(self, ctx):
+    async def restoreFeats(self, ctx, discord_user: discord.Member = None):
         """
 
         Parameters
         ----------
         ctx
+        discord_user
 
         Returns
         -------
 
         """
-        charId = is_registered(ctx.message.author)
+        if discord_user:
+            charId = is_registered(discord_user.name)
+        else:
+            charId = is_registered(ctx.message.author)
+
         hasFeatString = ''
         missingFeatString = ''
         missingFeatList = []
 
+        if not get_rcon_id(charId.char_name):
+            await ctx.send(f'Character `{charId.char_name}` must be online to restore feats!')
+            return
+
+        outputString = f'Starting feat restore process... (~20 sec)'
+
+        message = await ctx.send(outputString)
+
         if not charId:
-            await ctx.send(f'No character registered to {ctx.message.author}!')
+            outputString = f'No character registered to {charId.char_name}!'
+            await message.edit(content=outputString)
         else:
             featList = get_feat_list(charId.id)
 
@@ -82,30 +96,41 @@ class FeatClaim(commands.Cog):
                     missingFeatList.append(feat)
                     missingFeatString += f'{feat}, '
 
+            outputString = ''
+
+            if not missingFeatString:
+                outputString += f'Character {charId.char_name} (id {charId.id}) already knows all of '\
+                                f'the Siptah feats currently available to them.'
+                await message.edit(content=outputString)
+                return
+
+            if hasFeatString:
+                outputString += f'\nCharacter {charId.char_name} (id {charId.id}) already knows feats: ' \
+                                f'[{hasFeatString[:-2]}]'
+                await message.edit(content=outputString)
+
             if missingFeatString:
-                await ctx.send(f'Character {charId.char_name} (id {charId.id}) is missing feats: '
-                               f'[{missingFeatString[:-2]}]')
+                outputString += f'\nCharacter {charId.char_name} (id {charId.id}) is missing feats: '\
+                                f'[{missingFeatString[:-2]}]'
+                await message.edit(content=outputString)
 
                 for missingFeat in missingFeatList:
                     target = get_rcon_id(charId.char_name)
                     rconResponse = runRcon(f'con {target} learnfeat {missingFeat}')
-                    await ctx.send(rconResponse.output)
-            else:
-                await ctx.send(f'Character {charId.char_name} (id {charId.id}) already knows all of the Siptah '
-                               f'feats currently available to them.')
-                return
+                    outputString += f'\n{rconResponse.output}'
+                    await message.edit(content=outputString)
 
-            if hasFeatString:
-                await ctx.send(f'Character {charId.char_name} (id {charId.id}) already knows feats: '
-                               f'[{hasFeatString[:-2]}]')
-                #run rcon to see if they are online?
-                #kick them offline
-                #warn them that it won't work if they are online
-                #insert the record into their item_inventory (confirmed blob can be left alone)
-                #insert into item_inventory set (item_id,owner_id,inv_type,template_id) values ( ) where
-                #select max(item_id)+1 from item_inventory where owner_id = charId
-                #not going to work because I cant write
-                #or, run learnfeat command
+            outputString += f'\nFeats restored for {charId.char_name} {discord_user.mention}.'
+            await message.edit(content=outputString)
+
+            #run rcon to see if they are online?
+            #kick them offline
+            #warn them that it won't work if they are online
+            #insert the record into their item_inventory (confirmed blob can be left alone)
+            #insert into item_inventory set (item_id,owner_id,inv_type,template_id) values ( ) where
+            #select max(item_id)+1 from item_inventory where owner_id = charId
+            #not going to work because I cant write
+            #or, run learnfeat command
 
     @commands.command(name='featadd', aliases=['addfeats', 'addfeat'])
     @commands.has_any_role('Admin', 'Moderator')

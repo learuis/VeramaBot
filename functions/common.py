@@ -60,19 +60,19 @@ def get_rcon_id(name: str):
     connected_chars = []
 
     rconResponse = runRcon('listplayers')
+    rconResponse.output.pop(0)
 
     for x in rconResponse.output:
-        if x[0] == 'Idx':
-            pass
-        else:
-            connected_chars.append(x)
+        match = re.findall(r'\s+\d+ | [^|]*', x)
+        connected_chars.append(match)
+        print(connected_chars)
 
     if not connected_chars:
         return False
 
     for x in connected_chars:
         if name.casefold() in x[1].casefold():
-            return x[0]
+            return x[0].strip()
 def is_registered(discord_user):
     class Registration:
         def __init__(self):

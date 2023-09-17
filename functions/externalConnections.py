@@ -84,14 +84,9 @@ def runRcon(command: str):
         res_body += '\n'
 
     res_list = res_body.splitlines()
-    
+
     for x in res_list:
-        if command == 'listplayers':
-            x = re.sub(r'\s', '', x)
-            x = re.sub(r'\|', ',', x)
-            commandOutput.append(x.split(','))
-        else:
-            commandOutput.append(x)
+        commandOutput.append(x)
 
     returnValue.output = commandOutput
     return returnValue
