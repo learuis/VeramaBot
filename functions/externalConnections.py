@@ -8,7 +8,7 @@ import sqlite3
 
 from dotenv import load_dotenv
 
-load_dotenv('data/bandofoutcasts.env')
+load_dotenv('data/server.env')
 RCON_HOST = os.getenv('RCON_HOST')
 RCON_PORT = os.getenv('RCON_PORT')
 RCON_PASS = os.getenv('RCON_PASS')

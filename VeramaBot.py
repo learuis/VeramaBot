@@ -8,7 +8,7 @@ from discord.ext import tasks
 from functions.common import *
 from functions.externalConnections import *
 
-load_dotenv('data/bandofoutcasts.env')
+load_dotenv('data/server.env')
 TOKEN = os.getenv('DISCORD_TOKEN')
 print(f'you did it! great job')
 GUILD = os.getenv('DISCORD_GUILD')
