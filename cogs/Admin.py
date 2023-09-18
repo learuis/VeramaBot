@@ -73,11 +73,10 @@ class Admin(commands.Cog):
         command = ''
         formattedOutput = ''
 
-        if len(args) > 1:
-            for arg in args:
-                command += arg + ' '
-        else:
-            command = args[0]
+        for arg in args:
+            command += f'{arg} '
+
+        command = re.sub(';', '\"', command)
 
         rconResponse = runRcon(command)
 

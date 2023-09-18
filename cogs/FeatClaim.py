@@ -123,15 +123,6 @@ class FeatClaim(commands.Cog):
             outputString += f'\nFeats restored for {charId.char_name} {discord_user.mention}.'
             await message.edit(content=outputString)
 
-            #run rcon to see if they are online?
-            #kick them offline
-            #warn them that it won't work if they are online
-            #insert the record into their item_inventory (confirmed blob can be left alone)
-            #insert into item_inventory set (item_id,owner_id,inv_type,template_id) values ( ) where
-            #select max(item_id)+1 from item_inventory where owner_id = charId
-            #not going to work because I cant write
-            #or, run learnfeat command
-
     @commands.command(name='featadd', aliases=['addfeats', 'addfeat'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
