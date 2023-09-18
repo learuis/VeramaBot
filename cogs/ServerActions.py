@@ -15,29 +15,6 @@ class ServerActions(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name='status')
-    @commands.has_any_role('Admin', 'Moderator', 'bot_tester')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
-    async def status(self, ctx):
-        """ - Check server status
-
-        Checks the server status using G-Portal API
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-
-        channel = ctx.bot.get_channel(1027396030469255178)
-        message = await channel.fetch_message(1151908253752635412)
-
-        await editStatus(message)
-
     @commands.command(name='listplayers',
                       aliases=['list', 'lp'])
     @commands.has_any_role('Admin', 'Moderator')

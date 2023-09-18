@@ -13,15 +13,19 @@ class Rewards(commands.Cog):
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def giveReward(self, ctx, itemId: int, quantity: int, discord_user: discord.Member, *reason):
-        """
+        """- Gives a reward to the tagged player
 
         Parameters
         ----------
         ctx
         itemId
+            Item ID number to spawn
         quantity
+            How many of the item to spawn
         discord_user
+            Mention (@ tag) the user. Must be registered and linked to char id.
         reason
+            A message which will pop up for the character in game.
 
         Returns
         -------

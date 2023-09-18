@@ -10,7 +10,9 @@ from discord.ext import commands
 from functions.common import custom_cooldown, checkChannel
 
 class CommunityBoons(commands.Cog):
-    """Cog class containing commands related to server status."""
+    """Cog class containing commands related to server status.
+
+    """
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot

@@ -1,7 +1,5 @@
 # VeramaBot.py
-import sys
 
-from time import strftime, localtime
 from discord.ext.commands import Bot
 from discord.ext import tasks
 
@@ -44,8 +42,6 @@ async def on_ready():
 @tasks.loop(minutes=1)
 async def liveStatus():
 
-    print('1 minute loop trigger')
-
     channel = bot.get_channel(1027396030469255178)
     message = await channel.fetch_message(1151908253752635412)
 
@@ -55,11 +51,6 @@ async def liveStatus():
 @commands.is_owner()
 async def prepare(ctx: commands.Context):
     await ctx.send("Click this button to register your character.", view=RegistrationButton())
-
-@bot.command(name='testprepare')
-@commands.is_owner()
-async def testprepare(ctx: commands.Context):
-    await ctx.send("Click this button to register your character. (TEST)", view=TestRegistrationButton())
 
 @bot.command(name='break', aliases=['breaking', 'broke', 'why'])
 @commands.has_any_role('Admin', 'Moderator')
@@ -105,23 +96,6 @@ async def on_command_error(ctx, error):
 
 
 bot.run(TOKEN)
-
-"""
-
-class Buttons(discord.ui.View):
-    def __init__(self, *, timeout=180):
-        super().__init__(timeout=timeout)
-    @discord.ui.button(label="Button",style=discord.ButtonStyle.gray)
-    #async def gray_button(self,button:discord.ui.Button,interaction:discord.Interaction):
-    async def send_message(self, interaction: discord.Interaction, button: discord.ui.button):
-        await interaction.response.edit_message(content=f"This is an edited button response!")
-
-@bot.command(name='button', brief='A button', help='This makes a button.')
-@commands.has_any_role('Admin','Moderator')
-@commands.check(checkChannel)
-async def button(ctx):
-    await ctx.send("This message has buttons!",view=Buttons())
-"""
 
 """
 @bot.command(name='size', brief='Change a player\'s size (test only)', help='Changes the size of a player by copying \

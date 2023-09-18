@@ -48,13 +48,13 @@ class FeatClaim(commands.Cog):
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def restoreFeats(self, ctx, discord_user: discord.Member = None):
-        """
+        """- Restore all feats that were previously granted
 
         Parameters
         ----------
         ctx
         discord_user
-
+            Optional. Mention (@ tag) a user to target them, otherwise targets self. Must be registered and linked.
         Returns
         -------
 
@@ -137,7 +137,7 @@ class FeatClaim(commands.Cog):
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def addFeat(self, ctx, feat: int, discord_user: discord.Member):
-        """
+        """- Adds a feat to the list granted to a player
 
         Parameters
         ----------
@@ -145,7 +145,7 @@ class FeatClaim(commands.Cog):
         feat
             The feat number to add (int)
         discord_user
-
+            Mention (@ tag) a user to target them. Must be registered and linked.
         Returns
         -------
 
@@ -182,13 +182,13 @@ class FeatClaim(commands.Cog):
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def featList(self, ctx, discord_user: discord.Member):
-        """
+        """- List all feats that have been granted to a player
 
         Parameters
         ----------
         ctx
         discord_user
-
+            Mention (@ tag) a user to target them. Must be registered and linked.
         Returns
         -------
 

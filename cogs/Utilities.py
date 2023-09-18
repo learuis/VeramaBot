@@ -13,14 +13,6 @@ class Utilities(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name='discordstatus')
-    @commands.has_any_role('Admin')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
-    async def discordstatus(self, ctx):
-
-        await bot_status_update(ctx)
-
     @commands.command(name='eldarium',
                       aliases=['Eldarium', 'eld', 'e'])
     @commands.has_any_role('Admin', 'Moderator')

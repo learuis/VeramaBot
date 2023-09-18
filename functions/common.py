@@ -149,15 +149,6 @@ class RegistrationButton(discord.ui.View):
     async def register_character(self, interaction: discord.Interaction, button: discord.ui.button):
         await interaction.response.send_modal(RegistrationForm())
 
-class TestRegistrationButton(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @discord.ui.button(label="Register your Character (TEST)", style=discord.ButtonStyle.green,
-                       custom_id="test_registration")
-    async def register_character(self, interaction: discord.Interaction, button: discord.ui.button):
-        await interaction.response.send_modal(RegistrationForm())
-
 class RegistrationForm(ui.Modal, title='Character Registration'):
     charName = ui.TextInput(label=f'Character Name', placeholder='Your discord nickname will be changed to this!')
     funcomId = ui.TextInput(label=f'Funcom ID', placeholder='Find this in game by pressing L')
