@@ -121,7 +121,11 @@ class FeatClaim(commands.Cog):
                     outputString += f'\n{rconResponse.output}'
                     await message.edit(content=outputString)
 
-            outputString += f'\nFeats restored for {charId.char_name} {discord_user.mention}.'
+            if discord_user:
+                outputString += f'\nFeats restored for {charId.char_name} {discord_user.mention}.'
+            else:
+                outputString += f'\nFeats restored for {charId.char_name} {ctx.message.author.mention}.'
+
             await message.edit(content=outputString)
 
     @commands.command(name='featadd', aliases=['addfeats', 'addfeat'])
