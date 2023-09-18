@@ -34,7 +34,6 @@ async def on_ready():
         await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
 
     bot.add_view(RegistrationButton())
-    bot.add_view(TestRegistrationButton())
 
     if not liveStatus.is_running():
         liveStatus.start()
