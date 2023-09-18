@@ -2,8 +2,8 @@ import time
 import sqlite3
 import ast
 
-from functions.common import *
-from functions.externalConnections import *
+from functions.common import isInt, percentage
+from functions.externalConnections import runRcon
 
 from discord.ext import commands
 

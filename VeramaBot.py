@@ -1,11 +1,14 @@
 # VeramaBot.py
 import discord
-from time import localtime
+import time
+import os
+from time import localtime, strftime
+from discord.ext import commands
 from discord.ext.commands import Bot
 from discord.ext import tasks
+from dotenv import load_dotenv
 
-from functions.common import *
-from functions.externalConnections import *
+from functions.common import is_docker, checkChannel, editStatus
 from functions.views import RegistrationButton, ChooseGod
 
 load_dotenv('data/server.env')

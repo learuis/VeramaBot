@@ -1,13 +1,10 @@
-import requests
 import io
 import random
-import json
-import time
-from time import strftime, localtime
+import re
 
 from discord.ext import commands
-from functions.externalConnections import *
-from functions.common import custom_cooldown, checkChannel, editStatus
+from functions.externalConnections import runRcon
+from functions.common import custom_cooldown, checkChannel
 
 class ServerActions(commands.Cog):
     """Cog class containing commands related to server status."""

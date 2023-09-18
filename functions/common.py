@@ -4,7 +4,6 @@ import time
 import requests
 import os
 
-from discord.ext import commands
 from functions.externalConnections import runRcon
 import sqlite3
 
@@ -140,4 +139,3 @@ async def editStatus(message, bot):
                                f'- Server Online: {onlineStatus} {statusSymbol}\n'
                                f'- Players Connected: {currentPlayers} / {maxPlayers} {onlineSymbol}\n'
                                f'Server restarts are at 8:00am and 2:45pm Eastern')
-

@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 from functions.common import custom_cooldown, checkChannel, get_rcon_id, is_registered
 from functions.externalConnections import runRcon
+
 def has_feat(charId: int, featId: int):
     rconResponse = runRcon(f'sql select template_id from item_inventory where owner_id = {charId} '
                            f'and template_id = {featId} and inv_type = 6')
