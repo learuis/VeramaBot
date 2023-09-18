@@ -3,12 +3,12 @@ import re
 import time
 import requests
 import os
-from discord import ui
+
 from discord.ext import commands
 from functions.externalConnections import runRcon
 import sqlite3
-from datetime import date
-from time import strftime, localtime
+
+from time import strftime
 
 from dotenv import load_dotenv
 
@@ -141,72 +141,3 @@ async def editStatus(message, bot):
                                f'- Players Connected: {currentPlayers} / {maxPlayers} {onlineSymbol}\n'
                                f'Server restarts are at 8:00am and 2:45pm Eastern')
 
-class RegistrationButton(discord.ui.View):
-    def __init__(self):
-        super().__init__(timeout=None)
-
-    @discord.ui.button(label="Register your Character", style=discord.ButtonStyle.green, custom_id="my_custom_button")
-    async def register_character(self, interaction: discord.Interaction, button: discord.ui.button):
-        await interaction.response.send_modal(RegistrationForm())
-
-class RegistrationForm(ui.Modal, title='Character Registration'):
-    charName = ui.TextInput(label=f'Character Name', placeholder='Your discord nickname will be changed to this!')
-    funcomId = ui.TextInput(label=f'Funcom ID', placeholder='Find this in game by pressing L')
-    clanName = ui.TextInput(label=f'Clan Name', placeholder='Verama will make this a dropdown maybe?')
-
-    async def on_submit(self, interaction: discord.Interaction):
-
-        con_sub = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-        cur_sub = con_sub.cursor()
-
-        cur_sub.execute(f'select id from game_char_mapping where name like \'%{self.charName}%\'')
-        res = cur_sub.fetchone()
-
-        if res:
-            charId = int(res[0])
-        else:
-            charId = 0
-
-        cur_sub.execute(f'insert into registration '
-                        f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
-                        f'(\'{interaction.user}\',\'{self.charName}\',\'{self.funcomId}\','
-                        f'\'{date.today()}\',3,{charId})')
-        con_sub.commit()
-        con_sub.close()
-
-        await interaction.response.send_message(f'Registered character: {self.charName} (id {charId}) '
-                                                f'with Funcom ID: {self.funcomId} '
-                                                f'to user {interaction.user.mention}', ephemeral=True)
-                                                
-        try:
-            await interaction.user.edit(nick=str(self.charName))
-        except discord.errors.Forbidden:
-            print(f'Missing persmissions to change nickname on {interaction.user.name}')
-
-        channel = interaction.client.get_channel(1150628473061253251)
-        await channel.send(f'__Character Name:__ {self.charName}\n'
-                           f'__Funcom ID:__ {self.funcomId}\n'
-                           f'__Discord:__ {interaction.user.mention}')
-
-    class GodSelection(discord.ui.Select):
-        def __init__(self):
-            options = [
-                discord.SelectOption(label="Derketo", emoji="�", description="This is option 1!"),
-                discord.SelectOption(label="Option 2", emoji="✨", description="This is option 2!"),
-                discord.SelectOption(label="Option 3", emoji="🎭", description="This is option 3!")
-            ]
-            super().__init__(placeholder="Select an option", max_values=1, min_values=1, options=options)
-
-        async def callback(self, interaction: discord.Interaction):
-            if self.values[0] == "Option 1":
-                await interaction.response.edit_message(content="This is the first option from the entire list!")
-            elif self.values[0] == "Option 2":
-                await interaction.response.send_message("This is the second option from the list entire wooo!",
-                                                        ephemeral=False)
-            elif self.values[0] == "Option 3":
-                await interaction.response.send_message("Third One!", ephemeral=True)
-
-    class SelectView(discord.ui.View):
-        def __init__(self, *, timeout=180):
-            super().__init__(timeout=timeout)
-            self.add_item(Select())

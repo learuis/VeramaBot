@@ -1,10 +1,12 @@
 # VeramaBot.py
-
+import discord
+from time import localtime
 from discord.ext.commands import Bot
 from discord.ext import tasks
 
 from functions.common import *
 from functions.externalConnections import *
+from functions.views import RegistrationButton, ChooseGod
 
 load_dotenv('data/server.env')
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -34,6 +36,7 @@ async def on_ready():
         await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
 
     bot.add_view(RegistrationButton())
+    bot.add_view(ChooseGod())
 
     if not liveStatus.is_running():
         liveStatus.start()
@@ -45,11 +48,6 @@ async def liveStatus():
     message = await channel.fetch_message(1151908253752635412)
 
     await editStatus(message, bot)
-
-@bot.command(name='prepare')
-@commands.is_owner()
-async def prepare(ctx: commands.Context):
-    await ctx.send("Click this button to register your character.", view=RegistrationButton())
 
 @bot.command(name='break', aliases=['breaking', 'broke', 'why'])
 @commands.has_any_role('Admin', 'Moderator')
