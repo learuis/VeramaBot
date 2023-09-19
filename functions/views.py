@@ -1,7 +1,11 @@
 import discord
 import sqlite3
+import re
+
 from discord import ui
 from datetime import date
+
+from functions.externalConnections import runRcon
 
 class RegistrationButton(discord.ui.View):
     def __init__(self):
@@ -17,14 +21,30 @@ class ChooseGod(discord.ui.View):
         self.add_item(GodDropdown())
 
 class RegistrationForm(ui.Modal, title='Character Registration'):
-    charName = ui.TextInput(label=f'Character Name', placeholder='Your discord nickname will be changed to this!')
+    charName = ui.TextInput(label=f'Character Name', placeholder='Type your full in-game character name')
     funcomId = ui.TextInput(label=f'Funcom ID', placeholder='Find this in game by pressing L')
 
     async def on_submit(self, interaction: discord.Interaction):
 
+        response = runRcon(f'sql select id, char_name from characters where char_name = \'{self.charName}\'')
+        response.output.pop(0)
+        print(response.output)
+
+        if response.output:
+            for x in response.output:
+                print(x)
+                match = re.findall(r'\s+\d+ | [^|]*', x)
+                print(f'{match[0]} matched to {match[1]}')
+                charId = match[0]
+        else:
+            channel = interaction.guild.get_channel(1025790340499767296)
+            await interaction.response.send_message(f'Could not locate a character named `{self.charName}`. '
+                                                    f'If you typed your name correctly, please post in '
+                                                    f'{channel.mention}', ephemeral=True)
         con_sub = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur_sub = con_sub.cursor()
 
+        """
         cur_sub.execute(f'select id from game_char_mapping where name like \'%{self.charName}%\'')
         res = cur_sub.fetchone()
 
@@ -32,11 +52,12 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
             charId = int(res[0])
         else:
             charId = 0
+        """
 
         cur_sub.execute(f'insert into registration '
                         f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
                         f'(\'{interaction.user}\',\'{self.charName}\',\'{self.funcomId}\','
-                        f'\'{date.today()}\',3,{charId})')
+                        f'\'{date.today()}\',4,{charId})')
         con_sub.commit()
         con_sub.close()
 
