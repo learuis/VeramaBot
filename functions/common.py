@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
 QUERY_URL = os.getenv('QUERY_URL')
+BOT_CHANNEL = int(os.getenv('BOT_CHANNEL'))
 
 def custom_cooldown(ctx):
     whitelist = {'Admin', 'Moderator'}
@@ -27,7 +28,7 @@ def custom_cooldown(ctx):
 def checkChannel(ctx):
     execTime = time.strftime('%c')
     print(f'Command {ctx.command} executed by {ctx.author} on {execTime}')
-    return ctx.channel.id == 1144882044552364093
+    return ctx.channel.id == BOT_CHANNEL
 
 def isInt(intToCheck):
     try:
@@ -53,6 +54,18 @@ def is_docker():
         os.path.exists('/.dockerenv') or
         os.path.isfile(path) and any('docker' in line for line in open(path))
     )
+
+def get_character_id(name: str):
+    response = runRcon(f'sql select id, char_name from characters where char_name = \'{name}\'')
+    response.output.pop(0)
+
+    if response.output:
+        for x in response.output:
+            print(x)
+            match = re.findall(r'\s+\d+ | [^|]*', x)
+            return match[0]
+    else:
+        return None
 
 def popup_to_player(charName: str, message: str):
     rconId = get_rcon_id(charName)
@@ -102,10 +115,9 @@ def is_registered(discord_user):
 
     con.close()
 
-    returnValue.id = result[0]
-    returnValue.char_name = result[1]
-
     if result:
+        returnValue.id = result[0]
+        returnValue.char_name = result[1]
         return returnValue
     else:
         return False

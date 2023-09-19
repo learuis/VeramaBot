@@ -14,8 +14,10 @@ from cogs.FaithTrials import ChooseGod
 
 load_dotenv('data/server.env')
 TOKEN = os.getenv('DISCORD_TOKEN')
-print(f'you did it! great job')
 GUILD = os.getenv('DISCORD_GUILD')
+BOT_CHANNEL = int(os.getenv('BOT_CHANNEL'))
+STATUS_CHANNEL = int(os.getenv('STATUS_CHANNEL'))
+STATUS_MESSAGE = int(os.getenv('STATUS_MESSAGE'))
 
 intents = discord.Intents.all()
 intents.message_content = True
@@ -32,7 +34,7 @@ async def on_ready():
         if f.endswith('.py'):
             await bot.load_extension(f'cogs.{f[:-3]}')
     loadtime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
-    channel = bot.get_channel(1144882044552364093)
+    channel = bot.get_channel(BOT_CHANNEL)
 
     if is_docker():
         await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')
@@ -48,8 +50,8 @@ async def on_ready():
 @tasks.loop(minutes=1)
 async def liveStatus():
 
-    channel = bot.get_channel(1027396030469255178)
-    message = await channel.fetch_message(1151908253752635412)
+    channel = bot.get_channel(STATUS_CHANNEL)
+    message = await channel.fetch_message(STATUS_MESSAGE)
 
     await editStatus(message, bot)
 

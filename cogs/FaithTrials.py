@@ -1,6 +1,28 @@
 import discord
+import os
+
 from discord.ext import commands
 from functions.common import custom_cooldown, checkChannel
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+ZATH_CHANNEL = int(os.getenv('ZATH_CHANNEL'))
+ZATH_ROLE = int(os.getenv('ZATH_ROLE'))
+SAG_CHANNEL = int(os.getenv('SAG_CHANNEL'))
+SAG_ROLE = int(os.getenv('SAG_ROLE'))
+YOG_CHANNEL = int(os.getenv('YOG_CHANNEL'))
+YOG_ROLE = int(os.getenv('YOG_ROLE'))
+DERKETO_CHANNEL = int(os.getenv('DERKETO_CHANNEL'))
+DERKETO_ROLE = int(os.getenv('DERKETO_ROLE'))
+MITRA_CHANNEL = int(os.getenv('MITRA_CHANNEL'))
+MITRA_ROLE = int(os.getenv('MITRA_ROLE'))
+SET_CHANNEL = int(os.getenv('SET_CHANNEL'))
+SET_ROLE = int(os.getenv('SET_ROLE'))
+YMIR_CHANNEL = int(os.getenv('YMIR_CHANNEL'))
+YMIR_ROLE = int(os.getenv('YMIR_ROLE'))
+CROM_CHANNEL = int(os.getenv('CROM_CHANNEL'))
+CROM_ROLE = int(os.getenv('CROM_ROLE'))
+FAITHLESS_ROLE = int(os.getenv('FAITHLESS_ROLE'))
 
 class ChooseGod(discord.ui.View):
     def __init__(self):
@@ -33,15 +55,16 @@ class GodDropdown(discord.ui.Select):
                          options=options, custom_id='choose_god')
 
     async def callback(self, interaction: discord.Interaction):
-        role_list = [1153364149707997264,
-                     1153364278326333491,
-                     1153364443875516466,
-                     1153364580647579845,
-                     1153364669877190797,
-                     1153364727825694842,
-                     1153364788680872047,
-                     1153364847262707752,
-                     1153369055512776754]
+        role_list = [ZATH_ROLE,
+                     SAG_ROLE,
+                     YOG_ROLE,
+                     DERKETO_ROLE,
+                     MITRA_ROLE,
+                     SET_ROLE,
+                     YMIR_ROLE,
+                     CROM_ROLE,
+                     FAITHLESS_ROLE
+                     ]
         role_to_add = discord.Role
         outputString = 'This should never be written!'
 
@@ -49,43 +72,43 @@ class GodDropdown(discord.ui.Select):
 
         match self.values[0]:
             case 'Zath, The Spider-God of Yezud':
-                channel = interaction.guild.get_channel(1153363765539123270)
-                role_to_add = storeUser.guild.get_role(1153364847262707752)
+                channel = interaction.guild.get_channel(ZATH_CHANNEL)
+                role_to_add = storeUser.guild.get_role(ZATH_ROLE)
                 outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
                                 f'worshipers here: {channel.mention}')
             case 'Jhebbal Sag, The Lord of Beasts':
-                channel = interaction.guild.get_channel(1153363889602437211)
-                role_to_add = storeUser.guild.get_role(1153364580647579845)
+                channel = interaction.guild.get_channel(SAG_CHANNEL)
+                role_to_add = storeUser.guild.get_role(SAG_ROLE)
                 outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
                                 f'worshipers here: {channel.mention}')
             case 'Yog, The Lord of Empty Abodes':
-                channel = interaction.guild.get_channel(1153363990349631550)
-                role_to_add = storeUser.guild.get_role(1153364788680872047)
+                channel = interaction.guild.get_channel(YOG_CHANNEL)
+                role_to_add = storeUser.guild.get_role(YOG_ROLE)
                 outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
                                 f'worshipers here: {channel.mention}')
             case 'Derketo, The Two-Faced Goddess':
-                channel = interaction.guild.get_channel(1153363802918756362)
-                role_to_add = storeUser.guild.get_role(1153364278326333491)
+                channel = interaction.guild.get_channel(DERKETO_CHANNEL)
+                role_to_add = storeUser.guild.get_role(DERKETO_ROLE)
                 outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
                                 f'worshipers here: {channel.mention}')
             case 'Mitra, The Phoenix':
-                channel = interaction.guild.get_channel(1153363926449406022)
-                role_to_add = storeUser.guild.get_role(1153364443875516466)
+                channel = interaction.guild.get_channel(MITRA_CHANNEL)
+                role_to_add = storeUser.guild.get_role(MITRA_ROLE)
                 outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
                                 f'worshipers here: {channel.mention}')
             case 'Set, The Old Serpent':
-                channel = interaction.guild.get_channel(1153363948737941504)
-                role_to_add = storeUser.guild.get_role(1153364669877190797)
+                channel = interaction.guild.get_channel(SET_CHANNEL)
+                role_to_add = storeUser.guild.get_role(SET_ROLE)
                 outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
                                 f'worshipers here: {channel.mention}')
             case 'Ymir, The Lord of War and Storms':
-                channel = interaction.guild.get_channel(1153374995930689547)
-                role_to_add = storeUser.guild.get_role(1153364727825694842)
+                channel = interaction.guild.get_channel(YMIR_CHANNEL)
+                role_to_add = storeUser.guild.get_role(YMIR_ROLE)
                 outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
                                 f'worshipers here: {channel.mention}')
             case 'Crom, The Grim Grey God':
-                channel = interaction.guild.get_channel(1153363838343856128)
-                role_to_add = storeUser.guild.get_role(1153364149707997264)
+                channel = interaction.guild.get_channel(CROM_CHANNEL)
+                role_to_add = storeUser.guild.get_role(CROM_ROLE)
                 outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
                                 f'worshipers here: {channel.mention}')
             case 'Faithless':
@@ -122,7 +145,7 @@ class FaithTrials(commands.Cog):
         -------
 
         """
-        print('return list of people in roles')
+        print(f'{ctx} return list of people in roles')
 
     @commands.command(name='god_prepare')
     @commands.is_owner()

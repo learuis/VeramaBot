@@ -1,12 +1,17 @@
-import sqlite3
 import re
+import sqlite3
 import discord
+import os
 
 from discord import ui
 from discord.ext import commands
-from functions.common import custom_cooldown, checkChannel
-from functions.externalConnections import runRcon
+from functions.common import custom_cooldown, checkChannel, get_character_id, is_registered
 from datetime import date
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
+AUTOREG_CHANNEL = int(os.getenv('AUTOREG_CHANNEL'))
 
 class RegistrationButton(discord.ui.View):
     def __init__(self):
@@ -22,22 +27,27 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        response = runRcon(f'sql select id, char_name from characters where char_name = \'{self.charName}\'')
-        response.output.pop(0)
-        print(response.output)
+        if is_registered(interaction.user.name):
+            await interaction.response.send_message(f'You have already registered a character for this season. If you '
+                                                    f'are re-rolling, please contact a Moderator to update your '
+                                                    f'registration.', ephemeral=True)
+            return
 
-        if response.output:
-            for x in response.output:
-                print(x)
-                match = re.findall(r'\s+\d+ | [^|]*', x)
-                print(f'{match[0]} matched to {match[1]}')
-                charId = match[0]
-        else:
-            channel = interaction.guild.get_channel(1025790340499767296)
+        charId = get_character_id(f'{self.charName}')
+
+        if not charId:
+            channel = interaction.guild.get_channel(SUPPORT_CHANNEL)
             await interaction.response.send_message(f'Could not locate a character named `{self.charName}`. '
                                                     f'If you typed your name correctly, please post in '
                                                     f'{channel.mention}', ephemeral=True)
             return
+
+        if not re.search(r'^[^#]+#\d{5}', str(self.funcomId)):
+            await interaction.response.send_message(f'Funcom ID `{self.funcomId}` was formatted incorrectly. Must be '
+                                                    f'in the following format: `funcom name here#12345`. You can find '
+                                                    f'this value by pressing L while in game.', ephemeral=True)
+            return
+
         con_sub = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur_sub = con_sub.cursor()
 
@@ -48,8 +58,8 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
         con_sub.commit()
         con_sub.close()
 
-        await interaction.response.send_message(f'Registered character: {self.charName} (id {charId}) '
-                                                f'with Funcom ID: {self.funcomId} '
+        await interaction.response.send_message(f'Registered character: {self.charName} (id {charId})'
+                                                f' with Funcom ID: {self.funcomId} '
                                                 f'to user {interaction.user.mention}', ephemeral=True)
 
         try:
@@ -57,7 +67,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
         except discord.errors.Forbidden:
             print(f'Missing persmissions to change nickname on {interaction.user.name}')
 
-        channel = interaction.client.get_channel(1150628473061253251)
+        channel = interaction.client.get_channel(AUTOREG_CHANNEL)
         await channel.send(f'__Character Name:__ {self.charName}\n'
                            f'__Funcom ID:__ {self.funcomId}\n'
                            f'__Discord:__ {interaction.user.mention}')
@@ -70,8 +80,8 @@ class Registration(commands.Cog):
     @commands.is_owner()
     async def prepare(self, ctx: commands.Context):
         await ctx.send('Click the button below to register your character. You must type your name exactly as it'
-                       ' appears in game, including spaces, punctuation, and special characters. \n\n*Your discord '
-                       'nickname will be changed to match the character name you enter here!*',
+                       ' appears in game, including capitalization, spaces, punctuation and special characters. '
+                       '\n\n*Your discord nickname will be changed to match the character name you enter here!*',
                        view=RegistrationButton())
 
     @commands.command(name='registrationlist', aliases=['reglist'])
