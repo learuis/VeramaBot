@@ -34,6 +34,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
             return
 
         charId = get_character_id(f'{self.charName}')
+        charId = charId.strip()
 
         if not charId:
             channel = interaction.guild.get_channel(SUPPORT_CHANNEL)
