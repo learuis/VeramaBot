@@ -9,7 +9,8 @@ from discord.ext import tasks
 from dotenv import load_dotenv
 
 from functions.common import is_docker, checkChannel, editStatus
-from functions.views import RegistrationButton, ChooseGod
+from cogs.Registration import RegistrationButton
+from cogs.FaithTrials import ChooseGod
 
 load_dotenv('data/server.env')
 TOKEN = os.getenv('DISCORD_TOKEN')
