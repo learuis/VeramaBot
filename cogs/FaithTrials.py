@@ -112,7 +112,7 @@ class GodDropdown(discord.ui.Select):
                 outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
                                 f'worshipers here: {channel.mention}')
             case 'Faithless':
-                role_to_add = storeUser.guild.get_role(1153369055512776754)
+                role_to_add = storeUser.guild.get_role(FAITHLESS_ROLE)
                 outputString = f'You have declared yourself to be {self.values[0]}!'
             case _:
                 print('this should never happen')

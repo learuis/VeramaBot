@@ -3,7 +3,7 @@ import sqlite3
 import discord
 from discord.ext import commands
 from functions.common import custom_cooldown, checkChannel, get_rcon_id, is_registered
-from functions.externalConnections import runRcon
+from functions.externalConnections import runRcon, db_query
 
 def has_feat(charId: int, featId: int):
     rconResponse = runRcon(f'sql select template_id from item_inventory where owner_id = {charId} '
@@ -44,11 +44,11 @@ class FeatClaim(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name='restorefeats', aliases=['feats', 'restore', 'knowledge'])
+    @commands.command(name='featrestore', aliases=['feats', 'restore', 'knowledge', 'restorefeats'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def restoreFeats(self, ctx, discord_user: discord.Member = None):
+    async def featRestore(self, ctx, discord_user: discord.Member = None):
         """- Restore all feats that were previously granted
 
         Parameters
@@ -203,6 +203,28 @@ class FeatClaim(commands.Cog):
             hasFeatString += f'{feat[1]}, '
         await ctx.send(f'{hasFeatString[:-2]}]')
 
+    @commands.command(name='featlibrary', aliases=['viewfeats', 'validfeats', 'featlib'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(checkChannel)
+    async def featLibrary(self, ctx):
+        """- Prints the list of feats that can be granted with v/featadd
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        outputString = '__Valid feats for use with v/featadd:__\n'
+        results = db_query('select * from valid_feats')
+
+        for result in results:
+            outputString += f'{result}\n'
+
+        await ctx.send(outputString)
 
 @commands.Cog.listener()
 async def setup(bot):

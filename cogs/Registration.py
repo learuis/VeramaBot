@@ -89,6 +89,51 @@ class Registration(commands.Cog):
                        '\n\n*Your discord nickname will be changed to match the character name you enter here!*',
                        view=RegistrationButton())
 
+    @commands.command(name='forcereg',
+                      aliases=['manreg', 'manualreg', 'manualregister', 'linkchar'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(checkChannel)
+    async def forceReg(self, ctx, discord_user: discord.Member, name: str, funcom_id: str, game_char_id: int):
+        """- Manually create a character registration record
+
+        Usage: v/forcereg @user "Character Name" funcom_id game_database_id
+
+        Parameters
+        ----------
+        ctx
+        discord_user
+            @tag the user to be registered
+        name
+            Provide as "Exact Character Name" . QUotes are optional if name has no spaces.
+        funcom_id
+            The Funcom ID of the user to be registered
+        game_char_id
+            Can be retrieved with v/rcon sql select id from characters where char_name like '%name%'
+
+        Returns
+        -------
+
+        """
+
+        season = 4
+
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+
+        cur.execute(f'insert into registration '
+                    f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) '
+                    f'values (\'{discord_user.name}\', \'{name}\', \'{funcom_id}\', \'{date.today()}\', '
+                    f'{season}, {game_char_id})')
+        con.commit()
+        con.close()
+
+        await ctx.send(f'Registered character {name} (id {game_char_id} funcom {funcom_id}) '
+                       f'to {discord_user.mention}.')
+
+        await ctx.invoke(self.bot.get_command('registrationlist'))
+        return
+
     @commands.command(name='registrationlist', aliases=['reglist'])
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
