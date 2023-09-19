@@ -78,6 +78,14 @@ def get_rcon_id(name: str):
         if name.casefold() in x[1].casefold():
             return x[0].strip()
 
+def update_registered_name(input_user, name):
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'update registration set character_name = \'{name}\' where discord_user = \'{input_user}\'')
+    con.commit()
+    con.close()
+
 def is_registered(discord_user):
     class Registration:
         def __init__(self):

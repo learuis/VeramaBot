@@ -41,18 +41,9 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
             await interaction.response.send_message(f'Could not locate a character named `{self.charName}`. '
                                                     f'If you typed your name correctly, please post in '
                                                     f'{channel.mention}', ephemeral=True)
+            return
         con_sub = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur_sub = con_sub.cursor()
-
-        """
-        cur_sub.execute(f'select id from game_char_mapping where name like \'%{self.charName}%\'')
-        res = cur_sub.fetchone()
-
-        if res:
-            charId = int(res[0])
-        else:
-            charId = 0
-        """
 
         cur_sub.execute(f'insert into registration '
                         f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '

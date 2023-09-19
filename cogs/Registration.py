@@ -10,7 +10,9 @@ class Registration(commands.Cog):
     @commands.command(name='prepare')
     @commands.is_owner()
     async def prepare(self, ctx: commands.Context):
-        await ctx.send("Click this button to register your character.", view=RegistrationButton())
+        await ctx.send('Click the button below to register your character. You must type your name exactly as it'
+                       'appears in game, including spaces, punctuation, and special characters. \n\n*Your discord '
+                       'nickname will be changed to match the character name you enter here!*', view=RegistrationButton())
 
     @commands.command(name='registrationlist', aliases=['reglist'])
     @commands.has_any_role('Admin')

@@ -27,6 +27,16 @@ class FaithTrials(commands.Cog):
     @commands.command(name='god_prepare')
     @commands.is_owner()
     async def god_prepare(self, ctx: commands.Context):
+        """- Sends a message with the God selection dialog
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
         file = discord.File('data/images/gods.png', filename='gods.png')
         embed = discord.Embed(title='Declaration of Faith',
                               description='Declare your faith here, mortal. \nThe gods shall determine your worthiness '
