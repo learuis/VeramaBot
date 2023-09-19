@@ -13,6 +13,8 @@ load_dotenv('data/server.env')
 SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
 AUTOREG_CHANNEL = int(os.getenv('AUTOREG_CHANNEL'))
 
+
+# noinspection PyUnresolvedReferences
 class RegistrationButton(discord.ui.View):
     def __init__(self):
         super().__init__(timeout=None)
@@ -21,6 +23,8 @@ class RegistrationButton(discord.ui.View):
     async def register_character(self, interaction: discord.Interaction, button: discord.ui.button):
         await interaction.response.send_modal(RegistrationForm())
 
+
+# noinspection PyUnresolvedReferences
 class RegistrationForm(ui.Modal, title='Character Registration'):
     charName = ui.TextInput(label=f'Character Name', placeholder='Type your full in-game character name')
     funcomId = ui.TextInput(label=f'Funcom ID', placeholder='Find this in game by pressing L')

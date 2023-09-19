@@ -119,6 +119,7 @@ class GodDropdown(discord.ui.Select):
 
         storeUser = interaction.user
 
+        # noinspection PyUnresolvedReferences
         await interaction.response.send_message(content=outputString, ephemeral=True)
 
         for role_to_remove in role_list:
