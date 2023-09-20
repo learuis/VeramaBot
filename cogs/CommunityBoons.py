@@ -158,6 +158,7 @@ class CommunityBoons(commands.Cog):
         await ctx.send(f'Consuming {remainingConsumption:,} {identifier.capitalize()} to activate Boon of {boon[0]}.')
 
         for record in boonlog:
+            print(f'remaining: {remainingConsumption}')
             if remainingConsumption == 0:
                 break
             elif record[6] <= remainingConsumption:
@@ -174,11 +175,12 @@ class CommunityBoons(commands.Cog):
 
         for toLog in updateList:
             toLog = ast.literal_eval(str(toLog))
+            print(toLog)
             #toLog = toLog.split(',')
             cur.execute(f'update boonlog set remaining = {toLog[6]} where record_num = {toLog[0]}')
             con.commit()
 
-        date = time.strftime('%x')
+        date = time.strftime('%x_%X')
 
         for toTitle in consumedMaterials:
             toTitle = ast.literal_eval(str(toTitle))
