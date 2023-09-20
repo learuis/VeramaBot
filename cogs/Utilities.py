@@ -1,3 +1,4 @@
+import math
 import sys
 import time
 import sqlite3
@@ -17,14 +18,46 @@ class Utilities(commands.Cog):
 
     @commands.command(name='eldarium',
                       aliases=['Eldarium', 'eld', 'e'])
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def eldarium(self, ctx, stacks: int, heads: int, keys: int, skulls: int):
-        """- Calculates Eldarium value for a list of materials.
+    async def eldarium(self, ctx, gold_coins: int = 0, gold_bars: int = 0):
+        """- Calculated Decaying Eldarium value for a list of materials.
 
         Returns the spawnitem command for pasting into the game console.
 
+        Example: 3,245 gold coins and 202 gold ingots
+        Usage: v/eld 3245 202
+
+        Parameters
+        ----------
+        ctx
+        gold_coins
+        gold_bars
+
+        Returns
+        -------
+
+        """
+
+        leftover = gold_coins % 10
+        print(leftover)
+        rounded_gold_coins = math.floor(gold_coins * 10) / 10
+        print(rounded_gold_coins)
+
+        converted = int((rounded_gold_coins / 10)) + (int(gold_bars) * 3)
+        await ctx.send(f'`{leftover}` gold coins rounded off.\n'
+                       f'Decaying Eldarium conversion for `{int(rounded_gold_coins)}` '
+                       f'gold coins, `{gold_bars}` gold bars:\n`spawnitem 11499 {converted}`')
+
+    @commands.command(name='s3_eldarium')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(checkChannel)
+    async def s3_eldarium(self, ctx, stacks: int, heads: int, keys: int, skulls: int):
+        """- Calculates Eldarium value for a list of materials.
+
+        Returns the spawnitem command for pasting into the game console.
         ===============================================
 
         Example: For 10 Stacks of materials, 3 Dragon Heads, 6 Skeleton Keys, and 72 Sorcerer Skulls
@@ -72,12 +105,12 @@ class Utilities(commands.Cog):
         await ctx.send(f'Later! VeramaBot shut down on {quittime}.')
         sys.exit(0)
 
-    @commands.command(name='who',
+    @commands.command(name='namelookup',
                       aliases=['search', 'find'])
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def who(self, ctx, *args):
+    async def namelookup(self, ctx, *args):
         """- Search for a player name in various places
 
         Searches lobby, registration channel, archived-registration channel, and game logs for a player name.

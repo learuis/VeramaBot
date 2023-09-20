@@ -5,13 +5,15 @@ import os
 
 from discord import ui
 from discord.ext import commands
-from functions.common import custom_cooldown, checkChannel, get_character_id, is_registered
+from functions.common import custom_cooldown, checkChannel, get_character_id, is_registered, get_registration, \
+    get_member_from_userid
 from datetime import date
 from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
 SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
 AUTOREG_CHANNEL = int(os.getenv('AUTOREG_CHANNEL'))
+REG_ROLE = int(os.getenv('REG_ROLE'))
 
 
 # noinspection PyUnresolvedReferences
@@ -31,7 +33,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        if is_registered(interaction.user.name):
+        if is_registered(interaction.user.id):
             await interaction.response.send_message(f'You have already registered a character for this season. If you '
                                                     f'are re-rolling, please contact a Moderator to update your '
                                                     f'registration.', ephemeral=True)
@@ -58,7 +60,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
         cur_sub.execute(f'insert into registration '
                         f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
-                        f'(\'{interaction.user}\',\'{self.charName}\',\'{self.funcomId}\','
+                        f'(\'{interaction.user.id}\',\'{self.charName}\',\'{self.funcomId}\','
                         f'\'{date.today()}\',4,{charId})')
         con_sub.commit()
         con_sub.close()
@@ -77,6 +79,8 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                            f'__Funcom ID:__ {self.funcomId}\n'
                            f'__Discord:__ {interaction.user.mention}')
 
+        await interaction.user.add_roles(interaction.user.guild.get_role(REG_ROLE))
+
 class Registration(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -89,12 +93,12 @@ class Registration(commands.Cog):
                        '\n\n*Your discord nickname will be changed to match the character name you enter here!*',
                        view=RegistrationButton())
 
-    @commands.command(name='forcereg',
-                      aliases=['manreg', 'manualreg', 'manualregister', 'linkchar'])
+    @commands.command(name='registrationforce',
+                      aliases=['forcereg', 'linkchar'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def forceReg(self, ctx, discord_user: discord.Member, name: str, funcom_id: str, game_char_id: int):
+    async def registrationForce(self, ctx, discord_user: discord.Member, name: str, funcom_id: str, game_char_id: int):
         """- Manually create a character registration record
 
         Usage: v/forcereg @user "Character Name" funcom_id game_database_id
@@ -115,7 +119,7 @@ class Registration(commands.Cog):
         -------
 
         """
-
+        #fix me!
         season = 4
 
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -123,7 +127,7 @@ class Registration(commands.Cog):
 
         cur.execute(f'insert into registration '
                     f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) '
-                    f'values (\'{discord_user.name}\', \'{name}\', \'{funcom_id}\', \'{date.today()}\', '
+                    f'values (\'{discord_user.id}\', \'{name}\', \'{funcom_id}\', \'{date.today()}\', '
                     f'{season}, {game_char_id})')
         con.commit()
         con.close()
@@ -202,6 +206,41 @@ class Registration(commands.Cog):
                 con.commit()
 
                 await ctx.send(f'Deleted record:\n{res}')
+
+    @commands.command(name='registrationlookup', aliases=['reglook', 'whois', 'who'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(checkChannel)
+    async def registrationLookup(self, ctx, name: str):
+        """- Look up registrations based on partial character name
+
+        Parameters
+        ----------
+        ctx
+        name
+            Partial or full character name in quotes
+
+        Returns
+        -------
+
+        """
+
+        outputString = 'Matching Registered Characters:\n'
+        memberList = get_registration(name)
+
+        if memberList:
+            for member in memberList:
+                char_id = member[0]
+                char_name = member[1]
+                discord_id = member[2]
+                discord_user = get_member_from_userid(ctx, int(discord_id))
+                outputString += f'{char_id} - {char_name} - {discord_user.mention}\n'
+
+            await ctx.send(f'{outputString}')
+            return
+        else:
+            await ctx.send(f'No characters matching the string `{name}`')
+            return
 
 @commands.Cog.listener()
 async def setup(bot):

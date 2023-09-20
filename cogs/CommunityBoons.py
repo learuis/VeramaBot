@@ -2,8 +2,10 @@ import time
 import sqlite3
 import ast
 
-from functions.common import isInt, percentage
-from functions.externalConnections import runRcon
+import discord
+
+from functions.common import isInt, percentage, get_single_registration, is_registered
+from functions.externalConnections import runRcon, db_query
 
 from discord.ext import commands
 
@@ -181,18 +183,22 @@ class CommunityBoons(commands.Cog):
         for toTitle in consumedMaterials:
             toTitle = ast.literal_eval(str(toTitle))
             #toTitle = toTitle.split(',')
-            cur.execute(f'insert into titles (date,contributor,item,quantity) values '
+            cur.execute(f'insert into boon_consumption (date,contributor,item,quantity) values '
                         f'(\'{date}\',\'{toTitle[0]}\',\'{toTitle[1]}\',{toTitle[2]})')
             con.commit()
 
-        cur.execute(f'select contributor, sum(quantity) from titles where date = \'{date}\' and '
+        cur.execute(f'select contributor, sum(quantity) from boon_consumption where date = \'{date}\' and '
                     f'item like \'%{identifier}%\' group by contributor order by sum(quantity) desc limit 1')
         results = cur.fetchone()
 
-        cur.execute(f'select distinct boon from quotas where material like \'{identifier}%\'')
+        cur.execute(f'select distinct boon, title from quotas where material like \'{identifier}%\'')
         boon = cur.fetchone()
 
-        await ctx.send(f'Title for the **Boon of {boon[0]}** is awarded to **{results[0]}** with '
+        cur.execute(f'insert or ignore into earned_titles (contributor,title,season) '
+                    f'values (\'{results[0]}\',\'{boon[1]}\',4)')
+        con.commit()
+
+        await ctx.send(f'Title \'{boon[1]}\' for the **Boon of {boon[0]}** is awarded to **{results[0]}** with '
                        f'{results[1]:,} {identifier.capitalize()} contributed.\n'
                        f'To activate the boon, use `v/boonset activate {boon[0].casefold()}`')
 
@@ -218,7 +224,7 @@ class CommunityBoons(commands.Cog):
 
         vines | brimstone | flasks | tar | twine | dung
 
-        obsidian | crystal | kits | cochineal | blood
+        obsidian | crystal | kits | cochineal | blood | demonblood
 
         ===============================================
 
@@ -253,8 +259,16 @@ class CommunityBoons(commands.Cog):
 
             return output
 
+        characters = get_single_registration(name)
+        if not characters:
+            await ctx.send(f'No character named `{name}` registered!')
+            return
+        else:
+            print(characters)
+            name = characters[1]
+
         validMaterials = {'vines', 'brimstone', 'flasks', 'tar', 'twine', 'dung',
-                          'obsidian', 'crystal', 'kits', 'cochineal', 'blood', 'none'}
+                          'obsidian', 'crystal', 'kits', 'cochineal', 'blood', 'demonblood', 'none'}
         delCommands = {'del', 'undo', 'delete', 'last', 'record'}
         infoCommands = {'report', 'all', 'raw', 'report', 'total'}
 
@@ -282,7 +296,7 @@ class CommunityBoons(commands.Cog):
             quantity = quantity.replace(',', '')
 
         outputString = f'Recorded the following Boon contributions:\n'
-        outputString += logboon(name.casefold().capitalize(), int(quantity), material.casefold().capitalize())
+        outputString += logboon(name, int(quantity), material.casefold().capitalize())
 
         if args:
             if (len(args) % 2) == 0:
@@ -294,7 +308,7 @@ class CommunityBoons(commands.Cog):
                                        f'material qty material (etc)...`')
                         return
                     else:
-                        outputString += logboon(name.casefold().capitalize(), int(intHelper),
+                        outputString += logboon(name, int(intHelper),
                                                 args[x+1].casefold().capitalize())
             else:
                 await ctx.send(f'Wrong number of arguments provided. Try again!')
@@ -303,7 +317,7 @@ class CommunityBoons(commands.Cog):
         await ctx.send(f'{outputString}')
 
     @commands.command(name='booninfo',
-                      aliases=['boonr', 'brep', 'binfo', 'boonreport'])
+                      aliases=['boonrep', 'brep', 'binfo', 'boonreport'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
@@ -333,7 +347,7 @@ class CommunityBoons(commands.Cog):
 
         vines | brimstone | flasks | tar | twine | dung
 
-        obsidian | crystal | kits | cochineal | blood
+        obsidian | crystal | kits | cochineal | blood | demonblood
 
         Parameters
         ----------
@@ -400,7 +414,7 @@ class CommunityBoons(commands.Cog):
                 await ctx.send(f'{outputString}')
 
             case 'vines' | 'brimstone' | 'flasks' | 'tar' | 'twine' | 'dung' | \
-                 'obsidian' | 'crystal' | 'kits' | 'cochineal' | 'blood':
+                 'obsidian' | 'crystal' | 'kits' | 'cochineal' | 'blood' | 'demonblood':
                 con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
                 cur = con.cursor()
 
@@ -409,7 +423,8 @@ class CommunityBoons(commands.Cog):
                             f'limit 10')
                 res = cur.fetchall()
 
-                outputString = f'__Boon contribution totals for item: {command.casefold().capitalize()}__\n'
+                outputString = (f'__Boon contribution totals for item in Current Quota Period: '
+                                f'{command.casefold().capitalize()}__\n')
 
                 for x in res:
                     outputString += f'**{x[0]}** - {int(x[1]):,}\n'
@@ -417,6 +432,14 @@ class CommunityBoons(commands.Cog):
                 await ctx.send(outputString)
 
             case _:
+                characters = get_single_registration(command)
+                if not characters:
+                    await ctx.send(f'No character named `{command}` registered!')
+                    return
+                else:
+                    print(characters)
+                    command = characters[1]
+
                 con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
                 cur = con.cursor()
 
@@ -424,12 +447,12 @@ class CommunityBoons(commands.Cog):
                             f'where contributor like \'%{command}%\' group by item order by sum(remaining) desc')
                 res = cur.fetchall()
 
-                outputString = (f'**Boon contribution totals for {command.casefold().capitalize()}:**\n'
-                                f'*Current Quota Period - (All of season 4)*\n')
+                outputString = f'**Boon contribution totals for character {command}:**\n'
 
                 if res:
                     for x in res:
-                        outputString += f'__{str(x[2])}__: {int(x[1]):,} - ({int(x[3]):,})\n'
+                        outputString += (f'__{str(x[2])}__: Current Quota Period: {int(x[1]):,} - '
+                                         f'All of Season 4: {int(x[3]):,}\n')
 
                 await ctx.send(outputString)
 
@@ -630,6 +653,79 @@ class CommunityBoons(commands.Cog):
                                        '\n'.join(rconOutput))
         return
 
+    @commands.command(name='titleclear', aliases=['cleartitle'])
+    @commands.has_any_role('Admin', 'Moderator', 'bot_tester')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(checkChannel)
+    async def titleClear(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+
+        character = is_registered(ctx.author.id)
+
+        if character:
+            try:
+                await ctx.author.edit(nick=f'{character.char_name}')
+            except discord.errors.Forbidden:
+                await ctx.reply(f'Missing persmissions to change nickname on {ctx.author.name}')
+                return
+            await ctx.reply(f'Your title has been removed, {character.char_name}')
+            return
+
+    @commands.command(name='title')
+    @commands.has_any_role('Admin', 'Moderator', 'bot_tester')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(checkChannel)
+    async def title(self, ctx, set_title: int = 0):
+        """- Check titles you have earned or set your title.
+
+        Parameters
+        ----------
+        ctx
+        set_title
+
+        Returns
+        -------
+
+        """
+        outputString = 'To remove title, use v/titleclear.\nAvailable Titles:\n'
+
+        character = is_registered(ctx.author.id)
+        if character:
+            results = db_query(f'select title from earned_titles where contributor = \'{character.char_name}\'')
+        else:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}!')
+            return
+
+        if results:
+            if set_title:
+                titleRecord = results.pop(int(set_title)-1)
+
+                try:
+                    await ctx.author.edit(nick=f'{character.char_name} {titleRecord[0]}')
+                except discord.errors.Forbidden:
+                    await ctx.reply(f'Missing persmissions to change nickname on {ctx.author.name}')
+                    return
+
+                await ctx.reply(f'Your title has been set to `{titleRecord[0]}`!')
+                return
+            else:
+                for index, result in enumerate(results):
+                    outputString += f'{index+1} - {result[0]}\n'
+
+                await ctx.reply(f'{outputString}')
+                return
+        else:
+            await ctx.reply(f'You have not earned any titles this season.')
+            return
 
 @commands.Cog.listener()
 async def setup(bot):

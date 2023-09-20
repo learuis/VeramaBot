@@ -55,6 +55,9 @@ def is_docker():
         os.path.isfile(path) and any('docker' in line for line in open(path))
     )
 
+def get_member_from_userid(ctx, user_id: int):
+    return ctx.guild.get_member(user_id)
+
 def get_character_id(name: str):
     response = runRcon(f'sql select id, char_name from characters where char_name = \'{name}\'')
     response.output.pop(0)
@@ -99,18 +102,17 @@ def update_registered_name(input_user, name):
     con.commit()
     con.close()
 
-def is_registered(discord_user):
+def is_registered(discord_id: int):
     class Registration:
         def __init__(self):
             self.id = 0
             self.char_name = ''
 
     returnValue = Registration()
-    name = str(discord_user).casefold()
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
-    cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{name}\'')
+    cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\'')
     result = cur.fetchone()
 
     con.close()
@@ -119,6 +121,43 @@ def is_registered(discord_user):
         returnValue.id = result[0]
         returnValue.char_name = result[1]
         return returnValue
+    else:
+        return False
+
+def get_registration(char_name):
+
+    returnList = []
+    char_name = str(char_name).casefold()
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
+                f'\'%{char_name}%\'')
+    results = cur.fetchall()
+
+    con.close()
+
+    if results:
+        for result in results:
+            returnList.append(result)
+        return returnList
+    else:
+        return False
+
+def get_single_registration(char_name):
+
+    char_name = str(char_name).casefold()
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
+                f'\'%{char_name}%\' limit 1')
+    results = cur.fetchone()
+
+    con.close()
+
+    if results:
+        return results
     else:
         return False
 

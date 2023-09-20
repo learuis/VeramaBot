@@ -47,7 +47,7 @@ class GodDropdown(discord.ui.Select):
             discord.SelectOption(label='Ymir, The Lord of War and Storms', emoji=f'\N{snowflake}',
                                  description='We go to the great feast.'),
             discord.SelectOption(label='Crom, The Grim Grey God', emoji=f'\N{drop of blood}',
-                                 description='Consume the flesh of our foes.'),
+                                 description='Courage, free will, and the strength to fight our enemies.'),
             discord.SelectOption(label='Faithless', emoji=f'\N{diamond shape with a dot inside}',
                                  description='I live, I burn with life, I love, I slay, and am content.')
             ]
