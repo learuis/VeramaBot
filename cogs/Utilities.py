@@ -18,7 +18,7 @@ class Utilities(commands.Cog):
 
     @commands.command(name='eldarium',
                       aliases=['Eldarium', 'eld', 'e'])
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def eldarium(self, ctx, gold_coins: int = 0, gold_bars: int = 0):
@@ -48,7 +48,7 @@ class Utilities(commands.Cog):
         converted = int((rounded_gold_coins / 10)) + (int(gold_bars) * 3)
         await ctx.send(f'`{leftover}` gold coins rounded off.\n'
                        f'Decaying Eldarium conversion for `{int(rounded_gold_coins)}` '
-                       f'gold coins, `{gold_bars}` gold bars:\n`spawnitem 11499 {converted}`')
+                       f'gold coins, `{gold_bars}` gold bars = `{converted}`:\n\n`spawnitem 11499 {converted}`')
 
     @commands.command(name='s3_eldarium')
     @commands.has_any_role('Admin')

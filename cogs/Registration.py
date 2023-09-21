@@ -40,7 +40,6 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
             return
 
         charId = get_character_id(f'{self.charName}')
-        charId = charId.strip()
 
         if not charId:
             channel = interaction.guild.get_channel(SUPPORT_CHANNEL)
@@ -48,6 +47,8 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                                                     f'If you typed your name correctly, please post in '
                                                     f'{channel.mention}', ephemeral=True)
             return
+
+        charId = charId.strip()
 
         if not re.search(r'^[^#]+#\d{5}', str(self.funcomId)):
             await interaction.response.send_message(f'Funcom ID `{self.funcomId}` was formatted incorrectly. Must be '
@@ -140,7 +141,7 @@ class Registration(commands.Cog):
         return
 
     @commands.command(name='registrationlist', aliases=['reglist'])
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def register(self, ctx):
@@ -169,7 +170,7 @@ class Registration(commands.Cog):
         return
 
     @commands.command(name='registrationdelete', aliases=['regdelete', 'regdel'])
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def registrationdelete(self, ctx,

@@ -323,7 +323,7 @@ class CommunityBoons(commands.Cog):
 
     @commands.command(name='booninfo',
                       aliases=['boonrep', 'brep', 'binfo', 'boonreport'])
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def booninfo(self, ctx,
@@ -660,11 +660,11 @@ class CommunityBoons(commands.Cog):
         return
 
     @commands.command(name='titleclear', aliases=['cleartitle'])
-    @commands.has_any_role('Admin', 'Moderator', 'bot_tester')
+    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def titleClear(self, ctx):
-        """
+        """- Removes your current title
 
         Parameters
         ----------
@@ -685,9 +685,12 @@ class CommunityBoons(commands.Cog):
                 return
             await ctx.reply(f'Your title has been removed, {character.char_name}')
             return
+        else:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}!')
+            return
 
     @commands.command(name='title')
-    @commands.has_any_role('Admin', 'Moderator', 'bot_tester')
+    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def title(self, ctx, set_title: int = 0):

@@ -4,6 +4,8 @@ import time
 import requests
 import os
 
+
+from discord.ext.commands.cooldowns import BucketType
 from functions.externalConnections import runRcon
 import sqlite3
 
@@ -14,6 +16,9 @@ from dotenv import load_dotenv
 load_dotenv('data/server.env')
 QUERY_URL = os.getenv('QUERY_URL')
 BOT_CHANNEL = int(os.getenv('BOT_CHANNEL'))
+OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
+BOON_CHANNEL = int(os.getenv('BOON_CHANNEL'))
+OWNER_USER_ID = int(os.getenv('OWNER_USER_ID'))
 
 def custom_cooldown(ctx):
     whitelist = {'Admin', 'Moderator'}
@@ -23,12 +28,15 @@ def custom_cooldown(ctx):
         return None
     else:
         #everyone else
-        return discord.app_commands.Cooldown(3, 60)
+        return discord.app_commands.Cooldown(5, 60)
 
 def checkChannel(ctx):
+    if ctx.author.id == OWNER_USER_ID:
+        return True
     execTime = time.strftime('%c')
     print(f'Command {ctx.command} executed by {ctx.author} on {execTime}')
-    return ctx.channel.id == BOT_CHANNEL
+    channelList = [BOT_CHANNEL, OUTCASTBOT_CHANNEL]
+    return ctx.channel.id in channelList
 
 def isInt(intToCheck):
     try:
