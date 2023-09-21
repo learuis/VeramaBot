@@ -194,7 +194,7 @@ async def editStatus(message, bot):
 
     await message.edit(content=f'**Band of Outcasts Server Status**\n'
                                f'__{currentTime}__\n'
-                               f'- IP Address: {ipAddress}:32600\n'
+                               f'- IP Address: {ipAddress}:32200\n'
                                f'- Server Online: {onlineStatus} {statusSymbol}\n'
                                f'- Players Connected: {currentPlayers} / {maxPlayers} {onlineSymbol}\n'
                                f'Server restarts are at 8:00am and 2:45pm Eastern')
