@@ -1,8 +1,7 @@
 import sqlite3
 
-import discord
 from discord.ext import commands
-from functions.common import custom_cooldown, checkChannel, get_rcon_id, is_registered
+from functions.common import custom_cooldown, checkChannel, get_rcon_id, is_registered, get_single_registration
 from functions.externalConnections import runRcon, db_query
 
 def has_feat(charId: int, featId: int):
@@ -48,91 +47,82 @@ class FeatClaim(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def featRestore(self, ctx, discord_user: discord.Member = None):
-        """- Restore all feats that were previously granted
+    async def featRestore(self, ctx):
+        """- Restore all feats that were previously granted to you
 
         Parameters
         ----------
         ctx
-        discord_user
-            Optional. Mention (@ tag) a user to target them, otherwise targets self. Must be registered and linked.
         Returns
         -------
 
         """
-        if discord_user:
-            charId = is_registered(discord_user.name)
-        else:
-            charId = is_registered(ctx.message.author)
+        charId = is_registered(ctx.message.author.id)
 
         hasFeatString = ''
         missingFeatString = ''
         missingFeatList = []
 
+        if not charId:
+            outputString = f'No character registered to {ctx.message.author.mention}!'
+            await ctx.reply(content=outputString)
+            return
+
         if not get_rcon_id(charId.char_name):
-            await ctx.send(f'Character `{charId.char_name}` must be online to restore feats!')
+            await ctx.reply(f'Character `{charId.char_name}` must be online to restore feats!')
             return
 
         outputString = f'Starting feat restore process... (~20 sec)'
+        message = await ctx.reply(outputString)
 
-        message = await ctx.send(outputString)
+        featList = get_feat_list(charId.id)
 
-        if not charId:
-            outputString = f'No character registered to {charId.char_name}!'
-            await message.edit(content=outputString)
+        if has_feat(charId.id, 576):
+            hasFeatString = f'576, '
         else:
-            featList = get_feat_list(charId.id)
+            missingFeatList.append(576)
+            missingFeatString = f'576, '
 
-            if has_feat(charId.id, 576):
-                hasFeatString = f'576, '
+        for record in featList:
+            feat = record[1]
+            if has_feat(charId.id, feat):
+                hasFeatString += f'{feat}, '
             else:
-                missingFeatList.append(576)
-                missingFeatString = f'576, '
+                missingFeatList.append(feat)
+                missingFeatString += f'{feat}, '
 
-            for record in featList:
-                feat = record[1]
-                if has_feat(charId.id, feat):
-                    hasFeatString += f'{feat}, '
-                else:
-                    missingFeatList.append(feat)
-                    missingFeatString += f'{feat}, '
+        outputString = ''
 
-            outputString = ''
-
-            if not missingFeatString:
-                outputString += f'Character {charId.char_name} (id {charId.id}) already knows all of '\
-                                f'the Siptah feats currently available to them.'
-                await message.edit(content=outputString)
-                return
-
-            if hasFeatString:
-                outputString += f'\nCharacter {charId.char_name} (id {charId.id}) already knows feats: ' \
-                                f'[{hasFeatString[:-2]}]'
-                await message.edit(content=outputString)
-
-            if missingFeatString:
-                outputString += f'\nCharacter {charId.char_name} (id {charId.id}) is missing feats: '\
-                                f'[{missingFeatString[:-2]}]'
-                await message.edit(content=outputString)
-
-                for missingFeat in missingFeatList:
-                    target = get_rcon_id(charId.char_name)
-                    rconResponse = runRcon(f'con {target} learnfeat {missingFeat}')
-                    outputString += f'\n{rconResponse.output}'
-                    await message.edit(content=outputString)
-
-            if discord_user:
-                outputString += f'\nFeats restored for {charId.char_name} {discord_user.mention}.'
-            else:
-                outputString += f'\nFeats restored for {charId.char_name} {ctx.message.author.mention}.'
-
+        if not missingFeatString:
+            outputString += f'Character {charId.char_name} (id {charId.id}) already knows all of '\
+                            f'the Siptah feats currently available to them.'
             await message.edit(content=outputString)
+            return
+
+        if hasFeatString:
+            outputString += f'\nCharacter {charId.char_name} (id {charId.id}) already knows feats: ' \
+                            f'[{hasFeatString[:-2]}]'
+            await message.edit(content=outputString)
+
+        if missingFeatString:
+            outputString += f'\nCharacter {charId.char_name} (id {charId.id}) is missing feats: '\
+                            f'[{missingFeatString[:-2]}]'
+            await message.edit(content=outputString)
+
+            for missingFeat in missingFeatList:
+                target = get_rcon_id(charId.char_name)
+                rconResponse = runRcon(f'con {target} learnfeat {missingFeat}')
+                outputString += f'\n{rconResponse.output}'
+                await message.edit(content=outputString)
+
+        outputString += f'\nFeats restored for {charId.char_name} {ctx.message.author.mention}.'
+        await message.edit(content=outputString)
 
     @commands.command(name='featadd', aliases=['addfeats', 'addfeat'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def addFeat(self, ctx, feat: int, discord_user: discord.Member):
+    async def addFeat(self, ctx, feat: int, name: str):
         """- Adds a feat to the list granted to a player
 
         Parameters
@@ -140,19 +130,21 @@ class FeatClaim(commands.Cog):
         ctx
         feat
             The feat number to add (int)
-        discord_user
-            Mention (@ tag) a user to target them. Must be registered and linked.
+        name
+            Which character to grant the feat to
         Returns
         -------
 
         """
         #(id,name)
 
-        charId = is_registered(discord_user.name)
-
-        if not charId:
-            await ctx.send(f'No character registered to {charId}!')
+        characters = get_single_registration(name)
+        if not characters:
+            await ctx.reply(f'No character named `{name}` registered!')
             return
+        else:
+            name = characters[1]
+            charId = characters[0]
 
         #check if feat being added is valid
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -162,46 +154,49 @@ class FeatClaim(commands.Cog):
         con.close()
 
         if not result:
-            await ctx.send(f'Feat `{feat}` is not permitted to be added to Feat Claim table.')
+            await ctx.reply(f'Feat `{feat}` is not permitted to be added to Feat Claim table.')
             return
 
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur = con.cursor()
-        cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId.id},{feat})')
+        cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},{feat})')
         con.commit()
         con.close()
 
-        await ctx.send(f'Added Feat `{feat}` to Feat Claim table for character {charId.char_name} (id {charId.id})')
+        await ctx.reply(f'Added Feat `{feat}` to Feat Claim table for character `{name}` (id `{charId.id}`)')
 
     @commands.command(name='featlist', aliases=['listfeats', 'listfeat'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def featList(self, ctx, discord_user: discord.Member):
+    async def featList(self, ctx, name: str):
         """- List all feats that have been granted to a player
 
         Parameters
         ----------
         ctx
-        discord_user
-            Mention (@ tag) a user to target them. Must be registered and linked.
+        name
+            Which character to check
         Returns
         -------
 
         """
 
-        charId = is_registered(discord_user.name)
-        if not charId:
-            await ctx.send(f'No character registered to {charId}!')
+        characters = get_single_registration(name)
+        if not characters:
+            await ctx.reply(f'No character named `{name}` registered!')
             return
+        else:
+            name = characters[1]
+            charId = characters[0]
 
-        featList = get_feat_list(charId.id)
+        featList = get_feat_list(charId)
 
-        hasFeatString = f'Character {charId.char_name} (id {charId.id}) is entitled to feats: [576, '
+        hasFeatString = f'Character `{name}` (id `{charId}`) is entitled to feats: `[576, '
 
         for feat in featList:
             hasFeatString += f'{feat[1]}, '
-        await ctx.send(f'{hasFeatString[:-2]}]')
+        await ctx.reply(f'{hasFeatString[:-2]}]`')
 
     @commands.command(name='featlibrary', aliases=['viewfeats', 'validfeats', 'featlib'])
     @commands.has_any_role('Admin', 'Moderator')

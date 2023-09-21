@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
-from functions.common import custom_cooldown, checkChannel, is_registered, get_rcon_id, popup_to_player
+from functions.common import custom_cooldown, checkChannel, is_registered, get_rcon_id, popup_to_player, \
+    get_single_registration
 from functions.externalConnections import runRcon, db_query
 
 class Rewards(commands.Cog):
@@ -12,7 +13,7 @@ class Rewards(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
-    async def giveReward(self, ctx, itemId: int, quantity: int, discord_user: discord.Member, *reason):
+    async def giveReward(self, ctx, itemId: int, quantity: int, name: str, *reason):
         """- Gives a reward to the tagged player
 
         Parameters
@@ -33,8 +34,14 @@ class Rewards(commands.Cog):
         """
         itemName = ''
 
-        charId = is_registered(discord_user.name)
-        rconCharId = get_rcon_id(charId.char_name)
+        characters = get_single_registration(name)
+        if not characters:
+            await ctx.send(f'No character named `{name}` registered!')
+            return
+        else:
+            name = characters[1]
+
+        rconCharId = get_rcon_id(name)
 
         result = db_query(f'select name from cust_item_xref where template_id = {itemId} limit 1')
 
@@ -52,9 +59,9 @@ class Rewards(commands.Cog):
             await ctx.send(f'Authentication error on {rconCommand}')
         else:
             for x in rconResponse.output:
-                await ctx.send(f'Gave `{quantity} {str(itemName)} (item id {itemId})` to `{charId.char_name}`.'
-                               f'\nRcon command output:{x}\nMessaged {charId.char_name}: {reasonString}')
-                popup_to_player(charId.char_name, reasonString)
+                await ctx.send(f'Gave `{quantity} {str(itemName)} (item id {itemId})` to `{name}`.'
+                               f'\nRcon command output:{x}\nMessaged {name}: {reasonString}')
+                popup_to_player(name, reasonString)
 
 
 @commands.Cog.listener()

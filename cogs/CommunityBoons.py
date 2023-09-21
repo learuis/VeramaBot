@@ -196,8 +196,11 @@ class CommunityBoons(commands.Cog):
         cur.execute(f'select distinct boon, title from quotas where material like \'{identifier}%\'')
         boon = cur.fetchone()
 
+        regInfo = get_single_registration(results[0])
+        discord_id = regInfo[2]
+
         cur.execute(f'insert or ignore into earned_titles (contributor,title,season) '
-                    f'values (\'{results[0]}\',\'{boon[1]}\',4)')
+                    f'values (\'{discord_id}\',\'{boon[1]}\',4)')
         con.commit()
 
         await ctx.send(f'Title \'{boon[1]}\' for the **Boon of {boon[0]}** is awarded to **{results[0]}** with '
@@ -224,7 +227,7 @@ class CommunityBoons(commands.Cog):
 
         Valid material options:
 
-        vines | brimstone | flasks | tar | twine | dung
+        chitin | brimstone | resin | tar | twine | dung
 
         obsidian | crystal | kits | cochineal | blood | demonblood
 
@@ -269,7 +272,7 @@ class CommunityBoons(commands.Cog):
             print(characters)
             name = characters[1]
 
-        validMaterials = {'vines', 'brimstone', 'flasks', 'tar', 'twine', 'dung',
+        validMaterials = {'chitin', 'brimstone', 'resin', 'tar', 'twine', 'dung',
                           'obsidian', 'crystal', 'kits', 'cochineal', 'blood', 'demonblood', 'none'}
         delCommands = {'del', 'undo', 'delete', 'last', 'record'}
         infoCommands = {'report', 'all', 'raw', 'report', 'total'}
@@ -347,7 +350,7 @@ class CommunityBoons(commands.Cog):
 
         Valid material options:
 
-        vines | brimstone | flasks | tar | twine | dung
+        chitin | brimstone | resin | tar | twine | dung
 
         obsidian | crystal | kits | cochineal | blood | demonblood
 
@@ -398,7 +401,7 @@ class CommunityBoons(commands.Cog):
                 con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
                 cur = con.cursor()
 
-                cur.execute(f'select b.item, sum(b.remaining), q.quantity, q.boon from boonlog as b ' +
+                cur.execute(f'select b.item, sum(b.remaining), q.quantity, q.boon, q.title from boonlog as b ' +
                             f'left join quotas as q on q.material = b.item group by b.item;')
                 res = cur.fetchall()
 
@@ -406,16 +409,17 @@ class CommunityBoons(commands.Cog):
 
                 for x in res:
                     if x[1] >= x[2]:
-                        outputString += (f'**Boon of {str(x[3])} - {str(x[0]).capitalize()}**:\n{int(x[1]):,} of '
+                        outputString += (f'**Boon of {str(x[3])} - {str(x[0]).capitalize()}**:\n'
+                                         f'*Title: {x[4]}*\n{int(x[1]):,} of '
                                          f'{int(x[2]):,} - _Quota Achieved!_\n\n')
                     else:
                         progress = percentage(x[1], x[2])
                         outputString += (f'**Boon of {str(x[3])} - {str(x[0]).capitalize()}**:\n'
-                                         f'{int(x[1]):,} of {int(x[2]):,} - {progress}%\n\n')
+                                         f'*Title: {x[4]}*\n{int(x[1]):,} of {int(x[2]):,} - {progress}%\n\n')
 
                 await ctx.send(f'{outputString}')
 
-            case 'vines' | 'brimstone' | 'flasks' | 'tar' | 'twine' | 'dung' | \
+            case 'chitin' | 'brimstone' | 'resin' | 'tar' | 'twine' | 'dung' | \
                  'obsidian' | 'crystal' | 'kits' | 'cochineal' | 'blood' | 'demonblood':
                 con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
                 cur = con.cursor()
@@ -702,7 +706,7 @@ class CommunityBoons(commands.Cog):
 
         character = is_registered(ctx.author.id)
         if character:
-            results = db_query(f'select title from earned_titles where contributor = \'{character.char_name}\'')
+            results = db_query(f'select title from earned_titles where contributor = \'{ctx.author.id}\'')
         else:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}!')
             return

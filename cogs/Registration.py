@@ -28,7 +28,7 @@ class RegistrationButton(discord.ui.View):
 
 # noinspection PyUnresolvedReferences
 class RegistrationForm(ui.Modal, title='Character Registration'):
-    charName = ui.TextInput(label=f'Character Name', placeholder='Type your full in-game character name')
+    charName = ui.TextInput(label=f'Character Name', placeholder='Type your full, exact in-game character name')
     funcomId = ui.TextInput(label=f'Funcom ID', placeholder='Find this in game by pressing L')
 
     async def on_submit(self, interaction: discord.Interaction):
@@ -88,9 +88,10 @@ class Registration(commands.Cog):
     @commands.command(name='prepare')
     @commands.is_owner()
     async def prepare(self, ctx: commands.Context):
-        await ctx.send('Click the button below to register your character. You must type your name exactly as it'
-                       ' appears in game, including capitalization, spaces, punctuation and special characters. '
-                       '\n\n*Your discord nickname will be changed to match the character name you enter here!*',
+        await ctx.send(f'Click the button below to register your character. Your character must already be '
+                       f'created in game in order to register! \nMake sure to type your name exactly as it'
+                       f' appears in game, including capitalization, spaces, punctuation and special characters. '
+                       f'\n\n*Your discord nickname will be changed to match the character name you enter here!*',
                        view=RegistrationButton())
 
     @commands.command(name='registrationforce',
