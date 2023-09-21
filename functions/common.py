@@ -182,10 +182,12 @@ async def editStatus(message, bot):
         statusSymbol = '<:redtick:1152409914430455839>'
         await bot.change_presence(activity=discord.Activity(name=f'-/{maxPlayers} OFFLINE', type=3))
     else:
-        statusSymbol = '🔧'
-        await bot.change_presence(activity=discord.Activity(name=f'MAINTENANCE', type=3))
-        #statusSymbol = '<:greentick:1152409721966432376>'
-        #await bot.change_presence(activity=discord.Activity(name=f'{currentPlayers}/{maxPlayers} ONLINE', type=3))
+        if bot.maintenance_flag:
+            statusSymbol = '🔧'
+            await bot.change_presence(activity=discord.Activity(name=f'MAINTENANCE', type=3))
+        else:
+            statusSymbol = '<:greentick:1152409721966432376>'
+            await bot.change_presence(activity=discord.Activity(name=f'{currentPlayers}/{maxPlayers} ONLINE', type=3))
 
     onlineSymbol = ':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
@@ -202,16 +204,17 @@ async def editStatus(message, bot):
     if int(currentPlayers) < 6:
         onlineSymbol = f':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
-    await message.edit(content=f'**Band of Outcasts Server Status**\n'
-                               f'__{currentTime}__\n'
-                               f'- IP Address: {ipAddress}:32200\n'
-                               f'-- {statusSymbol} MAINTENANCE {statusSymbol} --\n'
-                               f'Season 4 begins at 3pm EST!')
-    """
-    await message.edit(content=f'**Band of Outcasts Server Status**\n'
-                               f'__{currentTime}__\n'
-                               f'- IP Address: {ipAddress}:32200\n'
-                               f'- Server Online: {onlineStatus} {statusSymbol}\n'
-                               f'- Players Connected: {currentPlayers} / {maxPlayers} {onlineSymbol}\n'
-                               f'Server restarts are at 8:00am and 2:45pm Eastern')
-    """
+    if bot.maintenance_flag:
+        await message.edit(content=f'**Band of Outcasts Server Status**\n'
+                                   f'__{currentTime}__\n'
+                                   f'- IP Address: {ipAddress}:32200\n'
+                                   f'-- {statusSymbol} MAINTENANCE {statusSymbol} --\n'
+                                   f'Season 4 begins at 3pm EST!')
+    else:
+        await message.edit(content=f'**Band of Outcasts Server Status**\n'
+                                   f'__{currentTime}__\n'
+                                   f'- IP Address: {ipAddress}:32200\n'
+                                   f'- Server Online: {onlineStatus} {statusSymbol}\n'
+                                   f'- Players Connected: {currentPlayers} / {maxPlayers} {onlineSymbol}\n'
+                                   f'Server restarts are at 8:00am and 2:45pm Eastern')
+    return

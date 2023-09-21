@@ -28,6 +28,8 @@ if is_docker():
 else:
     bot: Bot = commands.Bot(command_prefix=['vt/', 'Vt/'], intents=intents)
 
+    bot.maintenance_flag = False
+
 @bot.event
 async def on_ready():
     for f in os.listdir('./cogs'):

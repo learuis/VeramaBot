@@ -230,5 +230,23 @@ class Admin(commands.Cog):
         else:
             await ctx.send(outputString)
 
+    @commands.command(name='maintenance')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(checkChannel)
+    async def maintenance(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+
+        self.bot.maintenance_flag = not self.bot.maintenance_flag
+
 async def setup(bot):
     await bot.add_cog(Admin(bot))
