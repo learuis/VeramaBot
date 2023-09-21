@@ -1,6 +1,5 @@
-import discord
 from discord.ext import commands
-from functions.common import custom_cooldown, checkChannel, is_registered, get_rcon_id, popup_to_player, \
+from functions.common import custom_cooldown, checkChannel, get_rcon_id, popup_to_player, \
     get_single_registration
 from functions.externalConnections import runRcon, db_query
 
@@ -23,8 +22,8 @@ class Rewards(commands.Cog):
             Item ID number to spawn
         quantity
             How many of the item to spawn
-        discord_user
-            Mention (@ tag) the user. Must be registered and linked to char id.
+        name
+            Character name. Must be registered and linked to char id.
         reason
             A message which will pop up for the character in game.
 

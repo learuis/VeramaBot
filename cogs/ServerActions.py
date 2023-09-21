@@ -37,7 +37,6 @@ class ServerActions(commands.Cog):
 
         connected_chars = []
         outputlist = ''
-        string = ''
 
         rconResponse = runRcon('listplayers')
         rconResponse.output.pop(0)
