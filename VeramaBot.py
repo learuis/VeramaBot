@@ -28,7 +28,7 @@ if is_docker():
 else:
     bot: Bot = commands.Bot(command_prefix=['vt/', 'Vt/'], intents=intents)
 
-    bot.maintenance_flag = False
+bot.maintenance_flag = False
 
 @bot.event
 async def on_ready():
@@ -54,6 +54,7 @@ async def liveStatus():
 
     channel = bot.get_channel(STATUS_CHANNEL)
     message = await channel.fetch_message(STATUS_MESSAGE)
+    print(bot.maintenance_flag)
 
     await editStatus(message, bot)
 

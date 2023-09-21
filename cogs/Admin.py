@@ -246,7 +246,9 @@ class Admin(commands.Cog):
 
         """
 
-        self.bot.maintenance_flag = not self.bot.maintenance_flag
+        ctx.bot.maintenance_flag = not ctx.bot.maintenance_flag
+        await ctx.send(f'Maintenance Flag: {ctx.bot.maintenance_flag}')
+        print(ctx.bot.maintenance_flag)
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))
