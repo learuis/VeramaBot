@@ -100,13 +100,18 @@ class Rewards(commands.Cog):
             roles = ctx.author.roles()
             if any(1060693908503400489 in role for role in roles):
                 message = await ctx.reply(f'You qualify for a veteran reward!')
-                rconCommand = f'con {rconCharId} spawnitem 11108 777'
+                rconCommand = f'con {rconCharId} say spawnitem 11108 777'
                 if rconCommand:
                     rconResponse = runRcon(rconCommand)
                     if rconResponse.error == 1:
                         await ctx.send(f'Authentication error on {rconCommand}')
                         return
-                rconCommand = f'con {rconCharId} spawnitem 16002 900'
+                rconCommand = f'con {rconCharId} say spawnitem 16002 900'
+                if rconCommand:
+                    rconResponse = runRcon(rconCommand)
+                    if rconResponse.error == 1:
+                        await ctx.send(f'Authentication error on {rconCommand}')
+                        return
 
                 await message.edit(f'Granted reward.')
 

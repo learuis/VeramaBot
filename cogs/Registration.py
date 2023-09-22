@@ -141,12 +141,12 @@ class Registration(commands.Cog):
 
         await ctx.invoke(self.bot.get_command('registrationlist'))
 
-        channel = ctx.client.get_channel(AUTOREG_CHANNEL)
+        channel = ctx.author.guild.get_channel(AUTOREG_CHANNEL)
         await channel.send(f'__Character Name:__ {name}\n'
                            f'__Funcom ID:__ {funcom_id}\n'
                            f'__Discord:__ {discord_user.mention}')
 
-        await ctx.user.add_roles(ctx.user.guild.get_role(REG_ROLE))
+        await ctx.author.add_roles(ctx.author.guild.get_role(REG_ROLE))
 
         return
 
