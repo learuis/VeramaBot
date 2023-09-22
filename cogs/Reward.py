@@ -1,7 +1,15 @@
+import os
+import sqlite3
+
 from discord.ext import commands
 from functions.common import custom_cooldown, checkChannel, get_rcon_id, popup_to_player, \
     get_single_registration, is_registered
 from functions.externalConnections import runRcon, db_query
+
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+VETERAN_ROLE = int(os.getenv('VETERAN_ROLE'))
 
 class Rewards(commands.Cog):
 
@@ -63,7 +71,7 @@ class Rewards(commands.Cog):
                 popup_to_player(name, reasonString)
 
     @commands.command(name='claim')
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin', 'Moderator', 'bot_tester')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(checkChannel)
     async def claim(self, ctx):
@@ -77,49 +85,140 @@ class Rewards(commands.Cog):
         -------
 
         """
-
+        print('got in code')
         character = is_registered(ctx.author.id)
 
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            print(f'missingreg')
             return
 
         rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:
             await ctx.reply(f'Character {character.char_name} must be online to claim rewards.')
+            print(f'offline')
             return
 
-        results = db_query(f'select discord_id from reward_claim where claim_type like \'%Veteran%\'')
+        results = db_query(f'select discord_id from reward_claim '
+                           f'where discord_id = {ctx.author.id} and claim_type = {VETERAN_ROLE}')
 
         if results:
             for result in results:
+                print(result)
                 if result[0] == ctx.author.id:
                     await ctx.reply(f'No rewards are available for you to claim.')
+                    print(f'no_rewards')
                     return
+                else:
+                    print('why are you here?')
+                    pass
         else:
-            roles = ctx.author.roles()
-            if any(1060693908503400489 in role for role in roles):
-                message = await ctx.reply(f'You qualify for a veteran reward!')
+            role = ctx.author.get_role(VETERAN_ROLE)
+            if role:
+                message = await ctx.reply(f'You qualify for a veteran reward! Please wait...')
                 rconCommand = f'con {rconCharId} say spawnitem 11108 777'
                 if rconCommand:
                     rconResponse = runRcon(rconCommand)
                     if rconResponse.error == 1:
                         await ctx.send(f'Authentication error on {rconCommand}')
+                        print(f'auth1')
                         return
+
                 rconCommand = f'con {rconCharId} say spawnitem 16002 900'
                 if rconCommand:
                     rconResponse = runRcon(rconCommand)
                     if rconResponse.error == 1:
                         await ctx.send(f'Authentication error on {rconCommand}')
+                        print(f'auth2')
                         return
 
-                await message.edit(f'Granted reward.')
+                reward_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+                reward_cur = reward_con.cursor()
 
-                return
+                insertResults = reward_cur.execute(f'insert into reward_claim (discord_id,claim_type) '
+                                                   f'values ({ctx.author.id},{VETERAN_ROLE})')
+                reward_con.commit()
+
+                if insertResults:
+                    await message.edit(content=f'Granted {role.name} reward to {character.char_name} .TEST')
+                    reward_con.close()
+                    print(f'granted')
+                    return
+                else:
+                    await message.edit(content=f'Error when granting {role.name} reward to {character.char_name}. TEST')
+                    print(f'error')
+                    return
             else:
                 await ctx.reply(f'No rewards are available for you to claim.')
                 return
 
+    @commands.command(name='claimlist')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(checkChannel)
+    async def claimList(self, ctx):
+        """- Lists all claim records
+
+        Queries the VeramaBot database for all registered characters.
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        outputString = f'discord_id | claim_role_id\n'
+
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+        cur.execute(f'select * from reward_claim')
+        res = cur.fetchall()
+
+        for x in res:
+            outputString += f'{x}\n'
+        await ctx.send(outputString)
+        return
+
+    @commands.command(name='claimdelete')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(checkChannel)
+    async def claimDelete(self, ctx, recordToDelete: int = commands.parameter(default=0)):
+        """- Delete a record from the claim database
+
+        Deletes a selected record from the VeramaBot database table 'registration'.
+
+        Does not delete the entry in the registration channel.
+
+        Parameters
+        ----------
+        ctx
+        recordToDelete
+            Specify which record number should be deleted.
+        Returns
+        -------
+
+        """
+        if recordToDelete == 0:
+            await ctx.send(f'Record to delete must be specified. Use `v/help claimdelete`')
+        else:
+            try:
+                int(recordToDelete)
+            except ValueError:
+                await ctx.send(f'Invalid record number')
+            else:
+                con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+                cur = con.cursor()
+
+                cur.execute(f'select * from reward_claim where record_num = {recordToDelete}')
+                res = cur.fetchone()
+
+                cur.execute(f'delete from reward_claim where record_num = {recordToDelete}')
+                con.commit()
+
+                await ctx.send(f'Deleted record:\n{res}')
 
 @commands.Cog.listener()
 async def setup(bot):

@@ -34,7 +34,7 @@ def checkChannel(ctx):
     if ctx.author.id == OWNER_USER_ID:
         return True
     execTime = time.strftime('%c')
-    print(f'Command {ctx.command} executed by {ctx.author} on {execTime}')
+    print(f'Command {ctx.command} executed by {ctx.author} on {execTime} in {ctx.channel.name}')
     channelList = [BOT_CHANNEL, OUTCASTBOT_CHANNEL]
     return ctx.channel.id in channelList
 
@@ -93,7 +93,6 @@ def get_rcon_id(name: str):
     for x in rconResponse.output:
         match = re.findall(r'\s+\d+ | [^|]*', x)
         connected_chars.append(match)
-        print(connected_chars)
 
     if not connected_chars:
         return False
