@@ -189,20 +189,22 @@ async def editStatus(message, bot):
             statusSymbol = '<:greentick:1152409721966432376>'
             await bot.change_presence(activity=discord.Activity(name=f'{currentPlayers}/{maxPlayers} ONLINE', type=3))
 
-    onlineSymbol = ':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+    onlineSymbol = ':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
     if int(currentPlayers) == 30:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle:'
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::orange_circle:'
     if int(currentPlayers) < 30:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::blue_circle:'
-    if int(currentPlayers) < 24:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::blue_circle::blue_circle:'
-    if int(currentPlayers) < 18:
-        onlineSymbol = f':orange_circle::orange_circle::blue_circle::blue_circle::blue_circle:'
-    if int(currentPlayers) < 12:
-        onlineSymbol = f':orange_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
-    if int(currentPlayers) < 6:
-        onlineSymbol = f':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::blue_circle:'
+    if int(currentPlayers) < 25:
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::blue_circle::blue_circle:'
+    if int(currentPlayers) < 20:
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::blue_circle::blue_circle::blue_circle:'
+    if int(currentPlayers) < 15:
+        onlineSymbol = f':orange_circle::orange_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+    if int(currentPlayers) < 10:
+        onlineSymbol = f':orange_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+    if int(currentPlayers) < 5:
+        onlineSymbol = f':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
     if bot.maintenance_flag:
         await message.edit(content=f'**Band of Outcasts Server Status**\n'
