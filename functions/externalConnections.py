@@ -48,6 +48,21 @@ def db_query(query: str):
 
     return result
 
+def db_delete_single_record(table: str, key_field: str, record_to_delete: int):
+    del_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    del_cur = del_con.cursor()
+
+    del_cur.execute(f'select * from {table} where {key_field} = {record_to_delete}')
+    if del_cur.fetchone():
+        del_res = del_cur.fetchone()
+    else:
+        return False
+
+    del_cur.execute(f'delete from {table} where {key_field} = {record_to_delete}')
+    del_con.commit()
+
+    return del_res
+
 def runRcon(command: str):
 
     class RconResponse:

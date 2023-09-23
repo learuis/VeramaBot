@@ -4,12 +4,12 @@ import ast
 
 import discord
 
-from functions.common import isInt, percentage, get_single_registration, is_registered
+from functions.common import isInt, percentage, get_single_registration, is_registered, publicChannel
 from functions.externalConnections import runRcon, db_query
 
 from discord.ext import commands
 
-from functions.common import custom_cooldown, checkChannel
+from functions.common import custom_cooldown, modChannel
 
 class CommunityBoons(commands.Cog):
     """Cog class containing commands related to server status.
@@ -23,7 +23,7 @@ class CommunityBoons(commands.Cog):
                       aliases=['logdel', 'boondel', 'delboon', 'delboons'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def deleteboonlog(self, ctx,
                             command: str = commands.parameter(default='error'),
                             target: int = commands.parameter(default=-1)):
@@ -92,7 +92,7 @@ class CommunityBoons(commands.Cog):
                       aliases=['bcon', 'bconsume', 'booncon'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def boonconsume(self, ctx,
                           identifier: str):
         """- Consumes materials for boon activation
@@ -213,7 +213,7 @@ class CommunityBoons(commands.Cog):
                       aliases=['log', 'blog', 'boon', 'boons'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(publicChannel)
     async def boonlog(self, ctx,
                       name: str = commands.parameter(default='error'),
                       quantity: str = commands.parameter(default=0),
@@ -325,7 +325,7 @@ class CommunityBoons(commands.Cog):
                       aliases=['boonrep', 'brep', 'binfo', 'boonreport'])
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(publicChannel)
     async def booninfo(self, ctx,
                        command: str = commands.parameter(default='report')):
         """- Reports on boon contributions
@@ -466,7 +466,7 @@ class CommunityBoons(commands.Cog):
                       aliases=['setboons', 'setboon'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def setboon(self, ctx, option: str = commands.parameter(default='check'), *args):
         """- Modify Boon settings
 
@@ -662,7 +662,7 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='titleclear', aliases=['cleartitle'])
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(publicChannel)
     async def titleClear(self, ctx):
         """- Removes your current title
 
@@ -692,7 +692,7 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='title')
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(publicChannel)
     async def title(self, ctx, set_title: int = 0):
         """- Check titles you have earned or set your title.
 

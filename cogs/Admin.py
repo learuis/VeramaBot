@@ -5,7 +5,7 @@ import sqlite3
 
 from discord.ext import commands
 from functions.externalConnections import runRcon, downloadSave
-from functions.common import custom_cooldown, checkChannel
+from functions.common import custom_cooldown, modChannel
 from datetime import datetime
 from datetime import timezone
 from time import strftime
@@ -19,7 +19,7 @@ class Admin(commands.Cog):
     @commands.command(name='restart')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def restart(self, ctx, sure: bool):
         """- Immediately restarts the Conan Exiles server.
 
@@ -54,7 +54,7 @@ class Admin(commands.Cog):
     @commands.command(name='rcon')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def rcon(self, ctx, *args):
         """- Use RCON to run a single command
 
@@ -93,7 +93,7 @@ class Admin(commands.Cog):
     @commands.command(name='gamechat')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def gamechat(self, ctx):
         """- Parses in-game chat and posts to Discord
 
@@ -171,7 +171,7 @@ class Admin(commands.Cog):
     @commands.command(name='veteran', aliases=['vet', 'vets'])
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def veteran(self, ctx):
         """- Creates a list of Veteran Outcast candidates
 
@@ -233,7 +233,7 @@ class Admin(commands.Cog):
     @commands.command(name='maintenance')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def maintenance(self, ctx):
         """
 

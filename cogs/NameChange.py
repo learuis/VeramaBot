@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from functions.common import (custom_cooldown, checkChannel, is_registered,
+from functions.common import (custom_cooldown, modChannel, is_registered,
                               get_rcon_id, ununicode, update_registered_name)
 from functions.externalConnections import runRcon
 
@@ -11,7 +11,7 @@ class NameChange(commands.Cog):
     @commands.command(name='namechange', aliases=['changename', 'setname', 'rename'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def changeName(self, ctx, discord_user: discord.Member, new_name: str):
         """- Changes player name
 
@@ -36,7 +36,7 @@ class NameChange(commands.Cog):
 
         message = await ctx.send(outputString)
 
-        character = is_registered(discord_user)
+        character = is_registered(discord_user.id)
 
         if character:
             outputString += (f'\n\nFound character `{character.char_name}` with '

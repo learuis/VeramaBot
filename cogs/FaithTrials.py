@@ -2,7 +2,7 @@ import discord
 import os
 
 from discord.ext import commands
-from functions.common import custom_cooldown, checkChannel
+from functions.common import custom_cooldown, modChannel
 from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
@@ -134,7 +134,7 @@ class FaithTrials(commands.Cog):
     @commands.command(name='faithlist', aliases=['listfaith', 'listgods'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def faithList(self, ctx):
         """- Placeholder
 

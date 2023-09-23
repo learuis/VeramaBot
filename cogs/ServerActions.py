@@ -4,7 +4,7 @@ import re
 
 from discord.ext import commands
 from functions.externalConnections import runRcon
-from functions.common import custom_cooldown, checkChannel
+from functions.common import custom_cooldown, modChannel, publicChannel
 
 class ServerActions(commands.Cog):
     """Cog class containing commands related to server status."""
@@ -16,7 +16,7 @@ class ServerActions(commands.Cog):
                       aliases=['list', 'lp'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def listplayers(self, ctx, name: str = None):
         """- Lists connected players
 
@@ -66,9 +66,9 @@ class ServerActions(commands.Cog):
         #I could add a lookup for their account ID here also and link back to their character ID.
 
     @commands.command(name='markers')
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin', 'Moderator', 'Helper')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(publicChannel)
     async def markers(self, ctx):
         """- Place map markers (req 1 player online)
 
@@ -105,7 +105,7 @@ class ServerActions(commands.Cog):
     @commands.command(name='boss')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def boss(self, ctx, charName: str,
                    numberToSpawn: int = commands.parameter(default=1)):
         """- Spawns a random Siptah boss at cursor position.

@@ -5,10 +5,12 @@ import os
 
 from discord import ui
 from discord.ext import commands
-from functions.common import custom_cooldown, checkChannel, get_character_id, is_registered, get_registration, \
+from functions.common import custom_cooldown, modChannel, get_character_id, is_registered, get_registration, \
     get_member_from_userid
 from datetime import date
 from dotenv import load_dotenv
+
+from functions.externalConnections import db_delete_single_record, db_query
 
 load_dotenv('data/server.env')
 SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
@@ -101,7 +103,7 @@ class Registration(commands.Cog):
                       aliases=['forcereg', 'linkchar'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def registrationForce(self, ctx, discord_user: discord.Member, name: str, funcom_id: str, game_char_id: int):
         """- Manually create a character registration record
 
@@ -153,7 +155,7 @@ class Registration(commands.Cog):
     @commands.command(name='registrationlist', aliases=['reglist'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def register(self, ctx):
         """- Lists all registered characters
 
@@ -169,10 +171,7 @@ class Registration(commands.Cog):
         """
         outputString = f'id,discord_user,character_name,funcom_id,registration_date,season,game_char_id\n'
 
-        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-        cur = con.cursor()
-        cur.execute(f'select * from registration')
-        res = cur.fetchall()
+        res = db_query(f'select * from registration')
 
         for x in res:
             outputString += f'{x}\n'
@@ -182,7 +181,7 @@ class Registration(commands.Cog):
     @commands.command(name='registrationdelete', aliases=['regdelete', 'regdel'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def registrationdelete(self, ctx,
                                  recordToDelete: int = commands.parameter(default=0)):
         """- Delete a record from the registration database
@@ -208,21 +207,14 @@ class Registration(commands.Cog):
             except ValueError:
                 await ctx.send(f'Invalid record number')
             else:
-                con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-                cur = con.cursor()
-
-                cur.execute(f'select * from registration where id = {recordToDelete}')
-                res = cur.fetchone()
-
-                cur.execute(f'delete from registration where id = {recordToDelete}')
-                con.commit()
+                res = db_delete_single_record('registration', 'id', recordToDelete)
 
                 await ctx.send(f'Deleted record:\n{res}')
 
     @commands.command(name='registrationlookup', aliases=['reglook', 'whois', 'who'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def registrationLookup(self, ctx, name: str):
         """- Look up registrations based on partial character name
 

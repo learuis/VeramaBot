@@ -8,7 +8,8 @@ from discord.ext import commands
 
 from time import localtime, strftime
 
-from functions.common import custom_cooldown, checkChannel, ununicode
+from functions.common import custom_cooldown, modChannel, ununicode, publicChannel
+
 
 class Utilities(commands.Cog):
     """Cog class containing commands related to server status."""
@@ -20,7 +21,7 @@ class Utilities(commands.Cog):
                       aliases=['Eldarium', 'eld', 'e'])
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(publicChannel)
     async def eldarium(self, ctx, gold_coins: int = 0, gold_bars: int = 0):
         """- Calculated Decaying Eldarium value for a list of materials.
 
@@ -53,7 +54,7 @@ class Utilities(commands.Cog):
     @commands.command(name='s3_eldarium')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def s3_eldarium(self, ctx, stacks: int, heads: int, keys: int, skulls: int):
         """- Calculates Eldarium value for a list of materials.
 
@@ -87,7 +88,7 @@ class Utilities(commands.Cog):
 
     @commands.command(name='bye')
     @commands.has_any_role('Admin')
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def bye(self, ctx):
         """- Shut down VeramaBot
 
@@ -109,7 +110,7 @@ class Utilities(commands.Cog):
                       aliases=['search', 'find'])
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def namelookup(self, ctx, *args):
         """- Search for a player name in various places
 

@@ -2,9 +2,9 @@ import os
 import sqlite3
 
 from discord.ext import commands
-from functions.common import custom_cooldown, checkChannel, get_rcon_id, popup_to_player, \
-    get_single_registration, is_registered
-from functions.externalConnections import runRcon, db_query
+from functions.common import custom_cooldown, modChannel, get_rcon_id, popup_to_player, \
+    get_single_registration, is_registered, publicChannel
+from functions.externalConnections import runRcon, db_query, db_delete_single_record
 
 from dotenv import load_dotenv
 
@@ -19,7 +19,7 @@ class Rewards(commands.Cog):
     @commands.command(name='reward', aliases=['give', 'giveitem', 'prize', 'spawnitem'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def giveReward(self, ctx, itemId: int, quantity: int, name: str, *reason):
         """- Gives a reward to the tagged player
 
@@ -73,7 +73,7 @@ class Rewards(commands.Cog):
     @commands.command(name='claim')
     @commands.has_any_role('Admin', 'Moderator', 'bot_tester')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(publicChannel)
     async def claim(self, ctx):
         """- Delivers veteran or helper rewards to your character
 
@@ -155,7 +155,7 @@ class Rewards(commands.Cog):
     @commands.command(name='claimlist')
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(publicChannel)
     async def claimList(self, ctx):
         """- Lists all claim records
 
@@ -171,10 +171,7 @@ class Rewards(commands.Cog):
         """
         outputString = f'discord_id | claim_role_id\n'
 
-        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-        cur = con.cursor()
-        cur.execute(f'select * from reward_claim')
-        res = cur.fetchall()
+        res = db_query(f'select * from reward_claim')
 
         for x in res:
             outputString += f'{x}\n'
@@ -184,12 +181,11 @@ class Rewards(commands.Cog):
     @commands.command(name='claimdelete')
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(checkChannel)
+    @commands.check(modChannel)
     async def claimDelete(self, ctx, recordToDelete: int = commands.parameter(default=0)):
         """- Delete a record from the claim database
 
-        Deletes a selected record from the VeramaBot database table 'registration'.
-
+        Deletes a selected record from the VeramaBot database table 'reward_claim'
         Does not delete the entry in the registration channel.
 
         Parameters
@@ -209,14 +205,7 @@ class Rewards(commands.Cog):
             except ValueError:
                 await ctx.send(f'Invalid record number')
             else:
-                con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-                cur = con.cursor()
-
-                cur.execute(f'select * from reward_claim where record_num = {recordToDelete}')
-                res = cur.fetchone()
-
-                cur.execute(f'delete from reward_claim where record_num = {recordToDelete}')
-                con.commit()
+                res = db_delete_single_record('reward_claim', 'record_num', recordToDelete)
 
                 await ctx.send(f'Deleted record:\n{res}')
 
