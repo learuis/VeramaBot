@@ -8,7 +8,7 @@ from discord.ext.commands import Bot
 from discord.ext import tasks
 from dotenv import load_dotenv
 
-from functions.common import is_docker, checkChannel, editStatus
+from functions.common import is_docker, modChannel, editStatus
 from cogs.Registration import RegistrationButton
 from cogs.FaithTrials import ChooseGod
 
@@ -60,7 +60,7 @@ async def liveStatus():
 
 @bot.command(name='break', aliases=['breaking', 'broke', 'why'])
 @commands.has_any_role('Admin', 'Moderator')
-@commands.check(checkChannel)
+@commands.check(modChannel)
 async def breaking(ctx):
     """- Breaks the bot. Do not use!
 
