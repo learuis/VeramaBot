@@ -29,9 +29,9 @@ class RegistrationButton(discord.ui.View):
 # noinspection PyUnresolvedReferences
 class RegistrationForm(ui.Modal, title='Character Registration'):
     charName = ui.TextInput(label=f'Character Name', placeholder='Type your full, exact in-game character name',
-                            max_length=30)
+                            max_length=60)
     funcomId = ui.TextInput(label=f'Funcom ID', placeholder='Find this in game by pressing L',
-                            max_length=30)
+                            max_length=60)
 
     async def on_submit(self, interaction: discord.Interaction):
 
