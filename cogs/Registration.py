@@ -170,12 +170,40 @@ class Registration(commands.Cog):
 
         """
         outputString = f'id,discord_user,character_name,funcom_id,registration_date,season,game_char_id\n'
+        splitOutput = ''
+        once = True
 
         res = db_query(f'select * from registration')
 
         for x in res:
             outputString += f'{x}\n'
-        await ctx.send(outputString)
+
+        if outputString:
+            if len(outputString) > 10000:
+                await ctx.send(f'Too many results!')
+                return
+            if len(outputString) > 1800:
+                workList = outputString.splitlines()
+                for items in workList:
+                    splitOutput += f'{str(items)}\n'
+                    if len(str(splitOutput)) > 1800:
+                        if once:
+                            once = False
+                            await ctx.send(content=str(splitOutput))
+                            splitOutput = '(continued)\n'
+                        else:
+                            await ctx.send(str(splitOutput))
+                            splitOutput = '(continued)\n'
+                    else:
+                        continue
+                await ctx.send(str(splitOutput))
+            else:
+                await ctx.send(str(outputString))
+        else:
+            await ctx.send(content=f'No matching entries found.')
+
+
+
         return
 
     @commands.command(name='registrationdelete', aliases=['regdelete', 'regdel'])

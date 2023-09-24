@@ -73,7 +73,7 @@ class Rewards(commands.Cog):
     @commands.command(name='claim')
     @commands.has_any_role('Admin', 'Moderator', 'bot_tester')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
+    @commands.check(modChannel)
     async def claim(self, ctx):
         """- Delivers veteran or helper rewards to your character
 
@@ -116,7 +116,8 @@ class Rewards(commands.Cog):
             role = ctx.author.get_role(VETERAN_ROLE)
             if role:
                 message = await ctx.reply(f'You qualify for a veteran reward! Please wait...')
-                rconCommand = f'con {rconCharId} say spawnitem 11108 777'
+                rconCommand = f'con {rconCharId} say spawnitem 10002 1'
+                #rconCommand = f'con {rconCharId} say spawnitem 11108 777'
                 if rconCommand:
                     rconResponse = runRcon(rconCommand)
                     if rconResponse.error == 1:
@@ -124,7 +125,8 @@ class Rewards(commands.Cog):
                         print(f'auth1')
                         return
 
-                rconCommand = f'con {rconCharId} say spawnitem 16002 900'
+                rconCommand = f'con {rconCharId} say spawnitem 10001 1'
+                #rconCommand = f'con {rconCharId} say spawnitem 16002 900'
                 if rconCommand:
                     rconResponse = runRcon(rconCommand)
                     if rconResponse.error == 1:

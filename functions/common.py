@@ -35,6 +35,8 @@ def modChannel(ctx):
     return ctx.channel.id in channelList
 
 def publicChannel(ctx):
+    if ctx.author.id == OWNER_USER_ID:
+        return True
     execTime = time.strftime('%c')
     print(f'Command {ctx.command} executed by {ctx.author} on {execTime} in {ctx.channel.name}')
     channelList = [OUTCASTBOT_CHANNEL]
