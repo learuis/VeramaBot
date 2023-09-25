@@ -4,7 +4,7 @@ import ast
 
 import discord
 
-from functions.common import isInt, percentage, get_single_registration, is_registered, publicChannel
+from functions.common import isInt, percentage, get_single_registration, is_registered, publicChannel, boonChannel
 from functions.externalConnections import runRcon, db_query
 
 from discord.ext import commands
@@ -325,7 +325,7 @@ class CommunityBoons(commands.Cog):
                       aliases=['boonrep', 'brep', 'binfo', 'boonreport'])
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
+    @commands.check(boonChannel)
     async def booninfo(self, ctx,
                        command: str = commands.parameter(default='report')):
         """- Reports on boon contributions

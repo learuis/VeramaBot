@@ -85,6 +85,16 @@ class Rewards(commands.Cog):
         -------
 
         """
+
+        async def is_online():
+            rcon_id = get_rcon_id(character.char_name)
+            if not id:
+                await ctx.reply(f'Character {character.char_name} must be online to claim rewards.')
+                print(f'offline')
+                return
+            else:
+                return rcon_id
+
         print('got in code')
         character = is_registered(ctx.author.id)
 
@@ -116,7 +126,7 @@ class Rewards(commands.Cog):
             role = ctx.author.get_role(VETERAN_ROLE)
             if role:
                 message = await ctx.reply(f'You qualify for a veteran reward! Please wait...')
-                rconCommand = f'con {rconCharId} say spawnitem 10002 1'
+                rconCommand = f'con {rconCharId} spawnitem 10002 1'
                 #rconCommand = f'con {rconCharId} say spawnitem 11108 777'
                 if rconCommand:
                     rconResponse = runRcon(rconCommand)
@@ -125,7 +135,7 @@ class Rewards(commands.Cog):
                         print(f'auth1')
                         return
 
-                rconCommand = f'con {rconCharId} say spawnitem 10001 1'
+                rconCommand = f'con {rconCharId} spawnitem 10001 1'
                 #rconCommand = f'con {rconCharId} say spawnitem 16002 900'
                 if rconCommand:
                     rconResponse = runRcon(rconCommand)

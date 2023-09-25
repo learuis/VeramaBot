@@ -27,7 +27,6 @@ class RegistrationButton(discord.ui.View):
     async def register_character(self, interaction: discord.Interaction, button: discord.ui.button):
         await interaction.response.send_modal(RegistrationForm())
 
-
 # noinspection PyUnresolvedReferences
 class RegistrationForm(ui.Modal, title='Character Registration'):
     charName = ui.TextInput(label=f'Character Name', placeholder='Type your full, exact in-game character name',
@@ -37,12 +36,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        if is_registered(interaction.user.id):
-            await interaction.response.send_message(f'You have already registered a character for this season. If you '
-                                                    f'are re-rolling, please contact a Moderator to update your '
-                                                    f'registration.', ephemeral=True)
-            return
-
+        outputString = ''
         charId = get_character_id(f'{self.charName}')
 
         if not charId:
@@ -63,16 +57,24 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
         con_sub = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur_sub = con_sub.cursor()
 
-        cur_sub.execute(f'insert into registration '
-                        f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
-                        f'(\'{interaction.user.id}\',\'{self.charName}\',\'{self.funcomId}\','
-                        f'\'{date.today()}\',4,{charId})')
+        if is_registered(interaction.user.id):
+            cur_sub.execute(f'update registration set character_name = \'{self.charName}\', '
+                            f'funcom_id = \'{self.funcomId}\', game_char_id = {charId} '
+                            f'where discord_user = \'{interaction.user.id}\'')
+            outputString = (f'Your registration has been updated: {self.charName} (id {charId}) '
+                            f'with Funcom ID: {self.funcomId} to user {interaction.user.mention}')
+        else:
+            cur_sub.execute(f'insert into registration '
+                            f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
+                            f'(\'{interaction.user.id}\',\'{self.charName}\',\'{self.funcomId}\','
+                            f'\'{date.today()}\',4,{charId})')
+            outputString = (f'Registered character: {self.charName} (id {charId}) with Funcom ID: {self.funcomId} '
+                            f' to user {interaction.user.mention}')
+
         con_sub.commit()
         con_sub.close()
 
-        await interaction.response.send_message(f'Registered character: {self.charName} (id {charId})'
-                                                f' with Funcom ID: {self.funcomId} '
-                                                f'to user {interaction.user.mention}', ephemeral=True)
+        await interaction.response.send_message(f'{outputString}', ephemeral=True)
 
         try:
             await interaction.user.edit(nick=str(self.charName))
@@ -201,8 +203,6 @@ class Registration(commands.Cog):
                 await ctx.send(str(outputString))
         else:
             await ctx.send(content=f'No matching entries found.')
-
-
 
         return
 
