@@ -70,7 +70,7 @@ class GodDropdown(discord.ui.Select):
 
         storeUser = interaction.user
         if not is_registered(interaction.user.id):
-            outputString = f'You must register a character before delcaring your faith.'
+            outputString = f'You must register a character before declaring your faith.'
             await interaction.response.send_message(content=outputString, ephemeral=True)
             return
 

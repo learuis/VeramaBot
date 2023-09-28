@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
 VETERAN_ROLE = int(os.getenv('VETERAN_ROLE'))
+ANNIVERSARY_ROLE = int(os.getenv('ANNIVERSARY_ROLE'))
 
 class Rewards(commands.Cog):
 
@@ -86,83 +87,87 @@ class Rewards(commands.Cog):
 
         """
 
-        async def is_online():
-            rcon_id = get_rcon_id(character.char_name)
-            if not id:
-                await ctx.reply(f'Character {character.char_name} must be online to claim rewards.')
-                print(f'offline')
-                return
-            else:
-                return rcon_id
-
-        print('got in code')
         character = is_registered(ctx.author.id)
 
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
-            print(f'missingreg')
             return
 
         rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:
             await ctx.reply(f'Character {character.char_name} must be online to claim rewards.')
-            print(f'offline')
             return
 
         results = db_query(f'select discord_id from reward_claim '
-                           f'where discord_id = {ctx.author.id} and claim_type = {VETERAN_ROLE}')
+                           f'where discord_id = {ctx.author.id} and claim_type = {ANNIVERSARY_ROLE}')
 
         if results:
             for result in results:
-                print(result)
                 if result[0] == ctx.author.id:
                     await ctx.reply(f'No rewards are available for you to claim.')
-                    print(f'no_rewards')
                     return
                 else:
-                    print('why are you here?')
                     pass
         else:
-            role = ctx.author.get_role(VETERAN_ROLE)
+            role = ctx.author.get_role(ANNIVERSARY_ROLE)
             if role:
-                message = await ctx.reply(f'You qualify for a veteran reward! Please wait...')
-                rconCommand = f'con {rconCharId} spawnitem 10002 1'
-                #rconCommand = f'con {rconCharId} say spawnitem 11108 777'
+                message = await ctx.reply(f'You qualify for the Band of Outcasts 1st Anniversary Reward! '
+                                          f'Please wait...')
+                rconCommand = f'con {rconCharId} spawnitem 29034 1'
                 if rconCommand:
                     rconResponse = runRcon(rconCommand)
                     if rconResponse.error == 1:
                         await ctx.send(f'Authentication error on {rconCommand}')
-                        print(f'auth1')
-                        return
-
-                rconCommand = f'con {rconCharId} spawnitem 10001 1'
-                #rconCommand = f'con {rconCharId} say spawnitem 16002 900'
-                if rconCommand:
-                    rconResponse = runRcon(rconCommand)
-                    if rconResponse.error == 1:
-                        await ctx.send(f'Authentication error on {rconCommand}')
-                        print(f'auth2')
                         return
 
                 reward_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
                 reward_cur = reward_con.cursor()
 
                 insertResults = reward_cur.execute(f'insert into reward_claim (discord_id,claim_type) '
-                                                   f'values ({ctx.author.id},{VETERAN_ROLE})')
+                                                   f'values ({ctx.author.id},{ANNIVERSARY_ROLE})')
                 reward_con.commit()
 
                 if insertResults:
-                    await message.edit(content=f'Granted {role.name} reward to {character.char_name} .TEST')
+                    await message.edit(content=f'Granted {role.name} reward to {character.char_name}. '
+                                               f'Check your inventory!')
                     reward_con.close()
-                    print(f'granted')
                     return
                 else:
-                    await message.edit(content=f'Error when granting {role.name} reward to {character.char_name}. TEST')
-                    print(f'error')
+                    await message.edit(content=f'Error when granting {role.name} reward to {character.char_name}.')
                     return
             else:
                 await ctx.reply(f'No rewards are available for you to claim.')
                 return
+
+        """ Veteran reward
+        role = ctx.author.get_role(VETERAN_ROLE)
+        if role:
+            message = await ctx.reply(f'You qualify for a veteran reward! Please wait...')
+            rconCommand = f'con {rconCharId} spawnitem 10002 1'
+            #rconCommand = f'con {rconCharId} say spawnitem 11108 777'
+            if rconCommand:
+                rconResponse = runRcon(rconCommand)
+                if rconResponse.error == 1:
+                    await ctx.send(f'Authentication error on {rconCommand}')
+                    print(f'auth1')
+                    return
+
+            rconCommand = f'con {rconCharId} spawnitem 10001 1'
+            #rconCommand = f'con {rconCharId} say spawnitem 16002 900'
+            if rconCommand:
+                rconResponse = runRcon(rconCommand)
+                if rconResponse.error == 1:
+                    await ctx.send(f'Authentication error on {rconCommand}')
+                    print(f'auth2')
+                    return
+
+            reward_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+            reward_cur = reward_con.cursor()
+
+            insertResults = reward_cur.execute(f'insert into reward_claim (discord_id,claim_type) '
+                                               f'values ({ctx.author.id},{VETERAN_ROLE})')
+            reward_con.commit()
+            """
 
     @commands.command(name='claimlist')
     @commands.has_any_role('Admin', 'Moderator')

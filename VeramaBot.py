@@ -22,8 +22,6 @@ STATUS_MESSAGE = int(os.getenv('STATUS_MESSAGE'))
 intents = discord.Intents.all()
 intents.message_content = True
 
-
-
 if is_docker():
     bot: Bot = commands.Bot(command_prefix=['v/', 'V/'], intents=intents)
 else:
