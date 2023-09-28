@@ -45,7 +45,7 @@ class FeatClaim(commands.Cog):
         self.bot = bot
 
     @commands.command(name='featrestore', aliases=['feats', 'restore', 'knowledge', 'restorefeats'])
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(publicChannel)
     async def featRestore(self, ctx):

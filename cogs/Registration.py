@@ -69,7 +69,10 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                             f'(\'{interaction.user.id}\',\'{self.charName}\',\'{self.funcomId}\','
                             f'\'{date.today()}\',4,{charId})')
             outputString = (f'Registered character: {self.charName} (id {charId}) with Funcom ID: {self.funcomId} '
-                            f' to user {interaction.user.mention}')
+                            f' to user {interaction.user.mention}. You have been granted a feat as a reward! Go to the'
+                            f'outcast-bot channel and type `v/claim` to receive it!')
+
+        cur_sub.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},50007)')
 
         con_sub.commit()
         con_sub.close()
@@ -87,6 +90,12 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                            f'__Discord:__ {interaction.user.mention}')
 
         await interaction.user.add_roles(interaction.user.guild.get_role(REG_ROLE))
+
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+
+        con.commit()
+        con.close()
 
 class Registration(commands.Cog):
     def __init__(self, bot: commands.Bot):
