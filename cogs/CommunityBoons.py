@@ -411,14 +411,13 @@ class CommunityBoons(commands.Cog):
                 for x in res:
                     if x[1] >= x[2]:
                         outputString += (f'**{x[5]} Boon of {str(x[3])} - {str(x[0]).capitalize()}**:\n'
-                                         f'*Title: {x[4]}*\n{int(x[1]):,} of '
-                                         f'{int(x[2]):,} - _Quota Achieved!_\n'
-                                         f'Effect: {x[6]} Status: {x[7]}\n')
+                                         f'**Effect:** {x[6]} **Status:** {x[7]}\n*Title: {x[4]}*\n'
+                                         f'{int(x[1]):,} of {int(x[2]):,} - _Quota Achieved!_\n\n')
                     else:
                         progress = percentage(x[1], x[2])
                         outputString += (f'**{x[5]} Boon of {str(x[3])} - {str(x[0]).capitalize()}**:\n'
-                                         f'*Title: {x[4]}*\n{int(x[1]):,} of {int(x[2]):,} - {progress}%\n'
-                                         f'Effect: {x[6]} Status: {x[7]}\n')
+                                         f'**Effect:** {x[6]} **Status:** {x[7]}\n*Title: {x[4]}*\n'
+                                         f'{int(x[1]):,} of {int(x[2]):,} - {progress}%\n\n')
 
                 await ctx.send(f'{outputString}')
 
