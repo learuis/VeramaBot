@@ -15,6 +15,7 @@ from functions.externalConnections import db_delete_single_record, db_query
 load_dotenv('data/server.env')
 SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
 AUTOREG_CHANNEL = int(os.getenv('AUTOREG_CHANNEL'))
+OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 REG_ROLE = int(os.getenv('REG_ROLE'))
 
 
@@ -69,8 +70,8 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                             f'(\'{interaction.user.id}\',\'{self.charName}\',\'{self.funcomId}\','
                             f'\'{date.today()}\',4,{charId})')
             outputString = (f'Registered character: {self.charName} (id {charId}) with Funcom ID: {self.funcomId} '
-                            f' to user {interaction.user.mention}. You have been granted a feat as a reward! Go to the'
-                            f'outcast-bot channel and type `v/claim` to receive it!')
+                            f' to user {interaction.user.mention}. You have been granted a feat as a reward! Go to the '
+                            f'<#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` to receive it!')
 
         cur_sub.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},50007)')
 
