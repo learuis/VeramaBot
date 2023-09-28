@@ -2,7 +2,7 @@ import discord
 import os
 
 from discord.ext import commands
-from functions.common import custom_cooldown, modChannel
+from functions.common import custom_cooldown, modChannel, is_registered
 from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
@@ -69,6 +69,10 @@ class GodDropdown(discord.ui.Select):
         outputString = 'This should never be written!'
 
         storeUser = interaction.user
+        if not is_registered(interaction.user.id):
+            outputString = f'You must register a character before delcaring your faith.'
+            await interaction.response.send_message(content=outputString, ephemeral=True)
+            return
 
         match self.values[0]:
             case 'Zath, The Spider-God of Yezud':
