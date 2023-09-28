@@ -164,7 +164,7 @@ class FeatClaim(commands.Cog):
         con.commit()
         con.close()
 
-        await ctx.reply(f'Added Feat `{feat}` to Feat Claim table for character `{name}` (id `{charId.id}`)')
+        await ctx.reply(f'Added Feat `{feat}` to Feat Claim table for character `{name}` (id `{charId}`)')
 
     @commands.command(name='featlist', aliases=['listfeats', 'listfeat'])
     @commands.has_any_role('Admin', 'Moderator')
