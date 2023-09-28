@@ -63,6 +63,7 @@ class FeatClaim(commands.Cog):
         hasFeatString = ''
         missingFeatString = ''
         missingFeatList = []
+        featDict = {}
 
         if not charId:
             outputString = f'No character registered to {ctx.message.author.mention}!'
@@ -77,6 +78,17 @@ class FeatClaim(commands.Cog):
         message = await ctx.reply(outputString)
 
         featList = get_feat_list(charId.id)
+
+        lookup_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        lookup_cur = lookup_con.cursor()
+        lookup_cur.execute(f'select feat_id, feat_name from valid_feats')
+        featLookupList = lookup_cur.fetchall()
+        lookup_con.close()
+
+        for record in featLookupList:
+            featDict[record[0]] = record[1]
+
+        print(featDict)
 
         if has_feat(charId.id, 576):
             hasFeatString = f'576, '
@@ -113,7 +125,8 @@ class FeatClaim(commands.Cog):
             for missingFeat in missingFeatList:
                 target = get_rcon_id(charId.char_name)
                 rconResponse = runRcon(f'con {target} learnfeat {missingFeat}')
-                outputString += f'\n{rconResponse.output}'
+                feat_name = featDict.get(int(missingFeat))
+                outputString += f'\nGranted feat {feat_name}.'
                 await message.edit(content=outputString)
 
         outputString += f'\nFeats restored for {charId.char_name} {ctx.message.author.mention}.'
