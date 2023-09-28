@@ -91,12 +91,6 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
         await interaction.user.add_roles(interaction.user.guild.get_role(REG_ROLE))
 
-        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-        cur = con.cursor()
-
-        con.commit()
-        con.close()
-
 class Registration(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
