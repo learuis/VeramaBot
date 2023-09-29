@@ -37,7 +37,6 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        outputString = ''
         charId = get_character_id(f'{self.charName}')
 
         if not charId:
@@ -54,6 +53,8 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                                                     f'in the following format: `funcom name here#12345`. You can find '
                                                     f'this value by pressing L while in game.', ephemeral=True)
             return
+
+        self.funcomId = re.sub('\'', '', str(self.funcomId))
 
         con_sub = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur_sub = con_sub.cursor()
