@@ -72,9 +72,9 @@ class Rewards(commands.Cog):
                 popup_to_player(name, reasonString)
 
     @commands.command(name='claim')
-    @commands.has_any_role('Admin', 'Moderator', 'bot_tester')
+    @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
+    @commands.check(publicChannel)
     async def claim(self, ctx):
         """- Delivers veteran or helper rewards to your character
 
@@ -135,6 +135,11 @@ class Rewards(commands.Cog):
                 else:
                     await message.edit(content=f'Error when granting {role.name} reward to {character.char_name}.')
                     return
+
+            #sql select all records from the faith claim table that match character id and are not older than 2 weeks
+            #output those into a list
+            #loop through list to grant each item.
+
             else:
                 await ctx.reply(f'No rewards are available for you to claim.')
                 return

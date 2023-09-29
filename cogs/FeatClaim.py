@@ -229,11 +229,33 @@ class FeatClaim(commands.Cog):
         """
         outputString = '__Valid feats for use with v/featadd:__\n'
         results = db_query('select * from valid_feats')
+        splitOutput = ''
+        once = True
 
         for result in results:
             outputString += f'{result}\n'
 
-        await ctx.send(outputString)
+        if outputString:
+            if len(outputString) > 10000:
+                await ctx.send(f'Too many results!')
+                return
+            if len(outputString) > 1800:
+                workList = outputString.splitlines()
+                for items in workList:
+                    splitOutput += f'{str(items)}\n'
+                    if len(str(splitOutput)) > 1800:
+                        if once:
+                            once = False
+                            await ctx.send(content=str(splitOutput))
+                            splitOutput = '(continued)\n'
+                        else:
+                            await ctx.send(str(splitOutput))
+                            splitOutput = '(continued)\n'
+                    else:
+                        continue
+                await ctx.send(str(splitOutput))
+            else:
+                await ctx.send(str(outputString))
 
 @commands.Cog.listener()
 async def setup(bot):
