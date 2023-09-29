@@ -176,7 +176,7 @@ class Registration(commands.Cog):
         -------
 
         """
-        outputString = f'id,discord_user,character_name,funcom_id,registration_date,season,game_char_id\n'
+        outputString = f'id,discord_user,character_name,funcom_id,registration_date,season,game_char_id,god\n'
         splitOutput = ''
         once = True
 

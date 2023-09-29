@@ -50,8 +50,8 @@ async def setGod(interaction: discord.Interaction, godChannel: int, godRole: int
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
-    cur.execute(f'update registration set god = {godName} where discord_user = {interaction.user.id}')
-    await channel.send(f'{interaction.user.id} has declared their faith in {godName}')
+    cur.execute(f'update registration set god = \'{godName}\' where discord_user = {interaction.user.id}')
+    await channel.send(f'{interaction.user.mention} has declared their faith in {godName}')
     outputString = (f'You have declared your faith to {godName}! Join your fellow '
                     f'worshipers here: {channel.mention}')
 
@@ -59,7 +59,7 @@ async def setGod(interaction: discord.Interaction, godChannel: int, godRole: int
     con.close()
 
     # noinspection PyUnresolvedReferences
-    await interaction.user.response.send_message(content=outputString, ephemeral=True)
+    await interaction.response.send_message(content=outputString, ephemeral=True)
 
     for role_to_remove in role_list:
         await interaction.user.remove_roles(interaction.user.guild.get_role(role_to_remove))
