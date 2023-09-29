@@ -1,3 +1,5 @@
+import sqlite3
+
 import discord
 import os
 
@@ -29,6 +31,45 @@ class ChooseGod(discord.ui.View):
         super().__init__(timeout=None)
         self.add_item(GodDropdown())
 
+
+async def setGod(interaction: discord.Interaction, godChannel: int, godRole: int, godName: str):
+    role_list = [ZATH_ROLE,
+                 SAG_ROLE,
+                 YOG_ROLE,
+                 DERKETO_ROLE,
+                 MITRA_ROLE,
+                 SET_ROLE,
+                 YMIR_ROLE,
+                 CROM_ROLE,
+                 FAITHLESS_ROLE
+                 ]
+
+    channel = interaction.guild.get_channel(godChannel)
+    role_to_add = interaction.user.guild.get_role(godRole)
+
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'update registration set god = {godName} where discord_user = {interaction.user.id}')
+    await channel.send(f'{interaction.user.id} has declared their faith in {godName}')
+    outputString = (f'You have declared your faith to {godName}! Join your fellow '
+                    f'worshipers here: {channel.mention}')
+
+    con.commit()
+    con.close()
+
+    # noinspection PyUnresolvedReferences
+    await interaction.user.response.send_message(content=outputString, ephemeral=True)
+
+    for role_to_remove in role_list:
+        await interaction.user.remove_roles(interaction.user.guild.get_role(role_to_remove))
+
+    if godRole:
+        await interaction.user.add_roles(role_to_add)
+
+    return
+
+
 class GodDropdown(discord.ui.Select):
     def __init__(self):
         options = [
@@ -55,81 +96,34 @@ class GodDropdown(discord.ui.Select):
                          options=options, custom_id='choose_god')
 
     async def callback(self, interaction: discord.Interaction):
-        role_list = [ZATH_ROLE,
-                     SAG_ROLE,
-                     YOG_ROLE,
-                     DERKETO_ROLE,
-                     MITRA_ROLE,
-                     SET_ROLE,
-                     YMIR_ROLE,
-                     CROM_ROLE,
-                     FAITHLESS_ROLE
-                     ]
-        role_to_add = discord.Role
-        outputString = 'This should never be written!'
 
-        storeUser = interaction.user
         if not is_registered(interaction.user.id):
             outputString = f'You must register a character before declaring your faith.'
+            # noinspection PyUnresolvedReferences
             await interaction.response.send_message(content=outputString, ephemeral=True)
             return
 
         match self.values[0]:
             case 'Zath, The Spider-God of Yezud':
-                channel = interaction.guild.get_channel(ZATH_CHANNEL)
-                role_to_add = storeUser.guild.get_role(ZATH_ROLE)
-                outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
-                                f'worshipers here: {channel.mention}')
+                await setGod(interaction, ZATH_CHANNEL, ZATH_ROLE, self.values[0])
             case 'Jhebbal Sag, The Lord of Beasts':
-                channel = interaction.guild.get_channel(SAG_CHANNEL)
-                role_to_add = storeUser.guild.get_role(SAG_ROLE)
-                outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
-                                f'worshipers here: {channel.mention}')
+                await setGod(interaction, SAG_CHANNEL, SAG_ROLE, self.values[0])
             case 'Yog, The Lord of Empty Abodes':
-                channel = interaction.guild.get_channel(YOG_CHANNEL)
-                role_to_add = storeUser.guild.get_role(YOG_ROLE)
-                outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
-                                f'worshipers here: {channel.mention}')
+                await setGod(interaction, YOG_CHANNEL, YOG_ROLE, self.values[0])
             case 'Derketo, The Two-Faced Goddess':
-                channel = interaction.guild.get_channel(DERKETO_CHANNEL)
-                role_to_add = storeUser.guild.get_role(DERKETO_ROLE)
-                outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
-                                f'worshipers here: {channel.mention}')
+                await setGod(interaction, DERKETO_CHANNEL, DERKETO_ROLE, self.values[0])
             case 'Mitra, The Phoenix':
-                channel = interaction.guild.get_channel(MITRA_CHANNEL)
-                role_to_add = storeUser.guild.get_role(MITRA_ROLE)
-                outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
-                                f'worshipers here: {channel.mention}')
+                await setGod(interaction, MITRA_CHANNEL, ZATH_ROLE, self.values[0])
             case 'Set, The Old Serpent':
-                channel = interaction.guild.get_channel(SET_CHANNEL)
-                role_to_add = storeUser.guild.get_role(SET_ROLE)
-                outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
-                                f'worshipers here: {channel.mention}')
+                await setGod(interaction, SET_CHANNEL, SET_ROLE, self.values[0])
             case 'Ymir, The Lord of War and Storms':
-                channel = interaction.guild.get_channel(YMIR_CHANNEL)
-                role_to_add = storeUser.guild.get_role(YMIR_ROLE)
-                outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
-                                f'worshipers here: {channel.mention}')
+                await setGod(interaction, YMIR_CHANNEL, YMIR_ROLE, self.values[0])
             case 'Crom, The Grim Grey God':
-                channel = interaction.guild.get_channel(CROM_CHANNEL)
-                role_to_add = storeUser.guild.get_role(CROM_ROLE)
-                outputString = (f'You have declared your faith to {self.values[0]}! Join your fellow '
-                                f'worshipers here: {channel.mention}')
+                await setGod(interaction, CROM_CHANNEL, CROM_ROLE, self.values[0])
             case 'Faithless':
-                role_to_add = storeUser.guild.get_role(FAITHLESS_ROLE)
-                outputString = f'You have declared yourself to be {self.values[0]}!'
+                await setGod(interaction, 0, FAITHLESS_ROLE, self.values[0])
             case _:
                 print('this should never happen')
-
-        storeUser = interaction.user
-
-        # noinspection PyUnresolvedReferences
-        await interaction.response.send_message(content=outputString, ephemeral=True)
-
-        for role_to_remove in role_list:
-            await storeUser.remove_roles(storeUser.guild.get_role(role_to_remove))
-
-        await storeUser.add_roles(role_to_add)
 
 class FaithTrials(commands.Cog):
     def __init__(self, bot: commands.Bot):

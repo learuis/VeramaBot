@@ -6,11 +6,11 @@ import os
 from discord import ui
 from discord.ext import commands
 from functions.common import custom_cooldown, modChannel, get_character_id, is_registered, get_registration, \
-    get_member_from_userid
+    get_member_from_userid, publicChannel
 from datetime import date
 from dotenv import load_dotenv
 
-from functions.externalConnections import db_delete_single_record, db_query
+from functions.externalConnections import db_delete_single_record, db_query, runRcon
 
 load_dotenv('data/server.env')
 SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
@@ -278,6 +278,31 @@ class Registration(commands.Cog):
         else:
             await ctx.send(f'No characters matching the string `{name}`')
             return
+
+    @commands.command(name='clanlookup', aliases=['clanwho', 'whoclan', 'clan'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(publicChannel)
+    async def clanLookup(self, ctx):
+        """ - Not yet implemented
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+
+        rconResponse = runRcon(f'sql select c.char_name, g.name from characters as c '
+                               f'inner join guilds as g on g.guildId = c.guild '
+                               f'order by guild')
+        if rconResponse.output:
+            rconResponse.output.pop(0)
+            for x in rconResponse.output:
+                return
+
 
 @commands.Cog.listener()
 async def setup(bot):
