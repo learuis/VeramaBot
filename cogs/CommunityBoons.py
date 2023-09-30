@@ -570,7 +570,7 @@ class CommunityBoons(commands.Cog):
                                 cur.execute(f'update quotas set status = \'Inactive\' where material like {boonName}')
 
                             case 'abundance' | 'harvestrate':
-                                settings_list.extend(['SetServerSetting HarvestAmountMultiplier 2.0'])
+                                settings_list.extend(['SetServerSetting HarvestAmountMultiplier 1.5'])
                                 cur.execute(f'update quotas set status = \'Inactive\' where material like {boonName}')
 
                             case 'regrowth' | 'resourcerate':
