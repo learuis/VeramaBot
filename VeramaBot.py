@@ -95,6 +95,10 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.CommandNotFound):
         await ctx.send(f'Invalid command `{ctx.message.content}`! Use `v/help`')
         return
+    if isinstance(error, discord.errors.DiscordServerError):
+        await ctx.send(f'A discord server error has occurred. VeramaBot may need to be restarted to recover.')
+        return
+
     else:
         await ctx.send(error)
         raise error
