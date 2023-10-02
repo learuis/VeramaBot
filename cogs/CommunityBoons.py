@@ -737,7 +737,8 @@ class CommunityBoons(commands.Cog):
         -------
 
         """
-        outputString = 'To remove title, use v/titleclear.\nAvailable Titles:\n'
+        outputString = (f'To set one of the listed titles, use `v/title #`.\nTo remove your title, use v/titleclear.'
+                        f'\nAvailable Titles:\n')
 
         character = is_registered(ctx.author.id)
         if character:

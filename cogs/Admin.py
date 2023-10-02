@@ -4,7 +4,8 @@ import time
 import sqlite3
 
 from discord.ext import commands
-from functions.externalConnections import runRcon, downloadSave
+
+from functions.externalConnections import runRcon, downloadSave, db_query
 from functions.common import custom_cooldown, modChannel
 from datetime import datetime
 from datetime import timezone
@@ -250,5 +251,42 @@ class Admin(commands.Cog):
         await ctx.send(f'Maintenance Flag: {ctx.bot.maintenance_flag}')
         print(ctx.bot.maintenance_flag)
 
+    '''@commands.command(name='fixstatus')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def fixStatus(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        if not VeramaBot.liveStatus.is_running():
+            VeramaBot.liveStatus.start()
+            await ctx.send(f'Attempting to restart status monitor...')'''
+
+    @commands.command(name='dbquery', aliases=['db', 'query'])
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def dbQuery(self, ctx, query: str):
+        """
+
+        Parameters
+        ----------
+        ctx
+        query
+
+        Returns
+        -------
+
+        """
+        result = db_query(f'{query}')
+        await ctx.send(f'{result}')
 async def setup(bot):
     await bot.add_cog(Admin(bot))

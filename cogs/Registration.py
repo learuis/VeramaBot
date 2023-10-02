@@ -283,25 +283,75 @@ class Registration(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(publicChannel)
-    async def clanLookup(self, ctx):
-        """ - Not yet implemented
+    async def clanLookup(self, ctx, searchTerm: str):
+        """ - Look up clan membership
+
+        Usage:
+
+        (use double quotes for names with spaces)
+
+        v/clanlookup player Verama
+        -or-
+        v/clanlookup clan "Band of Outcasts"
 
         Parameters
         ----------
         ctx
+        searchTerm
+            Name to search for
 
         Returns
         -------
 
         """
+        rconResponse = []
+        playerList = []
+        clanList = []
+        outputString = ''
+        rankLookup = {
+            3: 'the Leader',
+            2: 'an Officer',
+            1: 'a Member',
+            255: 'a Member'
+        }
 
-        rconResponse = runRcon(f'sql select c.char_name, g.name from characters as c '
+        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name from characters as c '
                                f'inner join guilds as g on g.guildId = c.guild '
+                               f'where g.name like \'%{searchTerm}%\' '
                                f'order by guild')
         if rconResponse.output:
             rconResponse.output.pop(0)
-            for x in rconResponse.output:
-                return
+            for record in rconResponse.output:
+                match = re.findall(r'\s+\d+ | [^|]*', record)
+                match = [line.strip() for line in match]
+                clanList.append(match)
+
+        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name from characters as c '
+                               f'inner join guilds as g on g.guildId = c.guild '
+                               f'where c.char_name like \'%{searchTerm}%\' '
+                               f'order by guild')
+        if rconResponse.output:
+            rconResponse.output.pop(0)
+
+            for record in rconResponse.output:
+                match = re.findall(r'\s+\d+ | [^|]*', record)
+                match = [line.strip() for line in match]
+                playerList.append(match)
+
+        if playerList:
+            outputString += f'__Player name matches:__\n'
+            for player in playerList:
+                outputString += f'`{player[0]}` is {rankLookup.get(int(player[1]))} of `{player[2]}`\n'
+
+        if clanList:
+            outputString += f'__Clan name matches:__\n'
+            for clan in clanList:
+                outputString += f'`{clan[0]}` is {rankLookup.get(int(clan[1]))} of `{clan[2]}`\n'
+
+        if outputString:
+            await ctx.send(f'{outputString}')
+        else:
+            await ctx.send(f'There are no characters in a clan that match your search term `{searchTerm}`.')
 
 
 @commands.Cog.listener()

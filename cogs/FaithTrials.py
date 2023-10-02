@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import date
 
 import discord
 import os
@@ -105,23 +106,23 @@ class GodDropdown(discord.ui.Select):
 
         match self.values[0]:
             case 'Zath, The Spider-God of Yezud':
-                await setGod(interaction, ZATH_CHANNEL, ZATH_ROLE, self.values[0])
+                await setGod(interaction, ZATH_CHANNEL, ZATH_ROLE, 'zath')
             case 'Jhebbal Sag, The Lord of Beasts':
-                await setGod(interaction, SAG_CHANNEL, SAG_ROLE, self.values[0])
+                await setGod(interaction, SAG_CHANNEL, SAG_ROLE, 'jhebbal')
             case 'Yog, The Lord of Empty Abodes':
-                await setGod(interaction, YOG_CHANNEL, YOG_ROLE, self.values[0])
+                await setGod(interaction, YOG_CHANNEL, YOG_ROLE, 'yog')
             case 'Derketo, The Two-Faced Goddess':
-                await setGod(interaction, DERKETO_CHANNEL, DERKETO_ROLE, self.values[0])
+                await setGod(interaction, DERKETO_CHANNEL, DERKETO_ROLE, 'derketo')
             case 'Mitra, The Phoenix':
-                await setGod(interaction, MITRA_CHANNEL, ZATH_ROLE, self.values[0])
+                await setGod(interaction, MITRA_CHANNEL, ZATH_ROLE, 'mitra')
             case 'Set, The Old Serpent':
-                await setGod(interaction, SET_CHANNEL, SET_ROLE, self.values[0])
+                await setGod(interaction, SET_CHANNEL, SET_ROLE, 'set')
             case 'Ymir, The Lord of War and Storms':
-                await setGod(interaction, YMIR_CHANNEL, YMIR_ROLE, self.values[0])
+                await setGod(interaction, YMIR_CHANNEL, YMIR_ROLE, 'ymir')
             case 'Crom, The Grim Grey God':
-                await setGod(interaction, CROM_CHANNEL, CROM_ROLE, self.values[0])
+                await setGod(interaction, CROM_CHANNEL, CROM_ROLE, 'crom')
             case 'Faithless':
-                await setGod(interaction, 0, FAITHLESS_ROLE, self.values[0])
+                await setGod(interaction, 0, FAITHLESS_ROLE, 'faithless')
             case _:
                 print('this should never happen')
 
@@ -169,6 +170,56 @@ class FaithTrials(commands.Cog):
                               color=discord.Color.blue())
         embed.set_image(url='attachment://gods.png')
         await ctx.send(file=file, embed=embed, view=ChooseGod())
+
+    @commands.command(name='quest', aliases=['completequest', 'faithquest'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def quest(self, ctx, faith: str, blessing: str, playerCount: int):
+        """
+        Usage:
+        v/quest [faith] [blessing] [playerCount]
+
+        Faiths: crom | derketo | yog | ymir | set | zath | jhebbal | mitra
+
+        Blessings: dregs | midnightgrove | witchqueen | passage | scorpionden
+
+                   barrowking | blackkeep | arena | wellofskelos | frosttemple
+
+                   sunkencity | warmakers | wincellar | purge
+        Parameters
+        ----------
+        ctx
+        faith
+            Which religion completed the quest
+        blessing
+            Which dungeon/blessing was completed
+        playerCount
+            Number of players who completed it
+
+
+        Returns
+        -------
+
+        """
+
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+
+        #get all players with the selected faith in a list
+        cur.execute(f'select game_char_id from registration where god like \'%{faith}%\'')
+        faithMembers = cur.fetchall()
+
+        for member in faithMembers:
+            print(date.today())
+            amount = 1 * playerCount
+            cur.execute(f'insert into faith_rewards '
+                        f'(reward_date, character_id, reward_material, reward_quantity, claim_flag) '
+                        f'values '
+                        f'(\'{date.today()}\',{member[0]}, 10001, {amount}, 0)')
+            await ctx.send(f'Inserted reward record (for character {member[0]} of faith {faith}.')
+        con.commit()
+        con.close()
 
 @commands.Cog.listener()
 async def setup(bot):

@@ -53,7 +53,6 @@ async def liveStatus():
 
     channel = bot.get_channel(STATUS_CHANNEL)
     message = await channel.fetch_message(STATUS_MESSAGE)
-    print(bot.maintenance_flag)
 
     await editStatus(message, bot)
 

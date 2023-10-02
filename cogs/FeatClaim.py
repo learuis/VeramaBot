@@ -3,7 +3,8 @@ import sqlite3
 from discord.ext import commands
 from functions.common import custom_cooldown, modChannel, get_rcon_id, is_registered, get_single_registration, \
     publicChannel
-from functions.externalConnections import runRcon, db_query
+from functions.externalConnections import runRcon, db_query, db_delete_single_record
+
 
 def has_feat(charId: int, featId: int):
     rconResponse = runRcon(f'sql select template_id from item_inventory where owner_id = {charId} '
@@ -195,6 +196,35 @@ class FeatClaim(commands.Cog):
         -------
 
         """
+        if name == 'all':
+            outputString = ''
+            results = db_query(f'select * from featclaim')
+
+            for result in results:
+                outputString += f'{result}\n'
+
+            if outputString:
+                if len(outputString) > 10000:
+                    await ctx.send(f'Too many results!')
+                    return
+                if len(outputString) > 1800:
+                    workList = outputString.splitlines()
+                    for items in workList:
+                        splitOutput += f'{str(items)}\n'
+                        if len(str(splitOutput)) > 1800:
+                            if once:
+                                once = False
+                                await ctx.send(content=str(splitOutput))
+                                splitOutput = '(continued)\n'
+                            else:
+                                await ctx.send(str(splitOutput))
+                                splitOutput = '(continued)\n'
+                        else:
+                            continue
+                    await ctx.send(str(splitOutput))
+                else:
+                    await ctx.send(str(outputString))
+            return
 
         characters = get_single_registration(name)
         if not characters:
@@ -228,7 +258,7 @@ class FeatClaim(commands.Cog):
 
         """
         outputString = '__Valid feats for use with v/featadd:__\n'
-        results = db_query('select * from valid_feats')
+        results = db_query('select * from valid_feats order by feat_name asc')
         splitOutput = ''
         once = True
 
@@ -257,6 +287,37 @@ class FeatClaim(commands.Cog):
             else:
                 await ctx.send(str(outputString))
 
+    @commands.command(name='featdelete', aliases=['featdel', 'delfeat'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def featDelete(self, ctx, recordToDelete: int = commands.parameter(default=0)):
+        """- Delete a record from the registration database
+
+        Deletes a selected record from the VeramaBot database table 'registration'.
+
+        Does not delete the entry in the registration channel.
+
+        Parameters
+        ----------
+        ctx
+        recordToDelete
+            Specify which record number should be deleted.
+        Returns
+        -------
+
+        """
+        if recordToDelete == 0:
+            await ctx.send(f'Record to delete must be specified. Use `v/help registrationdelete`')
+        else:
+            try:
+                int(recordToDelete)
+            except ValueError:
+                await ctx.send(f'Invalid record number')
+            else:
+                res = db_delete_single_record('featclaim', 'record_num', recordToDelete)
+
+                await ctx.send(f'Deleted record:\n{res}')
 @commands.Cog.listener()
 async def setup(bot):
     await bot.add_cog(FeatClaim(bot))
