@@ -312,6 +312,7 @@ class Registration(commands.Cog):
             3: 'the Leader',
             2: 'an Officer',
             1: 'a Member',
+            0: 'a Member',
             255: 'a Member'
         }
 

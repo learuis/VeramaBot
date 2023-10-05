@@ -198,6 +198,8 @@ class FeatClaim(commands.Cog):
         """
         if name == 'all':
             outputString = ''
+            splitOutput = ''
+            once = True
             results = db_query(f'select * from featclaim')
 
             for result in results:

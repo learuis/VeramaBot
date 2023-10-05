@@ -52,8 +52,8 @@ async def setGod(interaction: discord.Interaction, godChannel: int, godRole: int
     cur = con.cursor()
 
     cur.execute(f'update registration set god = \'{godName}\' where discord_user = {interaction.user.id}')
-    await channel.send(f'{interaction.user.mention} has declared their faith in {godName}')
-    outputString = (f'You have declared your faith to {godName}! Join your fellow '
+    await channel.send(f'{interaction.user.mention} has declared their faith in {godName.capitalize()}')
+    outputString = (f'You have declared your faith to {godName.capitalize()}! Join your fellow '
                     f'worshipers here: {channel.mention}')
 
     con.commit()
@@ -134,18 +134,51 @@ class FaithTrials(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(modChannel)
-    async def faithList(self, ctx):
-        """- Placeholder
+    async def faithList(self, ctx, faith: str):
+        """- List players who are members of a faith
 
         Parameters
         ----------
         ctx
+        faith
+            Which god to select
 
         Returns
         -------
 
         """
-        print(f'{ctx} return list of people in roles')
+        godList = ['crom', 'derketo', 'yog', 'ymir', 'set', 'zath', 'jhebbal', 'mitra', 'all']
+        outputString = ''
+
+        if faith.casefold() not in godList:
+            await ctx.send(f'Invalid god `{faith}` provided.')
+            return
+
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+
+        if faith == 'all':
+            cur.execute(f'select character_name, god from registration where god is not null order by god ASC')
+            results = cur.fetchall()
+            if results:
+                outputString = f'All Faithful:\n'
+                for result in results:
+                    outputString += f'{result}\n'
+            await ctx.send(f'{outputString}')
+            con.close()
+            return
+
+        # get all players with the selected faith in a list
+        cur.execute(f'select character_name, god from registration where god like \'%{faith}%\'')
+        results = cur.fetchall()
+
+        if results:
+            outputString = f'Followers of {faith.capitalize()}:\n'
+            for result in results:
+                outputString += f'{result[0]}\n'
+            await ctx.send(f'{outputString}')
+        else:
+            await ctx.send(f'There are currently no followers of {faith.capitalize()}.')
 
     @commands.command(name='god_prepare')
     @commands.is_owner()
@@ -203,21 +236,58 @@ class FaithTrials(commands.Cog):
 
         """
 
+        godList = ['crom', 'derketo', 'yog', 'ymir', 'set', 'zath', 'jhebbal', 'mitra']
+        blessingList = ['dregs', 'midnightgrove', 'witchqueen', 'passage', 'scorpionden', 'barrowking', 'blackkeep',
+                        'arena', 'wellofskelos', 'frosttemple', 'sunkencity', 'warmakers', 'winecellar', 'purge']
+        blessingNames = {
+            'dregs': 'the abyss',
+            'midnightgrove': 'the grove',
+            'witchqueen': 'the witch',
+            'passage': 'the spawn',
+            'scorpionden': 'the venom',
+            'barrowking': 'the giant',
+            'blackkeep': 'the kin',
+            'arena': 'the dragon',
+            'wellofskelos': 'the degenerate',
+            'frosttemple': 'the forge',
+            'sunkencity': 'the deep',
+            'warmakers': 'the sanctuary',
+            'winecellar': 'wine',
+            'purge': 'war'
+        }
+
+        if faith.casefold() not in godList:
+            await ctx.send(f'Invalid god `{faith}` provided.')
+            return
+        if blessing.casefold() not in blessingList:
+            await ctx.send(f'Invalid blessing `{blessing}` provided.')
+            return
+
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur = con.cursor()
 
         #get all players with the selected faith in a list
-        cur.execute(f'select game_char_id from registration where god like \'%{faith}%\'')
+        cur.execute(f'select game_char_id, character_name from registration where god like \'%{faith}%\'')
         faithMembers = cur.fetchall()
+
+        rewards = []
+        match blessing:
+            case 'dregs':
+                amount = 50 * playerCount
+                rewards.append([11501, amount])
+                rewards.append([14195, amount])
 
         for member in faithMembers:
             print(date.today())
             amount = 1 * playerCount
-            cur.execute(f'insert into faith_rewards '
-                        f'(reward_date, character_id, reward_material, reward_quantity, claim_flag) '
-                        f'values '
-                        f'(\'{date.today()}\',{member[0]}, 10001, {amount}, 0)')
-            await ctx.send(f'Inserted reward record (for character {member[0]} of faith {faith}.')
+            for reward in rewards:
+                cur.execute(f'insert into faith_rewards '
+                            f'(reward_date, character_id, reward_material, reward_quantity, claim_flag) '
+                            f'values '
+                            f'(\'{date.today()}\',{member[0]}, {reward[0]}, {reward[1]}, 0)')
+
+            await ctx.send(f'`{member[1]}` has been granted **{faith.capitalize()}\'s Blessing of '
+                           f'{blessingNames.get(blessing).title()}**. Type `v/claim` to receive your reward.')
         con.commit()
         con.close()
 

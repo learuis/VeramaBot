@@ -229,6 +229,5 @@ async def editStatus(message, bot):
                                    f'- IP Address: {ipAddress}:32200\n'
                                    f'- Server Online: {onlineStatus} {statusSymbol}\n'
                                    f'- Players Connected: {currentPlayers} / {maxPlayers} {onlineSymbol}\n'
-                                   f'Server restarts are every 4 hours due to update-related performance issues.'
-                                   f'\n12am, 4am, 8am, 12pm, 4pm, 8pm Eastern')
+                                   f'Server restarts are at 4pm and 4am Eastern.')
     return
