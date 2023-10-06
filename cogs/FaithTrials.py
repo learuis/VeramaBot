@@ -1,12 +1,14 @@
 import sqlite3
-from datetime import date
+from datetime import date, timedelta
 
 import discord
 import os
 
 from discord.ext import commands
-from functions.common import custom_cooldown, modChannel, is_registered
+from functions.common import custom_cooldown, modChannel, is_registered, publicChannel, get_rcon_id
 from dotenv import load_dotenv
+
+from functions.externalConnections import db_query, runRcon
 
 load_dotenv('data/server.env')
 ZATH_CHANNEL = int(os.getenv('ZATH_CHANNEL'))
@@ -204,7 +206,7 @@ class FaithTrials(commands.Cog):
         embed.set_image(url='attachment://gods.png')
         await ctx.send(file=file, embed=embed, view=ChooseGod())
 
-    @commands.command(name='quest', aliases=['completequest', 'faithquest'])
+    @commands.command(name='quest', aliases=['completequest'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(modChannel)
@@ -275,11 +277,75 @@ class FaithTrials(commands.Cog):
             case 'dregs':
                 amount = 50 * playerCount
                 rewards.append([11501, amount])
+                amount = 50 * playerCount
                 rewards.append([14195, amount])
+            case 'midnightgrove':
+                amount = 50 * playerCount
+                rewards.append([11058, amount])
+                amount = 50 * playerCount
+                rewards.append([12012, amount])
+            case 'witchqueen':
+                amount = 50 * playerCount
+                rewards.append([14171, amount])
+                amount = 50 * playerCount
+                rewards.append([12012, amount])
+            case 'passage':
+                amount = 50 * playerCount
+                rewards.append([11051, amount])
+                amount = 50 * playerCount
+                rewards.append([12513, amount])
+            case 'scorpionden':
+                amount = 50 * playerCount
+                rewards.append([12513, amount])
+                amount = 5 * playerCount
+                rewards.append([11055, amount])
+            case 'barrowking':
+                amount = 25 * playerCount
+                rewards.append([14182, amount])
+                amount = 50 * playerCount
+                rewards.append([11502, amount])
+            case 'blackkeep':
+                amount = 50 * playerCount
+                rewards.append([18041, amount])
+                amount = 50 * playerCount
+                rewards.append([16003, amount])
+            case 'arena':
+                amount = 10 * playerCount
+                rewards.append([10022, amount])
+                amount = 50 * playerCount
+                rewards.append([14182, amount])
+            case 'wellofskelos':
+                amount = 50 * playerCount
+                rewards.append([11102, amount])
+                amount = 5 * playerCount
+                rewards.append([11054, amount])
+            case 'frosttemple':
+                amount = 20 * playerCount
+                rewards.append([18062, amount])
+                amount = 50 * playerCount
+                rewards.append([11108, amount])
+            case 'sunkencity':
+                amount = 1 * playerCount
+                rewards.append([19600, amount])
+                amount = 25 * playerCount
+                rewards.append([11070, amount])
+            case 'warmakers':
+                amount = 5 * playerCount
+                rewards.append([11091, amount])
+                amount = 10 * playerCount
+                rewards.append([18061, amount])
+            case 'winecellar':
+                amount = 5 * playerCount
+                rewards.append([10020, amount])
+                amount = 1 * playerCount
+                rewards.append([11103, amount])
+            case 'purge':
+                amount = 50 * playerCount
+                rewards.append([11502, amount])
+                amount = 2 * playerCount
+                rewards.append([52895, amount])
 
         for member in faithMembers:
-            print(date.today())
-            amount = 1 * playerCount
             for reward in rewards:
                 cur.execute(f'insert into faith_rewards '
                             f'(reward_date, character_id, reward_material, reward_quantity, claim_flag) '
@@ -287,10 +353,75 @@ class FaithTrials(commands.Cog):
                             f'(\'{date.today()}\',{member[0]}, {reward[0]}, {reward[1]}, 0)')
 
             await ctx.send(f'`{member[1]}` has been granted **{faith.capitalize()}\'s Blessing of '
-                           f'{blessingNames.get(blessing).title()}**. Type `v/claim` to receive your reward.')
+                           f'{blessingNames.get(blessing).title()}**. Type `v/faith` to receive your reward.')
         con.commit()
         con.close()
 
+    @commands.command(name='faith')
+    @commands.has_any_role('Outcasts')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(publicChannel)
+    async def faith(self, ctx):
+        """- Delivers faith rewards to your character
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        insertResults = []
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        rconCharId = get_rcon_id(character.char_name)
+        if not rconCharId:
+            await ctx.reply(f'Character {character.char_name} must be online to claim rewards.')
+            return
+
+        results = db_query(f'select record_num, reward_material, reward_quantity from faith_rewards '
+                           f'where character_id = {character.id} '
+                           f'and reward_date >= \'{date.today() - timedelta(days = 14)}\' '
+                           f'and claim_flag = 0')
+        if results:
+            outputString = f'You qualify for Trials of the Faithful rewards! Please wait...\n'
+            message = await ctx.reply(f'{outputString}')
+
+            for result in results:
+                target = get_rcon_id(character.char_name)
+                if not target:
+                    await message.edit(f'Character {character.char_name} must be online to claim rewards.')
+                    return
+
+                rconCommand = f'con {target} spawnitem {result[1]} {result[2]}'
+                rconResponse = runRcon(rconCommand)
+                if rconResponse.error == 1:
+                    await message.edit(f'Authentication error on {rconCommand}')
+                    return
+
+                reward_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+                reward_cur = reward_con.cursor()
+
+                insertResults = reward_cur.execute(f'update faith_rewards set claim_flag = 1 '
+                                                   f'where record_num = {result[0]}')
+                outputString += (f'Granted Trials of the Faithful reward: {result[2]}x{result[1]} '
+                                 f'to {character.char_name}\n')
+                reward_con.commit()
+                reward_con.close()
+
+            if insertResults:
+                await message.edit(content=f'{outputString}')
+                return
+            else:
+                await message.edit(content=f'Error when granting rewards to {character.char_name}.')
+                return
+        else:
+            await ctx.reply(f'You do not qualify for any Trials of the Faithful rewards at this time.')
 @commands.Cog.listener()
 async def setup(bot):
     await bot.add_cog(FaithTrials(bot))

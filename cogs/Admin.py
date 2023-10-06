@@ -286,7 +286,13 @@ class Admin(commands.Cog):
         -------
 
         """
-        result = db_query(f'{query}')
-        await ctx.send(f'{result}')
+        results = db_query(f'{query}')
+        if results:
+            for result in results:
+                await ctx.send(f'{result}\n')
+            return
+        else:
+            await ctx.send(f'Query returned no rows.')
+            return
 async def setup(bot):
     await bot.add_cog(Admin(bot))
