@@ -83,7 +83,8 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.CheckFailure):
         print(f'Command from {ctx.message.author} failed checks. '
               f'{ctx.message.channel.id} / {ctx.message.channel.name}.')
-        await ctx.send(error)
+        channel = bot.get_channel(BOT_CHANNEL)
+        await ctx.send(f'You cannot use that command in this channel. Try {channel.mention}')
         return
     if isinstance(error, commands.errors.CommandOnCooldown):
         await ctx.send(error)

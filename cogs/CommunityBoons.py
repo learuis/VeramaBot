@@ -409,6 +409,12 @@ class CommunityBoons(commands.Cog):
                 outputString = f'__Boon contribution totals:__\n'
 
                 for x in res:
+                    try:
+                        int(x[1])
+                    except ValueError:
+                        x[1] = 0
+
+                    print(f'{x[1]} >= {x[2]}')
                     if x[1] >= x[2]:
                         outputString += (f'**{x[5]} Boon of {str(x[3])} - {str(x[0]).capitalize()}**:\n'
                                          f'**Effect:** {x[6]} **Status:** {x[7]}\n*Title: {x[4]}*\n'
