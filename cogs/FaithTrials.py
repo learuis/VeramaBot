@@ -116,7 +116,7 @@ class GodDropdown(discord.ui.Select):
             case 'Derketo, The Two-Faced Goddess':
                 await setGod(interaction, DERKETO_CHANNEL, DERKETO_ROLE, 'derketo')
             case 'Mitra, The Phoenix':
-                await setGod(interaction, MITRA_CHANNEL, ZATH_ROLE, 'mitra')
+                await setGod(interaction, MITRA_CHANNEL, MITRA_ROLE, 'mitra')
             case 'Set, The Old Serpent':
                 await setGod(interaction, SET_CHANNEL, SET_ROLE, 'set')
             case 'Ymir, The Lord of War and Storms':

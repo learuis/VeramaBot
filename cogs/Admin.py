@@ -6,7 +6,7 @@ import sqlite3
 from discord.ext import commands
 
 from functions.externalConnections import runRcon, downloadSave, db_query
-from functions.common import custom_cooldown, modChannel
+from functions.common import custom_cooldown, modChannel, is_registered, get_rcon_id, get_single_registration
 from datetime import datetime
 from datetime import timezone
 from time import strftime
@@ -294,5 +294,67 @@ class Admin(commands.Cog):
         else:
             await ctx.send(f'Query returned no rows.')
             return
+
+    @commands.command(name='volcano', aliases=['drop', 'getrekt'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def volcano(self, ctx, name: str):
+        """Throws the named player into the volcano.
+
+        Parameters
+        ----------
+        ctx
+        name
+            Player name to drop!
+
+        Returns
+        -------
+
+        """
+        character = get_single_registration(name)
+
+        if not character:
+            await ctx.reply(f'No character named `{name}` registered!')
+            return
+        else:
+            name = character[1]
+
+        rconCharId = get_rcon_id(name)
+        if not rconCharId:
+            await ctx.reply(f'Character `{name}` must be online to throw into the Volcano!')
+            return
+        else:
+            runRcon(f'con {rconCharId} TeleportPlayer -17174.951172 -259672.125 87383.28125')
+            await ctx.reply(f'Tossed `{name}` into the Volcano.')
+            return
+
+    @commands.command(name='jail', aliases=['capture', 'prison'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def volcano(self, ctx, name: str):
+        """Sends the named player to Fort Greenwall
+
+        Parameters
+        ----------
+        ctx
+        name
+            Player name to drop!
+
+        Returns
+        -------
+
+        """
+
+        rconCharId = get_rcon_id(name)
+        if not rconCharId:
+            await ctx.reply(f'Character `{name}` must be online to send to Fort Greenwall!')
+            return
+        else:
+            runRcon(f'con {rconCharId} TeleportPlayer 218110.859375 -124766.046875 -16443.873047')
+            await ctx.reply(f'Sent `{name}` to Fort Greenwall.')
+            return
+
 async def setup(bot):
     await bot.add_cog(Admin(bot))

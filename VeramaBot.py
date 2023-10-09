@@ -18,6 +18,7 @@ GUILD = os.getenv('DISCORD_GUILD')
 BOT_CHANNEL = int(os.getenv('BOT_CHANNEL'))
 STATUS_CHANNEL = int(os.getenv('STATUS_CHANNEL'))
 STATUS_MESSAGE = int(os.getenv('STATUS_MESSAGE'))
+OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 
 intents = discord.Intents.all()
 intents.message_content = True
@@ -83,7 +84,7 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.errors.CheckFailure):
         print(f'Command from {ctx.message.author} failed checks. '
               f'{ctx.message.channel.id} / {ctx.message.channel.name}.')
-        channel = bot.get_channel(BOT_CHANNEL)
+        channel = bot.get_channel(OUTCASTBOT_CHANNEL)
         await ctx.send(f'You cannot use that command in this channel. Try {channel.mention}')
         return
     if isinstance(error, commands.errors.CommandOnCooldown):

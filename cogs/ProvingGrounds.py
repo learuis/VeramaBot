@@ -29,12 +29,14 @@ class ProvingGrounds(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await ctx.reply(f'**Proving Grounds Testing**\n'
+                            f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:
-            await ctx.reply(f'Character {character.char_name} must be online to begin the Proving Grounds.')
+            await ctx.reply(f'**Proving Grounds Testing**\n'
+                            f'Character {character.char_name} must be online to begin the Proving Grounds.')
             return
 
         rconResponse = runRcon(f'sql select x, y from actor_position where id = {character.id}')
@@ -50,12 +52,17 @@ class ProvingGrounds(commands.Cog):
             centerPosition = [-161388.328125, 4962.57959]
             distance = math.dist(characterPosition, centerPosition)
             if distance > 500:
-                await ctx.send(f'Character {character.char_name} is not within the specified area.')
+                await ctx.send(f'**Proving Grounds Testing**\n'
+                               f'Character {character.char_name} is not within the specified location.')
             else:
-                await ctx.send(f'Within range!')
-
+                rconCharId = get_rcon_id(character.char_name)
+                runRcon(f'con {rconCharId} dc spawn Sorcery_DemonSummonPerk_Elite')
+                await ctx.send(f'**Proving Grounds Testing**\n'
+                               f'Location confirmed! Spawned `Sorcery_DemonSummonPerk_Elite` at `{character.char_name}'
+                               f'\'s` position')
         else:
-            await ctx.send(f'problem!')
+            await ctx.send(f'**Proving Grounds Testing**\n'
+                           f'problem!')
             return
 
 @commands.Cog.listener()

@@ -128,14 +128,21 @@ class CommunityBoons(commands.Cog):
             outputString = f''
 
             for x in res:
+                print(x)
                 if x[1] >= x[2]:
-                    outputString += f'{x[0].casefold} '
+                    outputString += f'{x[0].casefold()} '
 
             outputString = outputString[:-1]
 
             await ctx.send(f'Prepared activation command: `v/boonset activate {outputString}`')
             return
         #add input checking for material type
+
+        validMaterials = {'chitin', 'brimstone', 'resin', 'tar', 'twine', 'dung',
+                          'compositeobsidian', 'crystal', 'kits', 'cochineal', 'blood', 'demonblood'}
+        if identifier not in validMaterials:
+            await ctx.send(f'Invalid item in material selection. Check your input!')
+            return
 
         cur.execute(f'select * from boonlog where remaining > 0 and item like \'{identifier}\'')
         boonlog = cur.fetchall()
@@ -534,7 +541,7 @@ class CommunityBoons(commands.Cog):
                                                       'SetServerSetting AnimalPenCraftingTimeMultiplier 1.0',
                                                       'SetServerSetting PlayerXPKillMultiplier 1.0',
                                                       'SetServerSetting DurabilityMultiplier 1.0',
-                                                      'SetServerSetting HarvestAmountMultiplier 2.0',
+                                                      'SetServerSetting HarvestAmountMultiplier 1.5',
                                                       'SetServerSetting ResourceRespawnSpeedMultiplier 1.0',
                                                       'SetServerSetting NPCRespawnMultiplier 1.0'])
                                 cur.execute(f'update quotas set status = \'Inactive\'')
@@ -542,49 +549,64 @@ class CommunityBoons(commands.Cog):
                             case 'satiation' | 'hunger' | 'chitin':
                                 settings_list.extend(['SetServerSetting PlayerActiveHungerMultiplier 1.1',
                                                       'SetServerSetting PlayerIdleHungerMultiplier 1.1'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'quenching' | 'thirst' | 'resin':
                                 settings_list.extend(['SetServerSetting PlayerActiveThirstMultiplier 1.1',
                                                       'SetServerSetting PlayerIdleThirstMultiplier 1.1'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'efficiency' | 'fuelrate' | 'tar':
                                 settings_list.extend(['SetServerSetting FuelBurnTimeMultiplier 1.00'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'manufacture' | 'craftspeed' | 'twine':
                                 settings_list.extend(['SetServerSetting ItemConvertionMultiplier 1.0'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'preservation' | 'spoilrate' | 'brimstone':
                                 settings_list.extend(['SetServerSetting ItemSpoilRateScale 1.0'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'dominance' | 'thralltime' | 'dung':
                                 settings_list.extend(['SetServerSetting ThrallConversionMultiplier 1.0',
                                                       'SetServerSetting AnimalPenCraftingTimeMultiplier 1.0'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'training' | 'xp' | 'demonblood':
                                 settings_list.extend(['SetServerSetting PlayerXPKillMultiplier 1.0'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'maintenance' | 'durability' | 'kits':
                                 settings_list.extend(['SetServerSetting DurabilityMultiplier 1.0'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'abundance' | 'harvestrate' 'crystal':
                                 settings_list.extend(['SetServerSetting HarvestAmountMultiplier 1.5'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'regrowth' | 'resourcerate' | 'cochineal':
                                 settings_list.extend(['SetServerSetting ResourceRespawnSpeedMultiplier 1.0'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
 
                             case 'proliferation' | 'spawnrate' | 'blood':
                                 settings_list.extend(['SetServerSetting NPCRespawnMultiplier 1.0'])
-                                cur.execute(f'update quotas set status = \'Inactive\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
+
+                            case 'smithing' | 'godforge' | 'compositeobdisian':
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
                             case _:
                                 await ctx.send(f'Invalid Boon \"{boonName}\" specified.')
                                 return
@@ -614,56 +636,73 @@ class CommunityBoons(commands.Cog):
                                                       'SetServerSetting NPCRespawnMultiplier 0.5'])
                                 cur.execute(f'update quotas set status = \'Active\'')
                                 break
-                            case 'Satiation' | 'satiation' | 'hunger' | 'chitin':
+                            case 'satiation' | 'satiation' | 'hunger' | 'chitin':
                                 settings_list.extend(['SetServerSetting PlayerActiveHungerMultiplier 0.5',
                                                       'SetServerSetting PlayerIdleHungerMultiplier 0.5'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Quenching' | 'quenching' | 'thirst' | 'resin':
+                            case 'quenching' | 'quenching' | 'thirst' | 'resin':
                                 settings_list.extend(['SetServerSetting PlayerActiveThirstMultiplier 0.5',
                                                       'SetServerSetting PlayerIdleThirstMultiplier 0.5'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Efficiency' | 'efficiency' | 'fuelrate' | 'tar':
+                            case 'efficiency' | 'efficiency' | 'fuelrate' | 'tar':
                                 settings_list.extend(['SetServerSetting FuelBurnTimeMultiplier 2.00'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Manufacture' | 'manufacture' | 'craftspeed' | 'twine':
+                            case 'manufacture' | 'manufacture' | 'craftspeed' | 'twine':
                                 settings_list.extend(['SetServerSetting ItemConvertionMultiplier 0.5'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Preservation' | 'preservation' | 'spoilrate' | 'brimstone':
+                            case 'preservation' | 'preservation' | 'spoilrate' | 'brimstone':
                                 settings_list.extend(['SetServerSetting ItemSpoilRateScale 0.5'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Dominance' | 'dominance' | 'thralltime' | 'dung':
+                            case 'dominance' | 'dominance' | 'thralltime' | 'dung':
                                 settings_list.extend(['SetServerSetting ThrallConversionMultiplier 0.5',
                                                       'SetServerSetting AnimalPenCraftingTimeMultiplier 0.5'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Training' | 'training' | 'xp' | 'demonblood':
+                            case 'training' | 'training' | 'xp' | 'demonblood':
                                 settings_list.extend(['SetServerSetting PlayerXPKillMultiplier 2.0'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Maintenance' | 'maintenance' | 'durability' | 'kits':
+                            case 'maintenance' | 'maintenance' | 'durability' | 'kits':
                                 settings_list.extend(['SetServerSetting DurabilityMultiplier 0.5'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Abundance' | 'abundance' | 'harvestrate' | 'crystal':
+                            case 'abundance' | 'abundance' | 'harvestrate' | 'crystal':
                                 settings_list.extend(['SetServerSetting HarvestAmountMultiplier 3.0'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Regrowth' | 'regrowth' | 'resourcerate' | 'cochineal':
+                            case 'regrowth' | 'regrowth' | 'resourcerate' | 'cochineal':
                                 settings_list.extend(['SetServerSetting ResourceRespawnSpeedMultiplier 2.0'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
-                            case 'Proliferation' | 'proliferation' | 'spawnrate' | 'blood':
+                            case 'proliferation' | 'proliferation' | 'spawnrate' | 'blood':
                                 settings_list.extend(['SetServerSetting NPCRespawnMultiplier 0.5'])
-                                cur.execute(f'update quotas set status = \'Active\' where material like \'%{boonName}%\'')
+                                cur.execute(f'update quotas set status = \'Active\' '
+                                            f'where material like \'%{boonName}%\'')
 
+                            case 'smithing' | 'godforge' | 'compositeobsidian':
+                                cur.execute(f'update quotas set status = \'Inactive\' '
+                                            f'where material like \'%{boonName}%\'')
                             case _:
                                 await ctx.send(f'Invalid Boon \"{boonName}\" specified.')
                                 return
+                    con.commit()
+                    con.close()
+
             case 'check' | 'c':
                 settings_list.extend(['GetServerSetting PlayerActiveHungerMultiplier',
                                       'GetServerSetting PlayerIdleHungerMultiplier',
