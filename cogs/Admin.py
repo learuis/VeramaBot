@@ -333,12 +333,14 @@ class Admin(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(modChannel)
-    async def volcano(self, ctx, name: str):
+    async def volcano(self, ctx, cell: int, name: str):
         """Sends the named player to Fort Greenwall
 
         Parameters
         ----------
         ctx
+        cell
+            Cell number to summon the player to.
         name
             Player name to drop!
 
@@ -346,14 +348,27 @@ class Admin(commands.Cog):
         -------
 
         """
-
         rconCharId = get_rcon_id(name)
         if not rconCharId:
             await ctx.reply(f'Character `{name}` must be online to send to Fort Greenwall!')
             return
         else:
-            runRcon(f'con {rconCharId} TeleportPlayer 218110.859375 -124766.046875 -16443.873047')
-            await ctx.reply(f'Sent `{name}` to Fort Greenwall.')
+            match cell:
+                case 0:
+                    runRcon(f'con {rconCharId} TeleportPlayer 218110.859375 -124766.046875 -16443.873047')
+                case 1:
+                    runRcon(f'con {rconCharId} TeleportPlayer 219121.40625 -126644.085938 -16396.664063')
+                case 2:
+                    runRcon(f'con {rconCharId} TeleportPlayer 218992.71875 -127653.546875 -16312.618164')
+                case 3:
+                    runRcon(f'con {rconCharId} TeleportPlayer 217231.015625 -127617.046875 -16296.007813')
+                case 4:
+                    runRcon(f'con {rconCharId} TeleportPlayer 217324.59375 -126616.6875 -16287.055664')
+                case _:
+                    await ctx.reply(f'Cell Number must be provided (0-4). 0 = Yard')
+                    return
+
+            await ctx.reply(f'Sent `{name}` to Fort Greenwall in cell {cell}.')
             return
 
 async def setup(bot):
