@@ -3,12 +3,17 @@ import sys
 import time
 import sqlite3
 import re
+import os
 
 from discord.ext import commands
 
 from time import localtime, strftime
 
 from functions.common import custom_cooldown, modChannel, ununicode, publicChannel
+
+from dotenv import load_dotenv
+
+TOKEN = os.getenv('DISCORD_TOKEN')
 
 
 class Utilities(commands.Cog):
@@ -105,6 +110,27 @@ class Utilities(commands.Cog):
         quittime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
         await ctx.send(f'Later! VeramaBot shut down on {quittime}.')
         sys.exit(0)
+
+    @commands.command(name='bot')
+    @commands.has_any_role('Admin')
+    @commands.check(modChannel)
+    async def bot(self, ctx):
+        """- Restarts down VeramaBot
+
+        Gracefully exits VeramaBot.
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        quittime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
+        await ctx.send(f'Attempting to restart bot... {quittime}.')
+        await ctx.bot.close()
+        await ctx.bot.login(TOKEN)
 
     @commands.command(name='namelookup',
                       aliases=['search', 'find'])

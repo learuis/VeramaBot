@@ -183,7 +183,12 @@ def get_single_registration(char_name):
 async def editStatus(message, bot):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
 
-    response = requests.get(QUERY_URL).json()
+    try:
+        response = requests.get(QUERY_URL).json()
+    except Exception:
+        print(f'Exception occurred.')
+        return
+
     ipAddress = response.get('ipAddress')
     onlineStatus = response.get('online')
     currentPlayers = response.get('currentPlayers')
