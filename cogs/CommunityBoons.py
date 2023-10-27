@@ -672,7 +672,7 @@ class CommunityBoons(commands.Cog):
                             case 'training' | 'training' | 'xp' | 'demonblood':
                                 settings_list.extend(['SetServerSetting PlayerXPKillMultiplier 2.0'])
                                 cur.execute(f'update quotas set status = \'Active\' '
-                                            f'where material like \'%{boonName}%\'')
+                                            f'where material = \'Demonblood\'')
 
                             case 'maintenance' | 'maintenance' | 'durability' | 'kits':
                                 settings_list.extend(['SetServerSetting DurabilityMultiplier 0.5'])
@@ -692,7 +692,7 @@ class CommunityBoons(commands.Cog):
                             case 'proliferation' | 'proliferation' | 'spawnrate' | 'blood':
                                 settings_list.extend(['SetServerSetting NPCRespawnMultiplier 0.5'])
                                 cur.execute(f'update quotas set status = \'Active\' '
-                                            f'where material like \'%{boonName}%\'')
+                                            f'where material = \'Blood\'')
 
                             case 'smithing' | 'godforge' | 'compositeobsidian':
                                 cur.execute(f'update quotas set status = \'Inactive\' '

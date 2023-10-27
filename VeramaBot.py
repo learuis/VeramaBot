@@ -55,26 +55,10 @@ async def liveStatus():
     channel = bot.get_channel(STATUS_CHANNEL)
     message = await channel.fetch_message(STATUS_MESSAGE)
 
-    await editStatus(message, bot)
-
-@bot.command(name='break', aliases=['breaking', 'broke', 'why'])
-@commands.has_any_role('Admin', 'Moderator')
-@commands.check(modChannel)
-async def breaking(ctx):
-    """- Breaks the bot. Do not use!
-
-    You broke it.
-
-    Parameters
-    ----------
-    ctx
-
-    Returns
-    -------
-
-    """
-
-    await ctx.send(f'Nooooooooooooo I am broken')
+    try:
+        await editStatus(message, bot)
+    except discord.errors.DiscordServerError:
+        print(f'Discord error prevented status updates.')
 
 @bot.event
 async def on_command_error(ctx, error):

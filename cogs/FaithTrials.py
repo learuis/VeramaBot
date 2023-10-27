@@ -353,7 +353,7 @@ class FaithTrials(commands.Cog):
                             f'(\'{date.today()}\',{member[0]}, {reward[0]}, {reward[1]}, 0)')
 
             await ctx.send(f'`{member[1]}` has been granted **{faith.capitalize()}\'s Blessing of '
-                           f'{blessingNames.get(blessing).title()}**. Type `v/faith` to receive your reward.')
+                           f'{blessingNames.get(blessing.casefold()).title()}**. Type `v/faith` to receive your reward.')
         con.commit()
         con.close()
 
