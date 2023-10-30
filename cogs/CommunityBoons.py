@@ -416,6 +416,7 @@ class CommunityBoons(commands.Cog):
                 outputString = f'__Boon contribution totals:__\n'
 
                 for x in res:
+                    print(x)
                     try:
                         int(x[1])
                     except ValueError:

@@ -280,7 +280,7 @@ class Registration(commands.Cog):
             return
 
     @commands.command(name='clanlookup', aliases=['clanwho', 'whoclan', 'clan'])
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(publicChannel)
     async def clanLookup(self, ctx, searchTerm: str):
@@ -290,9 +290,9 @@ class Registration(commands.Cog):
 
         (use double quotes for names with spaces)
 
-        v/clanlookup player Verama
+        v/clanlookup Verama
         -or-
-        v/clanlookup clan "Band of Outcasts"
+        v/clanlookup "Band of Outcasts"
 
         Parameters
         ----------
