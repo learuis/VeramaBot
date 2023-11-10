@@ -4,7 +4,8 @@ import re
 
 from discord.ext import commands
 from functions.externalConnections import runRcon
-from functions.common import custom_cooldown, modChannel, publicChannel
+from functions.common import custom_cooldown, modChannel, publicChannel, get_rcon_id, is_registered
+
 
 class ServerActions(commands.Cog):
     """Cog class containing commands related to server status."""
@@ -106,8 +107,7 @@ class ServerActions(commands.Cog):
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(modChannel)
-    async def boss(self, ctx, charName: str,
-                   numberToSpawn: int = commands.parameter(default=1)):
+    async def boss(self, ctx):
         """- Spawns a random Siptah boss at cursor position.
 
         Uses RCON to spawn a random Siptah boss at the location your target is currently pointing at
@@ -115,44 +115,39 @@ class ServerActions(commands.Cog):
         Parameters
         ----------
         ctx
-        charName
-            - Character name to run command as
-        numberToSpawn
-            - Number of enemies to spawn
+
         Returns
         -------
 
         """
 
         monsterlist = []
-        monsterOutput = []
-        checkName = ''
-        commandTarget = 99
 
-        for counter in range(numberToSpawn):
+        character = is_registered(ctx.author.id)
 
-            file = io.open('boss_py.dat', mode='r')
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
 
-            for line in file:
-                monsterlist.append(line)
+        file = io.open('data/boss_py.dat', mode='r')
 
-            monster = random.choice(monsterlist)
-            monsterOutput.append(monster)
-            monster = f'dc spawn exact {monster}'
+        for line in file:
+            monsterlist.append(line)
 
-            rconResponse = runRcon('listplayers')
+        file.close()
 
-            del rconResponse[0]
-            for x in rconResponse:
-                if x[1] == charName:
-                    # later, contains
-                    commandTarget = x[0]
-                    checkName = x[1]
-            if charName == checkName:
-                runRcon(f'con {commandTarget} {monster}')
-            file.close()
+        monster = random.choice(monsterlist)
+        monster = f'dc spawn exact {monster}'
 
-        await ctx.send(f'Spawned {numberToSpawn} random bosses at {charName}\'s location.\n' + ''.join(monsterOutput))
+        rconCharId = get_rcon_id(character.char_name)
+        if not rconCharId:
+            await ctx.reply(f'Character {character.char_name} must be online to spawn bosses')
+            return
+        else:
+            runRcon(f'con {rconCharId} {monster}')
+
+            await ctx.send(f'Spawned `{monster}` at `{character.char_name}\'s` position')
+            return
 
 @commands.Cog.listener()
 async def setup(bot):

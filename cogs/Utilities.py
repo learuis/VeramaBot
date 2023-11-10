@@ -9,9 +9,12 @@ from discord.ext import commands
 
 from time import localtime, strftime
 
-from functions.common import custom_cooldown, modChannel, ununicode, publicChannel
+from functions.common import custom_cooldown, modChannel, ununicode, publicChannel, get_single_registration, \
+    get_rcon_id, is_registered
 
 from dotenv import load_dotenv
+
+from functions.externalConnections import runRcon
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -258,6 +261,41 @@ class Utilities(commands.Cog):
                 await message.edit(content=str(outputString))
         else:
             await message.edit(content=f'No matching entries found.')
+
+    @commands.command(name='market')
+    @commands.has_any_role('Outcasts')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def market(self, ctx):
+        """- Teleports you to the market.
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        if not ctx.bot.market_night:
+            await ctx.reply(f'This command can only be used during Market Night!')
+            return
+
+        character = is_registered(ctx.author.id)
+
+        if not character:
+            await ctx.reply(f'No character registered to player {ctx.author.mention}!')
+            return
+        else:
+            name = character.char_name
+
+        rconCharId = get_rcon_id(character.char_name)
+        if not rconCharId:
+            await ctx.reply(f'Character `{name}` must be online to teleport to the Market!')
+            return
+        else:
+            runRcon(f'con {rconCharId} TeleportPlayer 129890.84375 190925.296875 -19617.917969')
+            await ctx.reply(f'Teleported `{name}` to the Market.')
+            return
 
 @commands.Cog.listener()
 async def setup(bot):

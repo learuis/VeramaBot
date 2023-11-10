@@ -251,6 +251,161 @@ class Admin(commands.Cog):
         await ctx.send(f'Maintenance Flag: {ctx.bot.maintenance_flag}')
         print(ctx.bot.maintenance_flag)
 
+    @commands.command(name='charswap')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def charswap(self, ctx, activate_char: str):
+        """
+
+        Parameters
+        ----------
+        ctx
+        activate_char
+            Select main or alt
+
+        Returns
+        -------
+
+        """
+
+        # store account.id and account.user, character.id in a table in the veramambot db
+        # check that both characters are offline
+        # check if account.user = main account.user
+        # if so, change modify main account.user to a temp value
+        # set the alt account.user to the main account.user
+        # set the main account.user to the alt account.user
+        # commit and close
+
+        character = is_registered(ctx.author.id)
+        outputString = ''
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+        else:
+            con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+            cur = con.cursor()
+
+            cur.execute(f'select * from char_swap where main_char_id = {character.id};')
+            res = cur.fetchone()
+
+            con.close()
+
+            record_num = res[0]
+            main_acct_id = res[1]
+            main_acct_user = res[2]
+            main_char_id = res[3]
+            main_char_name = res[4]
+            alt_acct_id = res[5]
+            alt_acct_user = res[6]
+            alt_char_id = res[7]
+            alt_char_name = res[8]
+
+            print(f'{res[0]} {res[1]} {res[2]} {res[3]} {res[4]} {res[5]} {res[6]} {res[7]} {res[8]}')
+
+            outputString = (f'Starting character account swap process...\n'
+                            f'{res[0]} {res[1]} {res[2]} {res[3]} {res[4]} {res[5]} {res[6]} {res[7]} {res[8]}')
+            message = await ctx.reply(f'{outputString}')
+
+        rconMainId = get_rcon_id(main_char_name)
+        rconAltId = get_rcon_id(alt_char_name)
+
+        if rconMainId or rconAltId:
+            outputString += (f'\n\nCharacter swap failed! Both `{main_char_name}` and `{alt_char_name}` must be '
+                             f'offline to swap characters!')
+            await message.edit(content=outputString)
+            return
+        else:
+            outputString += (f'\nCharacters `{main_char_name}` and `{alt_char_name}` are offline. '
+                             f'Proceeding with character swap.')
+            await message.edit(content=outputString)
+
+            match activate_char:
+                case 'alt':
+                    response = runRcon(f'sql update account set user = \'{main_char_name}\' where id = {main_acct_id}')
+                    if response.error == 1:
+                        outputString += f'\nRCON command error.'
+                        await message.edit(content=outputString)
+                        return
+                    else:
+                        outputString += f'\n{response.output}'
+                        await message.edit(content=outputString)
+
+                    response = runRcon(f'sql update account set user = \'{main_acct_user}\' where id = {alt_acct_id}')
+                    if response.error == 1:
+                        outputString += f'\nRCON command error.'
+                        await message.edit(content=outputString)
+                        return
+                    else:
+                        outputString += f'\n{response.output}'
+                        await message.edit(content=outputString)
+
+                    response = runRcon(f'sql update account set user = \'{alt_acct_user}\' where id = {main_acct_id}')
+                    if response.error == 1:
+                        outputString += f'\nRCON command error.'
+                        await message.edit(content=outputString)
+                        return
+                    else:
+                        outputString += f'\n{response.output}'
+                        await message.edit(content=outputString)
+
+                    outputString += (f'\nCharacter swap from main `{main_char_name}` to alt `{alt_char_name}` '
+                                     f'is complete')
+                    await message.edit(content=outputString)
+                    return
+
+                case 'main':
+                    response = runRcon(f'sql update account set user = \'{alt_char_name}\' where id = {alt_acct_id}')
+                    if response.error == 1:
+                        outputString += f'\nRCON command error.'
+                        await message.edit(content=outputString)
+                        return
+                    else:
+                        outputString += f'\n{response.output}'
+                        await message.edit(content=outputString)
+
+                    response = runRcon(f'sql update account set user = \'{main_acct_user}\' where id = {main_acct_id}')
+                    if response.error == 1:
+                        outputString += f'\nRCON command error.'
+                        await message.edit(content=outputString)
+                        return
+                    else:
+                        outputString += f'\n{response.output}'
+                        await message.edit(content=outputString)
+
+                    response = runRcon(f'sql update account set user = \'{alt_acct_user}\' where id = {alt_acct_id}')
+                    if response.error == 1:
+                        outputString += f'\nRCON command error.'
+                        await message.edit(content=outputString)
+                        return
+                    else:
+                        outputString += f'\n{response.output}'
+                        await message.edit(content=outputString)
+
+                    outputString += (f'\nCharacter swap from alt `{alt_char_name}` to main `{main_char_name}` '
+                                     f'is complete')
+                    await message.edit(content=outputString)
+                    return
+
+    @commands.command(name='marketnight')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def marketnight(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+
+        ctx.bot.market_night = not ctx.bot.market_night
+        await ctx.send(f'Market Night Teleport Flag has been set to {ctx.bot.market_night}')
+        print(ctx.bot.maintenance_flag)
+
     '''@commands.command(name='fixstatus')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)

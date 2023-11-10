@@ -29,6 +29,7 @@ else:
     bot: Bot = commands.Bot(command_prefix=['vt/', 'Vt/'], intents=intents)
 
 bot.maintenance_flag = False
+bot.market_night = False
 
 @bot.event
 async def on_ready():
@@ -69,7 +70,8 @@ async def on_command_error(ctx, error):
         print(f'Command from {ctx.message.author} failed checks. '
               f'{ctx.message.channel.id} / {ctx.message.channel.name}.')
         channel = bot.get_channel(OUTCASTBOT_CHANNEL)
-        await ctx.send(f'You cannot use that command in this channel. Try {channel.mention}')
+        await ctx.send(f'You do not have permission to use this command, or you cannot use that command in this '
+                       f'channel. Try {channel.mention}!')
         return
     if isinstance(error, commands.errors.CommandOnCooldown):
         await ctx.send(error)
