@@ -8,6 +8,7 @@ from discord.ext.commands import Bot
 from discord.ext import tasks
 from dotenv import load_dotenv
 
+from cogs.QuestSystem import questUpdate
 from functions.common import is_docker, modChannel, editStatus
 from cogs.Registration import RegistrationButton
 from cogs.FaithTrials import ChooseGod
@@ -49,6 +50,12 @@ async def on_ready():
 
     if not liveStatus.is_running():
         liveStatus.start()
+
+@tasks.loop(minutes=1)
+async def questChecker():
+
+    await questUpdate()
+    print(f'quest tracker ping')
 
 @tasks.loop(minutes=1)
 async def liveStatus():

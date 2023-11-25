@@ -206,7 +206,7 @@ class FaithTrials(commands.Cog):
         embed.set_image(url='attachment://gods.png')
         await ctx.send(file=file, embed=embed, view=ChooseGod())
 
-    @commands.command(name='quest', aliases=['completequest'])
+    @commands.command(name='bless', aliases=['blessing', 'faithreward'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(modChannel)

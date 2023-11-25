@@ -8,7 +8,72 @@ class NameChange(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name='namechange', aliases=['changename', 'setname', 'rename'])
+    @commands.command(name='idlookup')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def idlookup(self, ctx, char_name: str):
+        """ Returns matching IDs and Character Names based on the provided name
+
+        Parameters
+        ----------
+        ctx
+        char_name
+            Full or partial character name, use quotes for names with spaces
+
+        Returns
+        -------
+
+        """
+        outputString = ''
+        response = runRcon(f'sql select id, char_name from characters where char_name like \'%{char_name}%\'')
+
+        if response.error == 1:
+            outputString += f'\n\nRCON Error.'
+            await ctx.reply(content=outputString)
+            return
+        else:
+            outputString = f'Matching ID and characters:\n'
+            message = await ctx.reply(content=outputString)
+            for x in response.output:
+                outputString += f'{x}\n'
+                await message.edit(content=outputString)
+            return
+
+    @commands.command(name='rename')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def rename(self, ctx, char_id: int, new_name: str):
+        """ Renames an unregistered character. Character must be offline to change name
+
+        Parameters
+        ----------
+        ctx
+        char_id
+            ID of the character whose name to change
+        new_name
+            New name. No special characters, use equotes around names with spaces
+
+        Returns
+        -------
+
+        """
+        outputString = ''
+
+        response = runRcon(f'sql update characters set char_name = \'{new_name}\' where id = {char_id}')
+
+        if response.error == 1:
+            outputString += f'\n\nRCON Error.'
+            await ctx.reply(content=outputString)
+            return
+        else:
+            for x in response.output:
+                outputString += f'{x}\n'
+            outputString += (f'Character ID `{char_id}` has been renamed to `{new_name}`. Probably.\n'
+                             f'Remember that this does not change their player registration!')
+            await ctx.reply(content=outputString)
+            return
+
+    @commands.command(name='namechange', aliases=['changename', 'setname'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(modChannel)

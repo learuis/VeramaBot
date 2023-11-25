@@ -17,6 +17,9 @@ class Admin(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    class RconFlags(commands.FlagConverter):
+        command: str
+
     @commands.command(name='restart')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
@@ -75,6 +78,7 @@ class Admin(commands.Cog):
         formattedOutput = ''
 
         for arg in args:
+            print(f'{arg}')
             command += f'{arg} '
 
         command = re.sub(';', '\"', command)
@@ -90,6 +94,62 @@ class Admin(commands.Cog):
 
         await ctx.send(formattedOutput)
         # I could add a lookup for their account ID here also and link back to their character ID.
+
+    @commands.command(name='rcon2')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def rcon2(self, ctx, *, flags: RconFlags):
+        """- Use RCON to run a single command
+
+        Uses RCON to run any single desired command, returns raw output.
+
+        Parameters
+        ----------
+        ctx
+        flags
+            - Single rcon command (can contain spaces)
+
+        Returns
+        -------
+
+        """
+        formattedOutput = ''
+
+        flags.command = re.sub('"', '\"', flags.command)
+
+        print(f'rcon2 command executed')
+        print(f'{flags.command}')
+
+        rconResponse = runRcon(flags.command)
+
+        for x in rconResponse.output:
+            formattedOutput += str(x) + '\n'
+
+        await ctx.send(formattedOutput)
+        return
+        # I could add a lookup for their account ID here also and link back to their character ID.
+
+        #command = ''
+        #formattedOutput = ''
+        #
+        # for arg in args:
+        #     print(f'{arg}')
+        #     command += f'{arg} '
+        #
+        # command = re.sub(';', '\"', command)
+        #
+        # rconResponse = runRcon(command)
+        #
+        # # for x in rconResponse.output:
+        # # if x[0]!='Idx':
+        # # connected_chars.append(x[1])
+        #
+        # for x in rconResponse.output:
+        #     formattedOutput += str(x) + '\n'
+        #
+        # await ctx.send(formattedOutput)
+        # # I could add a lookup for their account ID here also and link back to their character ID.
 
     @commands.command(name='gamechat')
     @commands.has_any_role('Admin')
@@ -488,7 +548,7 @@ class Admin(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(modChannel)
-    async def volcano(self, ctx, cell: int, name: str):
+    async def jail(self, ctx, cell: int, name: str):
         """Sends the named player to Fort Greenwall
 
         Parameters
