@@ -51,7 +51,10 @@ async def on_ready():
     if not liveStatus.is_running():
         liveStatus.start()
 
-@tasks.loop(minutes=1)
+    if not questChecker.is_running():
+        questChecker.start()
+
+@tasks.loop(seconds=30)
 async def questChecker():
 
     await questUpdate()
