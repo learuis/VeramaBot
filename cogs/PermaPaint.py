@@ -114,15 +114,18 @@ class PermaPaint(commands.Cog):
             await message.edit(content=outputString)
             return
 
-        rconCommand = f'con {rconId} setinventoryitemfloatstat 25 12 -1 1'
-        rconResponse = runRcon(rconCommand)
+        #rconCommand = f'con {rconId} setinventoryitemfloatstat 25 12 -1 1'
+        rconCommand = f'con {rconId} setinventoryitemfloatstat 25 7 100000000 1'
+        rconResponse1 = runRcon(rconCommand)
+        rconCommand = f'con {rconId} setinventoryitemfloatstat 25 8 100000000 1'
+        rconResponse2 = runRcon(rconCommand)
 
-        if rconResponse.error == 1:
+        if rconResponse1.error == 1 or rconResponse2.error == 1:
             outputString = f'Error on {rconCommand}'
             await message.edit(content=outputString)
             return
         else:
-            for x in rconResponse.output:
+            for x in rconResponse1.output:
                 print(f'{x}')
                 outputString = f'Converted warpaint to tattoo for `{charId.char_name}`.\n'
                 await message.edit(content=outputString)

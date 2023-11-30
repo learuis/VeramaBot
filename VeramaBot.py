@@ -58,7 +58,7 @@ async def on_ready():
 async def questChecker():
 
     await questUpdate()
-    print(f'quest tracker ping')
+    #print(f'quest tracker ping')
 
 @tasks.loop(minutes=1)
 async def liveStatus():

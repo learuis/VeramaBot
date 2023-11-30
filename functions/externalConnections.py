@@ -79,7 +79,7 @@ def runRcon(command: str):
     
     commandOutput = []
     failures = 0
-    print(f'{command}')
+    #print(f'{command}')
     
     while failures < 6:
         try:
