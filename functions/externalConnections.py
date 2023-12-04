@@ -3,6 +3,8 @@ from rcon import Console
 from rcon.util import remove_formatting_codes
 from ftplib import FTP
 import sqlite3
+import time
+from timeout_function_decorator import timeout
 
 from dotenv import load_dotenv
 
@@ -68,6 +70,8 @@ def db_delete_single_record(table: str, key_field: str, record_to_delete: int):
 
     return check_res
 
+
+@timeout(5, TimeoutError)
 def runRcon(command: str):
 
     class RconResponse:

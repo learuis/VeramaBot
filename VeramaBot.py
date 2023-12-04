@@ -9,7 +9,7 @@ from discord.ext import tasks
 from dotenv import load_dotenv
 
 from cogs.QuestSystem import questUpdate
-from functions.common import is_docker, modChannel, editStatus
+from functions.common import is_docker, modChannel, editStatus, place_markers
 from cogs.Registration import RegistrationButton
 from cogs.FaithTrials import ChooseGod
 
@@ -51,14 +51,20 @@ async def on_ready():
     if not liveStatus.is_running():
         liveStatus.start()
 
-    if not questChecker.is_running():
-        questChecker.start()
+    #if not questChecker.is_running():
+    #    questChecker.start()
 
-@tasks.loop(seconds=30)
-async def questChecker():
+    if not placeMarkers.is_running():
+        placeMarkers.start()
 
-    await questUpdate()
-    #print(f'quest tracker ping')
+# @tasks.loop(seconds=30)
+# async def questChecker():
+#
+#     try:
+#         await questUpdate()
+#     except TimeoutError:
+#         print(f'questUpdate took too long to complete.')
+#     #print(f'quest tracker ping')
 
 @tasks.loop(minutes=1)
 async def liveStatus():
@@ -70,6 +76,15 @@ async def liveStatus():
         await editStatus(message, bot)
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented status updates.')
+
+@tasks.loop(hours=1)
+async def placeMarkers():
+
+    try:
+        place_markers()
+        print(f'Placed Markers')
+    except TimeoutError:
+        print(f'placeMarkers took too long to complete.')
 
 @bot.event
 async def on_command_error(ctx, error):

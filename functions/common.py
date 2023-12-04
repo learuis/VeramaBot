@@ -4,6 +4,7 @@ import time
 import requests
 import os
 import sqlite3
+import io
 
 from functions.externalConnections import runRcon
 from time import strftime
@@ -236,3 +237,20 @@ async def editStatus(message, bot):
                                    f'- Players Connected: {currentPlayers} / {maxPlayers} {onlineSymbol}\n'
                                    f'Server restarts are at 4pm and 4am Eastern.')
     return
+
+def place_markers():
+    settings_list = []
+    response = False
+
+    file = io.open('data/markers.dat', mode='r')
+    for line in file:
+        settings_list.append(f'{line}')
+
+    for command in settings_list:
+        try:
+            runRcon(command)
+            response = f'Markers placed successfully.'
+        except TimeoutError:
+            response = f'Error when trying to place markers.'
+
+    return response

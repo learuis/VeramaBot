@@ -1,6 +1,6 @@
 import re
 import sqlite3
-import time
+from timeout_function_decorator import timeout
 
 from datetime import datetime
 from discord.ext import commands
@@ -153,7 +153,6 @@ def check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_rad
                            f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
                            f'and a.class like \'%BasePlayerChar_C%\' '
                            f'and acc.online = 1 limit 1')
-
     rconResponse.output.pop(0)
 
     if rconResponse.output:
@@ -186,6 +185,7 @@ def check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_rad
         print(f'Quest {quest_id} - No one is in the trigger area.')
         return False, False
 
+@timeout(5, TimeoutError)
 async def questUpdate():
 
     value = 0

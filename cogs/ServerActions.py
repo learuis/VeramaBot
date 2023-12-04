@@ -4,7 +4,7 @@ import re
 
 from discord.ext import commands
 from functions.externalConnections import runRcon
-from functions.common import custom_cooldown, modChannel, publicChannel, get_rcon_id, is_registered
+from functions.common import custom_cooldown, modChannel, publicChannel, get_rcon_id, is_registered, place_markers
 
 
 class ServerActions(commands.Cog):
@@ -89,19 +89,12 @@ class ServerActions(commands.Cog):
         settings_list = []
         rconOutput = []
 
-        file = io.open('data/markers.dat', mode='r')
-        for line in file:
-            settings_list.append(f'{line}')
+        marker_output = place_markers()
 
-        for command in settings_list:
-            rconResponse = runRcon(command)
-            if rconResponse.error == 1:
-                rconResponse.output = f'Authentication error on {command}'
-            rconOutput.extend(rconResponse.output)
+        if marker_output:
+            await message.edit(content=marker_output)
 
-        await message.edit(content=f'{len(settings_list)} markers have been placed!\n' +
-                                   '\n'.join(rconOutput))
-        await message.edit(suppress=True)
+        return
 
     @commands.command(name='boss')
     @commands.has_any_role('Admin')

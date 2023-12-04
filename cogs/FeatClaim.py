@@ -125,9 +125,13 @@ class FeatClaim(commands.Cog):
 
             for missingFeat in missingFeatList:
                 target = get_rcon_id(charId.char_name)
-                rconResponse = runRcon(f'con {target} learnfeat {missingFeat}')
-                feat_name = featDict.get(int(missingFeat))
-                outputString += f'\nGranted feat {feat_name}.'
+                try:
+                    runRcon(f'con {target} learnfeat {missingFeat}')
+                    feat_name = featDict.get(int(missingFeat))
+                    outputString += f'\nGranted feat {feat_name}.'
+                except TimeoutError:
+                    outputString += f'\nRCON Timeout when trying to grant feat {feat_name}.'
+
                 await message.edit(content=outputString)
 
         outputString += f'\nFeats restored for {charId.char_name} {ctx.message.author.mention}.'

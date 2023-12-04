@@ -5,6 +5,7 @@ import sqlite3
 import re
 import os
 
+import discord
 from discord.ext import commands
 
 from time import localtime, strftime
@@ -14,11 +15,34 @@ from functions.common import custom_cooldown, modChannel, ununicode, publicChann
 
 from dotenv import load_dotenv
 
-from functions.externalConnections import runRcon
+from functions.externalConnections import runRcon, db_query
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
+async def split_message(outputString, author):
+    splitOutput = ''
+    once = True
 
+    if outputString:
+        if len(outputString) > 20000:
+            await author.send(f'Too many results!')
+            return
+        if len(outputString) > 1800:
+            workList = outputString.splitlines()
+            for items in workList:
+                splitOutput += f'{str(items)}\n'
+                if len(str(splitOutput)) > 1800:
+                    if once:
+                        once = False
+                        await author.send(str(splitOutput))
+                        splitOutput = '(continued)\n'
+                    else:
+                        await author.send(str(splitOutput))
+                        splitOutput = '(continued)\n'
+                else:
+                    continue
+        else:
+            await author.send(str(outputString))
 class Utilities(commands.Cog):
     """Cog class containing commands related to server status."""
 
@@ -293,9 +317,163 @@ class Utilities(commands.Cog):
             await ctx.reply(f'Character `{name}` must be online to teleport to the Market!')
             return
         else:
-            runRcon(f'con {rconCharId} TeleportPlayer 129890.84375 190925.296875 -19617.917969')
+            runRcon(f'con {rconCharId} TeleportPlayer -37665.277344 182622.6875 -8276.037109')
+            #runRcon(f'con {rconCharId} TeleportPlayer 129890.84375 190925.296875 -19617.917969')
             await ctx.reply(f'Teleported `{name}` to the Market.')
             return
+
+    @commands.command(name='outcastoverview', aliases=['oo', 'overview'])
+    @commands.has_any_role('Outcasts')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def outcastoverview(self, ctx, command: str = 'top', name: str = False):
+        """ - Reviews kills for the most recent season
+
+
+        Usage Examples:
+
+        Top 25 Most Kills
+
+        v/outcastoverview top
+
+        Character's Top 25 Kill Counts by Enemy Type
+
+        v/outcastoverview character Sergio
+
+        Your own full Overview:
+
+        v/outcastoverview me
+
+        Top Kill Counts by Enemy Type:
+
+        v/outcastoverview type
+
+        Top Kill Counts for matching Enemy Types:
+
+        v/outcastoverview type dragon
+
+        Parameters
+        ----------
+        ctx
+        command
+            type <name> | character <name> | top | me
+        name
+
+        Returns
+        -------
+
+        """
+        outputString = ''
+        splitOutput = ''
+        once = True
+        place = 0
+
+        command.strip()
+
+        match command:
+            case 'type':
+                if name:
+                    output = db_query(f'select enemy_name, character_name, max(kills) from kill_counter '
+                                      f'where kills > 1 and enemy_name like \'%{name}%\' '
+                                      f'group by enemy_name order by kills desc, enemy_name desc;')
+                    if output:
+                        outputString += f'**Most Kills (>=10) of Enemy Types matching `{name}`**:\n'
+                    else:
+                        outputString += f'No results.'
+                else:
+                    output = db_query(f'select enemy_name, character_name, max(kills) from kill_counter '
+                                      f'where kills >= 10 group by enemy_name order by kills desc , enemy_name desc;')
+                    if output:
+                        outputString += f'**Most Kills of All Enemy Types**:\n'
+                    else:
+                        outputString += f'No results.'
+
+                for record in output:
+                    (enemy_name, character_name, kills) = record
+                    outputString += f'{enemy_name} - {character_name} - {kills}\n'
+
+            case 'me':
+                char_info = is_registered(ctx.author.id)
+                if not char_info:
+                    await ctx.send(f'Your character must be registered in order to see your full Outcast Overview!')
+                output = db_query(f'select enemy_name, character_name, count(character_name) from wrapped '
+                                  f'where character_name = \'{char_info.char_name}\' '
+                                  f'group by enemy_name order by count(character_name) desc;')
+                if output:
+                    count = db_query(f'select count(character_name) from wrapped '
+                                     f'where character_name = \'{char_info.char_name}\'')
+                    count = sum(count, ())
+
+                    ranking = db_query(f'select character_name, count(character_name) '
+                                       f'from wrapped group by character_name order by count(character_name) desc;')
+
+                    for index, line in enumerate(ranking):
+                        if char_info.char_name in line:
+                            place = index + 1
+
+                    outputString += f'**Outcast Overview for {char_info.char_name}:**\n'
+                    outputString += f'**Total Kills: {count[0]} (Rank: {place})**\n'
+                    outputString += f'Detailed information sent via DM.\n'
+
+                    await ctx.reply(f'{outputString}')
+
+                    for record in output:
+                        (enemy_name, character_name, kills) = record
+                        outputString += f'{enemy_name} - {kills}\n'
+
+                    await split_message(outputString, ctx.message.author)
+                    return
+
+            case 'top':
+                output = db_query(f'select character_name, count(character_name) '
+                                  f'from wrapped group by character_name order by count(character_name) desc limit 25;')
+                if output:
+                    outputString += f'**Outcast Overview: Top 25 Most Kills**\n\n'
+                    for index, record in enumerate(output):
+                        (character_name, kills) = record
+                        outputString += f'{index+1} - {character_name} - {kills}\n'
+
+            case 'character':
+                if name:
+                    output = db_query(f'select enemy_name, character_name, count(character_name) from wrapped '
+                                      f'where character_name like \'%{name}%\' '
+                                      f'group by enemy_name order by count(character_name) desc limit 25;')
+                    if output:
+                        outputString += (f'**Outcast Overview: Top 25 Enemies Killed by '
+                                         f'character names matching `{name}`:**\n\n')
+                        for record in output:
+                            (enemy_name, character_name, kills) = record
+                            outputString += f'{enemy_name} - {kills}\n'
+                    else:
+                        outputString += f'No character found named {command}'
+                else:
+                    outputString += f'Character name must be provided! Use `v/help outcastoverview`'
+
+            case _:
+                outputString += f'Incorrect command syntax! Use `v/help outcastoverview`'
+
+        if outputString:
+            if len(outputString) > 20000:
+                await ctx.send(f'Too many results!')
+                return
+            if len(outputString) > 1800:
+                workList = outputString.splitlines()
+                for items in workList:
+                    splitOutput += f'{str(items)}\n'
+                    if len(str(splitOutput)) > 1800:
+                        if once:
+                            once = False
+                            await ctx.author.send(str(splitOutput))
+                            splitOutput = '(continued)\n'
+                        else:
+                            await ctx.send(str(splitOutput))
+                            splitOutput = '(continued)\n'
+                    else:
+                        continue
+            else:
+                await ctx.send(str(outputString))
+
+        return
+
 
 @commands.Cog.listener()
 async def setup(bot):
