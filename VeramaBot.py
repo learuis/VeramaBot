@@ -51,20 +51,20 @@ async def on_ready():
     if not liveStatus.is_running():
         liveStatus.start()
 
-    #if not questChecker.is_running():
-    #    questChecker.start()
+    if not questChecker.is_running():
+        questChecker.start()
 
     if not placeMarkers.is_running():
         placeMarkers.start()
 
-# @tasks.loop(seconds=30)
-# async def questChecker():
-#
-#     try:
-#         await questUpdate()
-#     except TimeoutError:
-#         print(f'questUpdate took too long to complete.')
-#     #print(f'quest tracker ping')
+@tasks.loop(seconds=30)
+async def questChecker():
+
+    try:
+        await questUpdate()
+    except TimeoutError:
+        print(f'questUpdate took too long to complete.')
+    #print(f'quest tracker ping')
 
 @tasks.loop(minutes=1)
 async def liveStatus():
@@ -82,7 +82,6 @@ async def placeMarkers():
 
     try:
         place_markers()
-        print(f'Placed Markers')
     except TimeoutError:
         print(f'placeMarkers took too long to complete.')
 

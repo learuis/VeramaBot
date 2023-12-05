@@ -83,8 +83,7 @@ def runRcon(command: str):
     
     commandOutput = []
     failures = 0
-    #print(f'{command}')
-    
+
     while failures < 6:
         try:
             console = Console(host=RCON_HOST, port=int(RCON_PORT), password=RCON_PASS)

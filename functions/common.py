@@ -16,6 +16,9 @@ BOT_CHANNEL = int(os.getenv('BOT_CHANNEL'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 BOON_CHANNEL = int(os.getenv('BOON_CHANNEL'))
 OWNER_USER_ID = int(os.getenv('OWNER_USER_ID'))
+SERVER_PASSWORD = str(os.getenv('SERVER_PASSWORD'))
+SERVER_NAME = str(os.getenv('SERVER_NAME'))
+SERVER_PORT = int(os.getenv('SERVER_PORT'))
 
 def custom_cooldown(ctx):
     whitelist = {'Admin', 'Moderator'}
@@ -195,16 +198,17 @@ async def editStatus(message, bot):
     currentPlayers = response.get('currentPlayers')
     maxPlayers = response.get('maxPlayers')
 
-    if onlineStatus == 'False':
+    if 'False' in str(onlineStatus):
         statusSymbol = '<:redtick:1152409914430455839>'
-        await bot.change_presence(activity=discord.Activity(name=f'-/{maxPlayers} OFFLINE', type=3))
+        await bot.change_presence(activity=discord.Activity(name=f'SERVER DOWN', type=3))
     else:
         if bot.maintenance_flag:
             statusSymbol = '🔧'
             await bot.change_presence(activity=discord.Activity(name=f'MAINTENANCE', type=3))
         else:
             statusSymbol = '<:greentick:1152409721966432376>'
-            await bot.change_presence(activity=discord.Activity(name=f'{currentPlayers}/{maxPlayers} ONLINE', type=3))
+            await bot.change_presence(activity=discord.Activity(
+                name=f'{currentPlayers}/{maxPlayers} ONLINE', type=3))
 
     onlineSymbol = ':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
@@ -224,17 +228,21 @@ async def editStatus(message, bot):
         onlineSymbol = f':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
     if bot.maintenance_flag:
-        await message.edit(content=f'**Band of Outcasts Server Status**\n'
+        await message.edit(content=f'**Server Status**\n'
                                    f'__{currentTime}__\n'
-                                   f'- IP Address: {ipAddress}:32200\n'
+                                   f'- Server Name: `{SERVER_NAME}`\n'
+                                   f'- IP Address:Port: `{ipAddress}:{SERVER_PORT}`\n'
+                                   f'- Password: {SERVER_PASSWORD}\n'
                                    f'-- {statusSymbol} MAINTENANCE {statusSymbol} --\n'
                                    f'We\'ll be back soon!')
     else:
-        await message.edit(content=f'**Band of Outcasts Server Status**\n'
+        await message.edit(content=f'**Server Status**\n'
                                    f'__{currentTime}__\n'
-                                   f'- IP Address: {ipAddress}:32200\n'
-                                   f'- Server Online: {onlineStatus} {statusSymbol}\n'
-                                   f'- Players Connected: {currentPlayers} / {maxPlayers} {onlineSymbol}\n'
+                                   f'- Server Name: `{SERVER_NAME}`\n'
+                                   f'- IP Address:Port: `{ipAddress}:{SERVER_PORT}`\n'
+                                   f'- Password: `{SERVER_PASSWORD}`\n'
+                                   f'- Server Online: `{onlineStatus}` {statusSymbol}\n'
+                                   f'- Players Connected: `{currentPlayers}` / `{maxPlayers}` {onlineSymbol}\n'
                                    f'Server restarts are at 4pm and 4am Eastern.')
     return
 

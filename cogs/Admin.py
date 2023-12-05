@@ -55,6 +55,11 @@ class Admin(commands.Cog):
         await ctx.send(rconResponse.output)
         # I could add a lookup for their account ID here also and link back to their character ID.
 
+    @commands.command(name='status_prepare')
+    @commands.is_owner()
+    async def prepare(self, ctx: commands.Context):
+        await ctx.send(f'This message will be updated with status information!')
+
     @commands.command(name='rcon')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
