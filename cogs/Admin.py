@@ -5,7 +5,7 @@ import sqlite3
 
 from discord.ext import commands
 
-from functions.externalConnections import runRcon, downloadSave, db_query
+from functions.externalConnections import runRcon, downloadSave, db_query  #, runRcon3
 from functions.common import custom_cooldown, modChannel, is_registered, get_rcon_id, get_single_registration
 from datetime import datetime
 from datetime import timezone
@@ -59,6 +59,25 @@ class Admin(commands.Cog):
     @commands.is_owner()
     async def prepare(self, ctx: commands.Context):
         await ctx.send(f'This message will be updated with status information!')
+
+    @commands.command(name='rcon3')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def rcon3(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+
+        print(f'ran rcon3')
+        response = await runRcon3()
+        await ctx.send(f'{response}')
 
     @commands.command(name='rcon')
     @commands.has_any_role('Admin')

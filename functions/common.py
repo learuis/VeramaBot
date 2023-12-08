@@ -184,6 +184,14 @@ def get_single_registration(char_name):
     else:
         return False
 
+def run_console_command_by_name(char_name: str, command: str):
+    rcon_id = get_rcon_id(f'{char_name}')
+    if not rcon_id:
+        return False
+    else:
+        runRcon(f'con {rcon_id} {command}')
+        return
+
 async def editStatus(message, bot):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
 

@@ -4,8 +4,9 @@ from timeout_function_decorator import timeout
 
 from datetime import datetime
 from discord.ext import commands
-from functions.common import custom_cooldown, is_registered, get_rcon_id
+from functions.common import custom_cooldown, is_registered, get_rcon_id, run_console_command_by_name
 from functions.externalConnections import runRcon, db_query
+
 
 def increment_step(quest_status, char_id, char_name, quest_id, quest_start_time):
 
@@ -62,11 +63,9 @@ def display_quest_text(quest_id, quest_status, alt, char_name):
         altText2 = record[5]
 
     if alt:
-        run_console_command_by_name(quest_id, char_name,
-                                    f'testFIFO {altStyle} \"{altText1}\" \"{altText2}\"')
+        run_console_command_by_name(char_name, f'testFIFO {altStyle} \"{altText1}\" \"{altText2}\"')
     else:
-        run_console_command_by_name(quest_id, char_name,
-                                    f'testFIFO {style} \"{text1}\" \"{text2}\"')
+        run_console_command_by_name(char_name, f'testFIFO {style} \"{text1}\" \"{text2}\"')
 
     return
 
@@ -86,7 +85,7 @@ def reset_quest_progress(quest_id):
 
     return
 
-def run_console_command_by_name(quest_id: int, char_name: str, command: str):
+def run_console_command_by_name_reset_quest(quest_id: int, char_name: str, command: str):
 
     rcon_id = get_rcon_id(f'{char_name}')
     if not rcon_id:
@@ -97,6 +96,26 @@ def run_console_command_by_name(quest_id: int, char_name: str, command: str):
         runRcon(f'con {rcon_id} {command}')
 
     return
+
+def consume_from_inventory(char_id, char_name, template_id):
+    value = 0
+    results = runRcon(f'sql select item_id from item_inventory '
+                      f'where owner_id = {char_id} and inv_type = 0 '
+                      f'and template_id = {template_id} limit 1')
+    if results.output:
+        results.output.pop(0)
+        if not results.output:
+            print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
+            return False
+        else:
+            for result in results.output:
+                match = re.search(r'\s+\d+ | [^|]*', result)
+                item_slot = int(match[0])
+                run_console_command_by_name(char_name,f'setinventoryitemintstat {item_slot} 1 0 0')
+                print(f'Deleted {template_id} from {char_id} {char_name} in slot {item_slot}')
+                return True
+    print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
+    return True
 
 def check_inventory(owner_id, inv_type, template_id):
 
@@ -139,6 +158,7 @@ def is_active_player_dead(char_id, quest_start_time):
         return True
 
 def check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius):
+    # this needs to be rewritten to move quest specific logic into the main function
     nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
     sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
 
@@ -178,12 +198,88 @@ def check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_rad
 
                 runRcon(f'con {rcon_id} testFIFO 2 \"Complete!\" \"{quest_name}\"')
 
+                return False, False
+
             print(f'Quest {quest_id} - {char_name} is in the trigger area with character ID {char_id}.')
             return char_id, char_name
 
     else:
         print(f'Quest {quest_id} - No one is in the trigger area.')
         return False, False
+
+def character_in_radius(trigger_x, trigger_y, trigger_radius):
+    nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
+    sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
+
+    connected_chars = []
+
+    rconResponse = runRcon(f'sql select a.id, c.char_name from actor_position as a '
+                           f'left join characters as c on c.id = a.id '
+                           f'left join account as acc on acc.id = c.playerId '
+                           f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
+                           f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
+                           f'and a.class like \'%BasePlayerChar_C%\' '
+                           f'and acc.online = 1 limit 1')
+    rconResponse.output.pop(0)
+
+    if rconResponse.output:
+        match = re.findall(r'\s+\d+ | [^|]*', rconResponse.output[0])
+
+        connected_chars.append(match)
+        character_info = sum(connected_chars, [])
+
+        if character_info:
+            char_id = int(character_info[0].strip())
+            char_name = str(character_info[1].strip())
+
+            return char_id, char_name
+        else:
+            return False, False
+    else:
+        return False, False
+
+def flatten_list(input_list: list):
+    output_list = (sum(input_list, ()))
+    return output_list
+
+def clear_cooldown(char_id, quest_id):
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'delete from quest_timeout where character_id = {char_id} and quest_id = {quest_id}')
+    print(f'deleted')
+
+    con.commit()
+    con.close()
+
+def add_cooldown(char_id, quest_id, cooldown: int):
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'insert or ignore into quest_timeout '
+                f'values ({quest_id}, {char_id}, {int_epoch_time()+cooldown})')
+
+    con.commit()
+    con.close()
+
+def grant_reward(char_name, quest_id):
+    reward_list = db_query(f'select reward_template_id, reward_qty, reward_feat_id '
+                           f'from quest_rewards where quest_id = {quest_id}')
+    for reward in reward_list:
+        (reward_template_id, reward_qty, reward_feat_id) = reward
+        display_quest_text(quest_id, 0, True, char_name)
+        if reward_template_id and reward_qty:
+            run_console_command_by_name_reset_quest(quest_id, char_name,
+                                                    f'spawnitem {reward_template_id} {reward_qty}')
+        if reward_feat_id:
+            run_console_command_by_name_reset_quest(quest_id, char_name, f'learnfeat {reward_feat_id}')
+
+        return
+        # con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        # cur = con.cursor()
+        # cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},{feat})')
+        # con.commit()
+        # con.close()
 
 @timeout(5, TimeoutError)
 async def questUpdate():
@@ -288,7 +384,7 @@ async def questUpdate():
                 if inventoryHasItem:
                     display_quest_text(quest_id, quest_status, False, char_name)
                     increment_step(quest_status, char_id, char_name, quest_id, int_epoch_time())
-                    run_console_command_by_name(quest_id, char_name,
+                    run_console_command_by_name_reset_quest(quest_id, char_name,
                                                 f'teleportplayer {target_x} {target_y} {target_z}')
                 else:
                     display_quest_text(quest_id, quest_status, True, char_name)
@@ -347,11 +443,11 @@ async def questUpdate():
 
                 display_quest_text(quest_id, quest_status, False, char_name)
 
-                run_console_command_by_name(quest_id, char_name, f'spawnitem {template_id} {spawn_qty}')
+                run_console_command_by_name_reset_quest(quest_id, char_name, f'spawnitem {template_id} {spawn_qty}')
 
-                run_console_command_by_name(quest_id, char_name, f'dc spawn kill')
+                run_console_command_by_name_reset_quest(quest_id, char_name, f'dc spawn kill')
 
-                run_console_command_by_name(quest_id, char_name, f' teleportplayer {target_x} {target_y} {target_z}')
+                run_console_command_by_name_reset_quest(quest_id, char_name, f' teleportplayer {target_x} {target_y} {target_z}')
 
                 complete_quest(quest_id, char_id)
 
@@ -386,13 +482,73 @@ async def questUpdate():
     #                     f'Character {character.char_name} must be online to begin the Proving Grounds.')
     #     return
 
+async def oneStepQuestUpdate():
+
+    quest_list = db_query(f'select quest_id, quest_name, active_flag, requirement_type, repeatable, '
+                          f'trigger_x, trigger_y, trigger_z, trigger_radius, '
+                          f'target_x, target_y, target_z '
+                          f'from one_step_quests')
+
+    #quest_list = flatten_list(one_step_triggers)
+
+    for quest in quest_list:
+        (quest_id, quest_name, active_flag, requirement_type, repeatable,
+         trigger_x, trigger_y, trigger_z, trigger_radius, target_x, target_y, target_z) = quest
+
+        char_id, char_name = character_in_radius(trigger_x, trigger_y, trigger_radius)
+
+        if not char_id:
+            print(f'Skipping quest {quest_id}, no one in the box')
+            continue
+
+        cooldown_records = db_query(f'select timeout_until from quest_timeout '
+                                    f'where character_id = {char_id} and quest_id = {quest_id} limit 1')
+        if cooldown_records:
+            cooldown = flatten_list(cooldown_records)
+            cooldown_until = cooldown[0]
+            if int(int_epoch_time() < cooldown_until):
+                print(f'Skipping quest {quest_id} for id {char_id} {char_name}, on cooldown')
+                continue
+            else:
+                print(f'Clearing cooldown on {quest_id} for id {char_id} {char_name}')
+                clear_cooldown(char_id, quest_id)
+
+        match requirement_type:
+            case 'Presence':
+                display_quest_text(quest_id, 0, False, char_name)
+                run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
+                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                add_cooldown(char_id, quest_id, 120)
+                continue
+
+            case 'BringItems':
+                req_list = db_query(f'select mode, template_id, item_qty '
+                                    f'from quest_requirements where quest_id = {quest_id}')
+                for requirement in req_list:
+                    (mode, template_id, item_qty) = requirement
+                    match mode:
+                        case 'All':
+                            inventoryHasItem = check_inventory(char_id, 0, template_id)
+                            if inventoryHasItem:
+                                consume_from_inventory(char_id, char_name, template_id)
+                                print(f'Quest {quest_id} - {char_id} has required item {template_id}')
+                                display_quest_text(quest_id, 0, False, char_name)
+                                grant_reward(char_name, quest_id)
+                                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                                add_cooldown(char_id, quest_id, 9999999999)
+                            else:
+                                print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
+                                      f'does not have the required item {template_id}')
+                                continue
+
+                continue
 
 class QuestSystem(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @commands.command(name='resetquest')
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def resetquest(self, ctx, quest_id):
         """
@@ -446,10 +602,12 @@ class QuestSystem(commands.Cog):
         con.commit()
         con.close()
 
+        clear_cooldown(char_id, quest_id)
+
         await ctx.send(f'Quest History for quest {quest_id} / player {char_id} has been reset.')
 
     @commands.command(name='queststatus')
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def queststatus(self, ctx):
         """

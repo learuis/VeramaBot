@@ -5,13 +5,14 @@ from ftplib import FTP
 import sqlite3
 import time
 from timeout_function_decorator import timeout
+#from asyncrcon import AsyncRCON, AuthenticationException
 
 from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
 RCON_HOST = os.getenv('RCON_HOST')
-RCON_PORT = os.getenv('RCON_PORT')
-RCON_PASS = os.getenv('RCON_PASS')
+RCON_PORT = int(os.getenv('RCON_PORT'))
+RCON_PASS = str(os.getenv('RCON_PASS'))
 FTP_HOST = os.getenv('FTP_HOST')
 FTP_PORT = os.getenv('FTP_PORT')
 FTP_USER = os.getenv('FTP_USER')
@@ -70,6 +71,26 @@ def db_delete_single_record(table: str, key_field: str, record_to_delete: int):
 
     return check_res
 
+# async def runRcon3():
+#     print(f'inside runRcon3')
+#     print(f'{RCON_HOST}:{RCON_PORT} {RCON_PASS}')
+#     rcon = AsyncRCON(f'{RCON_HOST}:{RCON_PORT}', f'{RCON_PASS}')
+#     try:
+#         print(f'trying')
+#         await rcon.open_connection()
+#     except AuthenticationException:
+#         print('Login failed: Unauthorized.')
+#         return
+#
+#     print(f'sending command')
+#     res = await rcon.command(f'listplayers')
+#     if not res:
+#         print(f'nothing from server')
+#     print(res)
+#
+#     rcon.close()
+#
+#     return res
 
 @timeout(5, TimeoutError)
 def runRcon(command: str):
@@ -112,3 +133,4 @@ def runRcon(command: str):
 
     returnValue.output = commandOutput
     return returnValue
+

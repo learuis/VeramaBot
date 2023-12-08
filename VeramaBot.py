@@ -1,4 +1,6 @@
 # VeramaBot.py
+import asyncio
+
 import discord
 import time
 import os
@@ -8,7 +10,7 @@ from discord.ext.commands import Bot
 from discord.ext import tasks
 from dotenv import load_dotenv
 
-from cogs.QuestSystem import questUpdate
+from cogs.QuestSystem import questUpdate, oneStepQuestUpdate
 from functions.common import is_docker, modChannel, editStatus, place_markers
 from cogs.Registration import RegistrationButton
 from cogs.FaithTrials import ChooseGod
@@ -32,6 +34,9 @@ else:
 bot.maintenance_flag = False
 bot.market_night = False
 
+# @bot.event
+# async def on_ready():
+
 @bot.event
 async def on_ready():
     for f in os.listdir('./cogs'):
@@ -54,6 +59,9 @@ async def on_ready():
     if not questChecker.is_running():
         questChecker.start()
 
+    if not oneStepQuestChecker.is_running():
+        oneStepQuestChecker.start()
+
     if not placeMarkers.is_running():
         placeMarkers.start()
 
@@ -65,6 +73,16 @@ async def questChecker():
     except TimeoutError:
         print(f'questUpdate took too long to complete.')
     #print(f'quest tracker ping')
+
+@tasks.loop(seconds=30)
+async def oneStepQuestChecker():
+    try:
+        await oneStepQuestUpdate()
+    except TimeoutError:
+        print(f'oneStepQuestUpdate took too long to complete.')
+
+
+# print(f'quest tracker ping')
 
 @tasks.loop(minutes=1)
 async def liveStatus():
@@ -114,7 +132,6 @@ async def on_command_error(ctx, error):
     else:
         await ctx.send(error)
         raise error
-
 
 bot.run(TOKEN)
 
