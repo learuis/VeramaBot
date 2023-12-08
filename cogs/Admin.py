@@ -6,7 +6,8 @@ import sqlite3
 from discord.ext import commands
 
 from functions.externalConnections import runRcon, downloadSave, db_query  #, runRcon3
-from functions.common import custom_cooldown, modChannel, is_registered, get_rcon_id, get_single_registration
+from functions.common import custom_cooldown, modChannel, is_registered, get_rcon_id, get_single_registration, \
+    pull_online_character_info
 from datetime import datetime
 from datetime import timezone
 from time import strftime
@@ -609,6 +610,22 @@ class Admin(commands.Cog):
 
             await ctx.reply(f'Sent `{name}` to Fort Greenwall in cell {cell}.')
             return
+
+    @commands.command(name='onlinecharinfo')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def onlinecharinfo(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        pull_online_character_info()
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))

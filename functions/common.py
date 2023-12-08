@@ -9,6 +9,7 @@ import io
 from functions.externalConnections import runRcon
 from time import strftime
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv('data/server.env')
 QUERY_URL = os.getenv('QUERY_URL')
@@ -270,3 +271,51 @@ def place_markers():
             response = f'Error when trying to place markers.'
 
     return response
+
+def int_epoch_time():
+    current_time = datetime.now()
+    epoch_time = int(round(current_time.timestamp()))
+
+    return epoch_time
+
+def pull_online_character_info():
+    #print(f'start {int_epoch_time()}')
+    connected_chars = []
+    char_id_list = []
+    information_list = []
+
+    charlistResponse = runRcon(f'listplayers')
+    charlistResponse.output.pop(0)
+    for response in charlistResponse.output:
+        match = re.findall(r'\s+\d+ | [^|]*', response)
+        connected_chars.append(match)
+
+    for char in connected_chars:
+        char_name = char[1].strip()
+        registration = get_single_registration(char_name)
+        char_id = registration[0]
+        char_id_list.append(str(char_id))
+
+    criteria = ','.join(char_id_list)
+    locationResponse = runRcon(f'sql select a.id, c.char_name, a.x, a.y, a.z '
+                               f'from actor_position as a left join characters as c on c.id = a.id '
+                               f'where a.id in ({criteria}) limit 30')
+    locationResponse.output.pop(0)
+    for location in locationResponse.output:
+        #print(f'{location}')
+        locMatch = re.findall(r'\s+\d+ | [^|]*', location)
+        information_list.append(locMatch)
+
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+    cur.execute(f'delete from online_character_info')
+
+    for info in information_list:
+        cur.execute(f'insert or ignore into online_character_info (char_id,char_name,x,y,z) '
+                    f'values ({info[0].strip()},\'{info[1].strip()}\','
+                    f'{info[2].strip()},{info[3].strip()},{info[4].strip()})')
+
+    con.commit()
+    con.close()
+
+    #print(f'end {int_epoch_time()}')

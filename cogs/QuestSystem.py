@@ -2,9 +2,9 @@ import re
 import sqlite3
 from timeout_function_decorator import timeout
 
-from datetime import datetime
 from discord.ext import commands
-from functions.common import custom_cooldown, is_registered, get_rcon_id, run_console_command_by_name
+from functions.common import custom_cooldown, is_registered, get_rcon_id, run_console_command_by_name, int_epoch_time, \
+    pull_online_character_info
 from functions.externalConnections import runRcon, db_query
 
 
@@ -141,12 +141,6 @@ def check_inventory(owner_id, inv_type, template_id):
 
     return False
 
-def int_epoch_time():
-    current_time = datetime.now()
-    epoch_time = int(round(current_time.timestamp()))
-
-    return epoch_time
-
 def is_active_player_dead(char_id, quest_start_time):
     result = runRcon(f'sql select ownerId from game_events '
                      f'where ownerId = {char_id} and worldtime > {quest_start_time} and eventType = 103')
@@ -211,32 +205,46 @@ def character_in_radius(trigger_x, trigger_y, trigger_radius):
     nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
     sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
 
-    connected_chars = []
+    #connected_chars = []
 
-    rconResponse = runRcon(f'sql select a.id, c.char_name from actor_position as a '
-                           f'left join characters as c on c.id = a.id '
-                           f'left join account as acc on acc.id = c.playerId '
-                           f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
-                           f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
-                           f'and a.class like \'%BasePlayerChar_C%\' '
-                           f'and acc.online = 1 limit 1')
-    rconResponse.output.pop(0)
-
-    if rconResponse.output:
-        match = re.findall(r'\s+\d+ | [^|]*', rconResponse.output[0])
-
-        connected_chars.append(match)
-        character_info = sum(connected_chars, [])
-
-        if character_info:
-            char_id = int(character_info[0].strip())
-            char_name = str(character_info[1].strip())
-
-            return char_id, char_name
-        else:
-            return False, False
+    results = db_query(f'select char_id, char_name from online_character_info '
+                       f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
+                       f'and x <= {sePoint[0]} and y <= {sePoint[1]} limit 1')
+    char_info = flatten_list(results)
+    if char_info:
+        (char_id, char_name) = char_info
     else:
         return False, False
+
+    if char_id and char_name:
+        return char_id, char_name
+    else:
+        return False, False
+
+    # rconResponse = runRcon(f'sql select a.id, c.char_name from actor_position as a '
+    #                        f'left join characters as c on c.id = a.id '
+    #                        f'left join account as acc on acc.id = c.playerId '
+    #                        f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
+    #                        f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
+    #                        f'and a.class like \'%BasePlayerChar_C%\' '
+    #                        f'and acc.online = 1 limit 1')
+    # rconResponse.output.pop(0)
+    #
+    # if rconResponse.output:
+    #     match = re.findall(r'\s+\d+ | [^|]*', rconResponse.output[0])
+    #
+    #     connected_chars.append(match)
+    #     character_info = sum(connected_chars, [])
+    #
+    #     if character_info:
+    #         char_id = int(character_info[0].strip())
+    #         char_name = str(character_info[1].strip())
+    #
+    #         return char_id, char_name
+    #     else:
+    #         return False, False
+    # else:
+    #     return False, False
 
 def flatten_list(input_list: list):
     output_list = (sum(input_list, ()))
@@ -247,7 +255,7 @@ def clear_cooldown(char_id, quest_id):
     cur = con.cursor()
 
     cur.execute(f'delete from quest_timeout where character_id = {char_id} and quest_id = {quest_id}')
-    print(f'deleted')
+    print(f'Cooldown cleared for quest {quest_id} / character {char_id}')
 
     con.commit()
     con.close()
@@ -313,20 +321,6 @@ async def questUpdate():
 
         (trigger_x, trigger_y, trigger_radius, trigger_type, template_id, target_x,
          target_y, target_z, spawn_name, spawn_qty, end_condition, target_container, step_ready) = current_trigger
-
-        # trigger_x = current_trigger[0]
-        # trigger_y = current_trigger[1]
-        # trigger_radius = current_trigger[2]
-        # trigger_type = current_trigger[3]
-        # template_id = current_trigger[4]
-        # target_x = current_trigger[5]
-        # target_y = current_trigger[6]
-        # target_z = current_trigger[7]
-        # spawn_name = current_trigger[8]
-        # spawn_qty = current_trigger[9]
-        # end_condition = current_trigger[10]
-        # target_container = current_trigger[11]
-        # step_ready = current_trigger[12]
 
         if not step_ready:
             print(f'Quest {quest_id} - Step number {quest_status} is not ready')
@@ -484,12 +478,12 @@ async def questUpdate():
 
 async def oneStepQuestUpdate():
 
+    pull_online_character_info()
+
     quest_list = db_query(f'select quest_id, quest_name, active_flag, requirement_type, repeatable, '
                           f'trigger_x, trigger_y, trigger_z, trigger_radius, '
                           f'target_x, target_y, target_z '
                           f'from one_step_quests')
-
-    #quest_list = flatten_list(one_step_triggers)
 
     for quest in quest_list:
         (quest_id, quest_name, active_flag, requirement_type, repeatable,
@@ -498,7 +492,7 @@ async def oneStepQuestUpdate():
         char_id, char_name = character_in_radius(trigger_x, trigger_y, trigger_radius)
 
         if not char_id:
-            print(f'Skipping quest {quest_id}, no one in the box')
+            #print(f'Skipping quest {quest_id}, no one in the box')
             continue
 
         cooldown_records = db_query(f'select timeout_until from quest_timeout '

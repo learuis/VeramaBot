@@ -11,7 +11,7 @@ from discord.ext import tasks
 from dotenv import load_dotenv
 
 from cogs.QuestSystem import questUpdate, oneStepQuestUpdate
-from functions.common import is_docker, modChannel, editStatus, place_markers
+from functions.common import is_docker, modChannel, editStatus, place_markers, pull_online_character_info
 from cogs.Registration import RegistrationButton
 from cogs.FaithTrials import ChooseGod
 
@@ -56,14 +56,25 @@ async def on_ready():
     if not liveStatus.is_running():
         liveStatus.start()
 
-    if not questChecker.is_running():
-        questChecker.start()
+    # if not onlineCharacterInfo.is_running():
+    #     onlineCharacterInfo.start()
+
+    # if not questChecker.is_running():
+    #     questChecker.start()
 
     if not oneStepQuestChecker.is_running():
         oneStepQuestChecker.start()
 
     if not placeMarkers.is_running():
         placeMarkers.start()
+
+# @tasks.loop(seconds=30)
+# async def onlineCharacterInfo():
+#
+#     try:
+#         pull_online_character_info()
+#     except TimeoutError:
+#         print(f'onlineCharacterInfo took too long to complete.')
 
 @tasks.loop(seconds=30)
 async def questChecker():
@@ -72,7 +83,6 @@ async def questChecker():
         await questUpdate()
     except TimeoutError:
         print(f'questUpdate took too long to complete.')
-    #print(f'quest tracker ping')
 
 @tasks.loop(seconds=30)
 async def oneStepQuestChecker():
@@ -80,9 +90,6 @@ async def oneStepQuestChecker():
         await oneStepQuestUpdate()
     except TimeoutError:
         print(f'oneStepQuestUpdate took too long to complete.')
-
-
-# print(f'quest tracker ping')
 
 @tasks.loop(minutes=1)
 async def liveStatus():
