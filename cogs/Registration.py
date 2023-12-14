@@ -135,7 +135,7 @@ class Registration(commands.Cog):
 
         """
         #fix me!
-        season = 4
+        season = 5
 
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur = con.cursor()
@@ -155,7 +155,8 @@ class Registration(commands.Cog):
         channel = ctx.author.guild.get_channel(AUTOREG_CHANNEL)
         await channel.send(f'__Character Name:__ {name}\n'
                            f'__Funcom ID:__ {funcom_id}\n'
-                           f'__Discord:__ {discord_user.mention}')
+                           f'__Discord:__ {discord_user.mention}\n'
+                           f'__Season:__ 5')
 
         await ctx.author.add_roles(ctx.author.guild.get_role(REG_ROLE))
 

@@ -513,6 +513,10 @@ async def oneStepQuestUpdate():
                 clear_cooldown(char_id, quest_id)
 
         match requirement_type:
+            case 'Information':
+                display_quest_text(quest_id, 0, False, char_name)
+                add_cooldown(char_id, quest_id, 120)
+                continue
             case 'Presence':
                 display_quest_text(quest_id, 0, False, char_name)
                 run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
