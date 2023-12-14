@@ -4,7 +4,7 @@ from timeout_function_decorator import timeout
 
 from discord.ext import commands
 from functions.common import custom_cooldown, is_registered, get_rcon_id, run_console_command_by_name, int_epoch_time, \
-    pull_online_character_info
+    pull_online_character_info, flatten_list
 from functions.externalConnections import runRcon, db_query
 
 
@@ -246,9 +246,6 @@ def character_in_radius(trigger_x, trigger_y, trigger_radius):
     # else:
     #     return False, False
 
-def flatten_list(input_list: list):
-    output_list = (sum(input_list, ()))
-    return output_list
 
 def clear_cooldown(char_id, quest_id):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -275,19 +272,23 @@ def grant_reward(char_name, quest_id):
                            f'from quest_rewards where quest_id = {quest_id}')
     for reward in reward_list:
         (reward_template_id, reward_qty, reward_feat_id) = reward
-        display_quest_text(quest_id, 0, True, char_name)
+        #display_quest_text(quest_id, 0, True, char_name)
         if reward_template_id and reward_qty:
             run_console_command_by_name_reset_quest(quest_id, char_name,
                                                     f'spawnitem {reward_template_id} {reward_qty}')
+            continue
         if reward_feat_id:
             run_console_command_by_name_reset_quest(quest_id, char_name, f'learnfeat {reward_feat_id}')
+            continue
+        continue
 
-        return
-        # con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-        # cur = con.cursor()
-        # cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},{feat})')
-        # con.commit()
-        # con.close()
+    return
+
+    # con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    # cur = con.cursor()
+    # cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},{feat})')
+    # con.commit()
+    # con.close()
 
 @timeout(5, TimeoutError)
 async def questUpdate():
@@ -478,6 +479,7 @@ async def questUpdate():
 
 async def oneStepQuestUpdate():
 
+    #print(f'one step loop {int_epoch_time()}')
     pull_online_character_info()
 
     quest_list = db_query(f'select quest_id, quest_name, active_flag, requirement_type, repeatable, '
@@ -491,6 +493,9 @@ async def oneStepQuestUpdate():
 
         char_id, char_name = character_in_radius(trigger_x, trigger_y, trigger_radius)
 
+        # add active flag kickout here
+        # either split things up so tons of quests arent being checked at a single location at once
+        # of read all of the inventory in at once and then read from the DB
         if not char_id:
             #print(f'Skipping quest {quest_id}, no one in the box')
             continue

@@ -101,6 +101,10 @@ def popup_to_player(charName: str, message: str):
     print(rconResponse.output)
     print(f'PlayerMessage \"{charName}\" \"{message}\"')
 
+def flatten_list(input_list: list):
+    output_list = (sum(input_list, ()))
+    return output_list
+
 def get_rcon_id(name: str):
     connected_chars = []
 
@@ -122,7 +126,8 @@ def update_registered_name(input_user, name):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
-    cur.execute(f'update registration set character_name = \'{name}\' where discord_user = \'{input_user}\'')
+    cur.execute(f'update registration set character_name = \'{name}\' where discord_user = \'{input_user}\' '
+                f'and season = 5')
     con.commit()
     con.close()
 
@@ -136,7 +141,8 @@ def is_registered(discord_id: int):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
-    cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\'')
+    cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
+                f'and season = 5')
     result = cur.fetchone()
 
     con.close()
@@ -156,7 +162,7 @@ def get_registration(char_name):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
-                f'\'%{char_name}%\'')
+                f'\'%{char_name}%\' and season = 5')
     results = cur.fetchall()
 
     con.close()
@@ -175,7 +181,7 @@ def get_single_registration(char_name):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
-                f'\'%{char_name}%\' limit 1')
+                f'\'%{char_name}%\' and season = 5 limit 1')
     results = cur.fetchone()
 
     con.close()
@@ -207,13 +213,13 @@ async def editStatus(message, bot):
     currentPlayers = response.get('currentPlayers')
     maxPlayers = response.get('maxPlayers')
 
-    if 'False' in str(onlineStatus):
-        statusSymbol = '<:redtick:1152409914430455839>'
-        await bot.change_presence(activity=discord.Activity(name=f'SERVER DOWN', type=3))
+    if bot.maintenance_flag:
+        statusSymbol = '🔧'
+        await bot.change_presence(activity=discord.Activity(name=f'MAINTENANCE', type=3))
     else:
-        if bot.maintenance_flag:
-            statusSymbol = '🔧'
-            await bot.change_presence(activity=discord.Activity(name=f'MAINTENANCE', type=3))
+        if 'False' in str(onlineStatus):
+            statusSymbol = '<:redtick:1152409914430455839>'
+            await bot.change_presence(activity=discord.Activity(name=f'SERVER DOWN', type=3))
         else:
             statusSymbol = '<:greentick:1152409721966432376>'
             await bot.change_presence(activity=discord.Activity(
@@ -241,7 +247,7 @@ async def editStatus(message, bot):
                                    f'__{currentTime}__\n'
                                    f'- Server Name: `{SERVER_NAME}`\n'
                                    f'- IP Address:Port: `{ipAddress}:{SERVER_PORT}`\n'
-                                   f'- Password: {SERVER_PASSWORD}\n'
+                                   f'- Password: `{SERVER_PASSWORD}`\n'
                                    f'-- {statusSymbol} MAINTENANCE {statusSymbol} --\n'
                                    f'We\'ll be back soon!')
     else:
@@ -279,7 +285,7 @@ def int_epoch_time():
     return epoch_time
 
 def pull_online_character_info():
-    #print(f'start {int_epoch_time()}')
+    #print(f'start char info query {int_epoch_time()}')
     connected_chars = []
     char_id_list = []
     information_list = []
@@ -292,7 +298,10 @@ def pull_online_character_info():
 
     for char in connected_chars:
         char_name = char[1].strip()
+        print(char_name)
         registration = get_single_registration(char_name)
+        if not registration:
+            continue
         char_id = registration[0]
         char_id_list.append(str(char_id))
 
@@ -318,4 +327,4 @@ def pull_online_character_info():
     con.commit()
     con.close()
 
-    #print(f'end {int_epoch_time()}')
+    #print(f'end char info query {int_epoch_time()}')

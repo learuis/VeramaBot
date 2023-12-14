@@ -2,15 +2,22 @@ import io
 import re
 import time
 import sqlite3
+import os
 
+import discord.ext.commands
 from discord.ext import commands
 
 from functions.externalConnections import runRcon, downloadSave, db_query  #, runRcon3
 from functions.common import custom_cooldown, modChannel, is_registered, get_rcon_id, get_single_registration, \
-    pull_online_character_info
+    pull_online_character_info, flatten_list
 from datetime import datetime
 from datetime import timezone
 from time import strftime
+
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+VETERAN_ROLE = int(os.getenv('VETERAN_ROLE'))
 
 class Admin(commands.Cog):
     """Cog class containing commands related to server status."""
@@ -253,6 +260,43 @@ class Admin(commands.Cog):
                 await ctx.send(str(splitOutput))
             else:
                 await ctx.send(str(outputString))
+
+    @commands.command(name='veteran2')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def veteran2(self, ctx):
+        """
+        Adds the Veteran Outcast role to everyone who registered in Season 4
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        vet_role = ctx.author.guild.get_role(VETERAN_ROLE)
+
+        user_list = db_query(f'select discord_user from registration where season = 4')
+
+        users = list(sum(user_list, ()))
+
+        for user in users:
+            #print(f'{user}')
+            try:
+                member = await ctx.author.guild.fetch_member(user)
+            except discord.errors.NotFound:
+                continue
+            if member.get_role(VETERAN_ROLE):
+                #print(f'{member.name} already is a veteran')
+                continue
+            else:
+                print(f'{member.name} is not a veteran')
+                await member.add_roles(vet_role)
+                continue
+        return
 
     @commands.command(name='veteran', aliases=['vet', 'vets'])
     @commands.has_any_role('Admin')
