@@ -10,19 +10,30 @@ class Warps(commands.Cog):
     @commands.command(name='warp')
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def warp(self, ctx, destination: str):
+    async def warp(self, ctx, destination: str, quest_id: int = commands.parameter(default=None)):
         """
 
         Parameters
         ----------
         ctx
         destination
+        quest_id
 
         Returns
         -------
 
         """
-        output = db_query(f'select * from warp_locations where warp_name like \'%{destination.casefold()}%\' limit 1')
+        if 'quest' in destination.casefold():
+            if not quest_id:
+                await ctx.reply(f'You must specify a quest ID in order to teleport there.!')
+                return
+
+            query_command = (f'select 0, quest_name, 0, 0, trigger_x, trigger_y, trigger_z, 0 '
+                             f'from one_step_quests where quest_id = {quest_id} limit 1')
+        else:
+            query_command = f'select * from warp_locations where warp_name like \'%{destination.casefold()}%\' limit 1'
+
+        output = db_query(f'{query_command}')
 
         warp_entry = flatten_list(output)
         (warp_id, description, warp_name, marker_label, x, y, z, marker_flag) = warp_entry

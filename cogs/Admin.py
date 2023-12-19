@@ -9,7 +9,7 @@ from discord.ext import commands
 
 from functions.externalConnections import runRcon, downloadSave, db_query  #, runRcon3
 from functions.common import custom_cooldown, modChannel, is_registered, get_rcon_id, get_single_registration, \
-    pull_online_character_info, flatten_list
+    pull_online_character_info, flatten_list, get_bot_config, set_bot_config
 from datetime import datetime
 from datetime import timezone
 from time import strftime
@@ -379,6 +379,49 @@ class Admin(commands.Cog):
         ctx.bot.maintenance_flag = not ctx.bot.maintenance_flag
         await ctx.send(f'Maintenance Flag: {ctx.bot.maintenance_flag}')
         print(ctx.bot.maintenance_flag)
+
+    @commands.command(name='getconfig')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def getConfig(self, ctx, item: str):
+        """
+
+        Parameters
+        ----------
+        ctx
+        item
+
+        Returns
+        -------
+
+        """
+
+        value = get_bot_config(f'{item.casefold()}')
+
+        await ctx.send(f'Current: {item.casefold()} = {value}')
+
+    @commands.command(name='setconfig')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(modChannel)
+    async def setConfig(self, ctx, item: str, value: str):
+        """
+
+        Parameters
+        ----------
+        ctx
+        item
+        value
+
+        Returns
+        -------
+
+        """
+
+        set_bot_config(item.casefold(), value.casefold())
+
+        await ctx.send(f'Set {item.casefold()} = {value.casefold()}')
 
     @commands.command(name='charswap')
     @commands.has_any_role('Admin', 'Moderator')

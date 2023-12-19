@@ -6,7 +6,7 @@ import os
 from discord import ui
 from discord.ext import commands
 from functions.common import custom_cooldown, modChannel, get_character_id, is_registered, get_registration, \
-    get_member_from_userid, publicChannel
+    get_member_from_userid, publicChannel, last_season_char
 from datetime import date
 from dotenv import load_dotenv
 
@@ -73,9 +73,11 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
             outputString = (f'Registered Season 5 character: {self.charName} (id {charId}) '
                             f'with Funcom ID: {self.funcomId} '
                             f' to user {interaction.user.mention}. You have been granted a feat as a reward! '
-                            f'Go to the <#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` to receive it!')
+                            f'Go to the <#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` while online'
+                            f' to receive it!\nSome feats rewarded from quests will not appear in your Knowledge '
+                            f'list until you do this.')
 
-        cur_sub.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},50007)')
+        cur_sub.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},90212)')
 
         con_sub.commit()
         con_sub.close()
@@ -88,10 +90,16 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
             print(f'Missing persmissions to change nickname on {interaction.user.name}')
 
         channel = interaction.client.get_channel(AUTOREG_CHANNEL)
-        await channel.send(f'__Character Name:__ {self.charName}\n'
+        previous_char = last_season_char(interaction.user.id)
+        if previous_char:
+            previous_name = f'{previous_char.char_name}'
+        else:
+            previous_name = f'<none>'
+
+        await channel.send(f'__Season 5 Character Name:__ {self.charName}\n'
+                           f'__Last Season Name:__ {previous_name}\n'
                            f'__Funcom ID:__ {self.funcomId}\n'
-                           f'__Discord:__ {interaction.user.mention}\n'
-                           f'__Season:__ 5')
+                           f'__Discord:__ {interaction.user.mention}\n')
 
         await interaction.user.add_roles(interaction.user.guild.get_role(REG_ROLE))
 
@@ -183,7 +191,7 @@ class Registration(commands.Cog):
         splitOutput = ''
         once = True
 
-        res = db_query(f'select * from registration')
+        res = db_query(f'select * from registration where season = 5')
 
         for x in res:
             outputString += f'{x}\n'

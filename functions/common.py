@@ -6,7 +6,7 @@ import os
 import sqlite3
 import io
 
-from functions.externalConnections import runRcon
+from functions.externalConnections import runRcon, db_query
 from time import strftime
 from dotenv import load_dotenv
 from datetime import datetime
@@ -154,6 +154,29 @@ def is_registered(discord_id: int):
     else:
         return False
 
+def last_season_char(discord_id: int):
+    class Registration:
+        def __init__(self):
+            self.id = 0
+            self.char_name = ''
+
+    returnValue = Registration()
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
+                f'and season = 4 order by id desc limit 1')
+    result = cur.fetchone()
+
+    con.close()
+
+    if result:
+        returnValue.id = result[0]
+        returnValue.char_name = result[1]
+        return returnValue
+    else:
+        return False
+
 def get_registration(char_name):
 
     returnList = []
@@ -213,7 +236,7 @@ async def editStatus(message, bot):
     currentPlayers = response.get('currentPlayers')
     maxPlayers = response.get('maxPlayers')
 
-    if bot.maintenance_flag:
+    if int(get_bot_config(f'maintenance_flag')) == 1:
         statusSymbol = '🔧'
         await bot.change_presence(activity=discord.Activity(name=f'MAINTENANCE', type=3))
     else:
@@ -227,18 +250,20 @@ async def editStatus(message, bot):
 
     onlineSymbol = ':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
-    if int(currentPlayers) == 30:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::orange_circle:'
+    if int(currentPlayers) == 40:
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::orange_circle:'
+    if int(currentPlayers) < 35:
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::blue_circle:'
     if int(currentPlayers) < 30:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::blue_circle:'
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::blue_circle::blue_circle:'
     if int(currentPlayers) < 25:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::blue_circle::blue_circle:'
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::blue_circle::blue_circle::blue_circle:'
     if int(currentPlayers) < 20:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::blue_circle::blue_circle::blue_circle:'
+        onlineSymbol = f':orange_circle::orange_circle::orange_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
     if int(currentPlayers) < 15:
-        onlineSymbol = f':orange_circle::orange_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+        onlineSymbol = f':orange_circle::orange_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
     if int(currentPlayers) < 10:
-        onlineSymbol = f':orange_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+        onlineSymbol = f':orange_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
     if int(currentPlayers) < 5:
         onlineSymbol = f':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
@@ -262,14 +287,15 @@ async def editStatus(message, bot):
     return
 
 def place_markers():
-    settings_list = []
+    #settings_list = []
     response = False
 
-    file = io.open('data/markers.dat', mode='r')
-    for line in file:
-        settings_list.append(f'{line}')
+    marker_list = db_query(f'select marker_label, x, y from warp_locations where marker_flag = \'Y\'')
 
-    for command in settings_list:
+    #marker_list = flatten_list(result_list)
+
+    for marker in marker_list:
+        command = f'con 0 AddGlobalMarker {marker[0]} {marker[1]} {marker[2]} 3600'
         try:
             runRcon(command)
             response = f'Markers placed successfully.'
@@ -277,6 +303,40 @@ def place_markers():
             response = f'Error when trying to place markers.'
 
     return response
+
+    # file = io.open('data/markers.dat', mode='r')
+    # for line in file:
+    #     settings_list.append(f'{line}')
+    #
+    # for command in settings_list:
+    #     try:
+    #         runRcon(command)
+    #         response = f'Markers placed successfully.'
+    #     except TimeoutError:
+    #         response = f'Error when trying to place markers.'
+    #
+    # return response
+
+def get_bot_config(item: str):
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+    cur.execute(f'select value from config where item like \'%{item}%\' limit 1')
+    result = cur.fetchone()
+    con.close()
+
+    value = result[0]
+    #print(f"{value}")
+
+    return value
+
+def set_bot_config(item: str, value: str):
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+    cur.execute(f'update config set value = \'{value}\' where item = \'{item}\' limit 1')
+    con.commit()
+    con.close()
+
+    return
 
 def int_epoch_time():
     current_time = datetime.now()
@@ -298,7 +358,7 @@ def pull_online_character_info():
 
     for char in connected_chars:
         char_name = char[1].strip()
-        print(char_name)
+        #print(char_name)
         registration = get_single_registration(char_name)
         if not registration:
             continue
@@ -306,6 +366,7 @@ def pull_online_character_info():
         char_id_list.append(str(char_id))
 
     criteria = ','.join(char_id_list)
+
     locationResponse = runRcon(f'sql select a.id, c.char_name, a.x, a.y, a.z '
                                f'from actor_position as a left join characters as c on c.id = a.id '
                                f'where a.id in ({criteria}) limit 30')
@@ -318,6 +379,8 @@ def pull_online_character_info():
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
     cur.execute(f'delete from online_character_info')
+
+    con.commit()
 
     for info in information_list:
         cur.execute(f'insert or ignore into online_character_info (char_id,char_name,x,y,z) '

@@ -118,7 +118,8 @@ def runRcon(command: str):
         return returnValue
     
     #add error handling here
-    res_body = console.command(command).body
+    #res_body = console.command(command).body
+    res_body = console.command(command)
     console.close()
 
     res_body = remove_formatting_codes(res_body)

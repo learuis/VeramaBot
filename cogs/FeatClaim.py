@@ -1,10 +1,13 @@
 import sqlite3
+import os
 
 from discord.ext import commands
 from functions.common import custom_cooldown, modChannel, get_rcon_id, is_registered, get_single_registration, \
     publicChannel
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
+from dotenv import load_dotenv
 
+REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 
 def has_feat(charId: int, featId: int):
     rconResponse = runRcon(f'sql select template_id from item_inventory where owner_id = {charId} '
@@ -67,7 +70,8 @@ class FeatClaim(commands.Cog):
         featDict = {}
 
         if not charId:
-            outputString = f'No character registered to {ctx.message.author.mention}!'
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            outputString = f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}'
             await ctx.reply(content=outputString)
             return
 
