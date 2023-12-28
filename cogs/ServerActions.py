@@ -97,7 +97,7 @@ class ServerActions(commands.Cog):
         return
 
     @commands.command(name='boss')
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     @commands.check(modChannel)
     async def boss(self, ctx):

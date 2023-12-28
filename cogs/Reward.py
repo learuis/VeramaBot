@@ -42,13 +42,14 @@ class Rewards(commands.Cog):
 
         """
         itemName = ''
+        reasonString = ''
 
         characters = get_single_registration(name)
         if not characters:
             await ctx.send(f'No character named `{name}` registered!')
             return
         else:
-            name = characters[1]
+            (char_id, char_name, discord_id) = characters
 
         rconCharId = get_rcon_id(name)
 
@@ -57,20 +58,20 @@ class Rewards(commands.Cog):
         for x in result:
             itemName = x[0]
 
-        reasonString = f'You have been granted {quantity} {itemName} for: '
         for word in reason:
             reasonString += f'{word} '
 
-        rconCommand = f'con {rconCharId} spawnitem {itemId} {quantity}'
-        rconResponse = runRcon(rconCommand)
+        query = (f'insert into event_rewards (reward_date, character_id, reward_material, reward_quantity, '
+                 f'claim_flag, reward_name) values (\'{date.today()}\', {char_id}, \'{itemId}\', {quantity}, 0, '
+                 f'\'{reasonString}\')')
 
-        if rconResponse.error == 1:
-            await ctx.send(f'Authentication error on {rconCommand}')
-        else:
-            for x in rconResponse.output:
-                await ctx.send(f'Gave `{quantity} {str(itemName)} (item id {itemId})` to `{name}`.'
-                               f'\nRcon command output:{x}\nMessaged {name}: {reasonString}')
-                popup_to_player(name, reasonString)
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+        cur.execute(query)
+        con.commit()
+        con.close()
+
+        await ctx.reply(f'Added record to the claim table for {name}: {quantity} x {itemName} ({itemId})')
 
     @commands.command(name='claim')
     @commands.has_any_role('Outcasts')
@@ -124,7 +125,7 @@ class Rewards(commands.Cog):
 
                 insertResults = reward_cur.execute(f'update event_rewards set claim_flag = 1 '
                                                    f'where record_num = {result[0]}')
-                outputString += (f'Granted reward: {result[3]} x {result[2]} '
+                outputString += (f'Granted reward: {result[1]} x {result[2]} for: {result[3]} '
                                  f'to {character.char_name}\n')
                 reward_con.commit()
                 reward_con.close()
@@ -155,9 +156,9 @@ class Rewards(commands.Cog):
         -------
 
         """
-        outputString = f'discord_id | claim_role_id\n'
+        outputString = f'reward_date | character_id | reward_material | reward_quantity | claim_flag | reward_name\n'
 
-        res = db_query(f'select * from reward_claim')
+        res = db_query(f'select * from event_rewards')
 
         for x in res:
             outputString += f'{x}\n'

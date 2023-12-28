@@ -49,7 +49,10 @@ def db_query(query: str):
     result = cur.fetchall()
     con.close()
 
-    return result
+    if result:
+        return result
+    else:
+        return False
 
 def db_delete_single_record(table: str, key_field: str, record_to_delete: int):
     check_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -119,7 +122,13 @@ def runRcon(command: str):
     
     #add error handling here
     #res_body = console.command(command).body
-    res_body = console.command(command)
+    try:
+        res_body = console.command(command)
+    except Exception:
+        returnValue.output = ['Received few bytes exception.']
+        returnValue.error = 1
+        return returnValue
+
     console.close()
 
     res_body = remove_formatting_codes(res_body)
@@ -135,3 +144,25 @@ def runRcon(command: str):
     returnValue.output = commandOutput
     return returnValue
 
+async def notify_all(ctx, style: int, text1: str, text2: str):
+    failures = 0
+
+    while failures < 6:
+        try:
+            console = Console(host=RCON_HOST, port=int(RCON_PORT), password=RCON_PASS)
+            break
+        except Exception:
+            failures += 1
+
+    if failures == 6:
+        await ctx.send(f'Error connecting via RCON')
+        return
+
+    for rcon_id in range(0, 39):
+        try:
+            res_body = console.command(f'con {rcon_id} testfifo {style} {text1} {text2}')
+        except Exception:
+            print(f'Could not notify player in slot {rcon_id}')
+            continue
+
+    console.close()

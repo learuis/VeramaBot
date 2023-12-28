@@ -92,7 +92,7 @@ def run_console_command_by_name_reset_quest(quest_id: int, char_name: str, comma
         reset_quest_progress(quest_id)
         return False
     else:
-        #print(f'{command}')
+        print(f'{command}')
         runRcon(f'con {rcon_id} {command}')
 
     return
@@ -206,11 +206,15 @@ def character_in_radius(trigger_x, trigger_y, trigger_radius):
     sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
 
     #connected_chars = []
-
+    #print(f'{nwPoint} {sePoint}')
     results = db_query(f'select char_id, char_name from online_character_info '
                        f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
                        f'and x <= {sePoint[0]} and y <= {sePoint[1]} limit 1')
-    char_info = flatten_list(results)
+    if results:
+        char_info = flatten_list(results)
+    else:
+        return False, False
+
     if char_info:
         (char_id, char_name) = char_info
     else:
@@ -268,10 +272,15 @@ def add_cooldown(char_id, quest_id, cooldown: int):
     con.close()
 
 def grant_reward(char_id, char_name, quest_id):
-    reward_list = db_query(f'select reward_template_id, reward_qty, reward_feat_id, reward_thrall_name '
+    reward_list = db_query(f'select reward_template_id, reward_qty, reward_feat_id, '
+                           f'reward_thrall_name, reward_emote_name '
                            f'from quest_rewards where quest_id = {quest_id}')
+    if not reward_list:
+        print(f'No records returned from reward list, skipping delivery')
+        return
+
     for reward in reward_list:
-        (reward_template_id, reward_qty, reward_feat_id, reward_thrall_name) = reward
+        (reward_template_id, reward_qty, reward_feat_id, reward_thrall_name, reward_emote_name) = reward
         #display_quest_text(quest_id, 0, True, char_name)
         if reward_template_id and reward_qty:
             run_console_command_by_name_reset_quest(quest_id, char_name,
@@ -287,7 +296,13 @@ def grant_reward(char_id, char_name, quest_id):
             continue
         if reward_thrall_name:
             run_console_command_by_name_reset_quest(quest_id, char_name, f'dc spawn 1 thrall exact '
+                                                                         f'{reward_thrall_name}x')
+            run_console_command_by_name_reset_quest(quest_id, char_name, f'dc spawn 1 thrall exact '
                                                                          f'{reward_thrall_name}')
+            continue
+        if reward_emote_name:
+            print(f'granting emote {reward_emote_name} to {char_name} / {char_id}')
+            run_console_command_by_name_reset_quest(quest_id, char_name, f'learnemote {reward_emote_name}')
             continue
         continue
 
@@ -488,8 +503,10 @@ async def questUpdate():
 
 async def oneStepQuestUpdate():
 
-    print(f'one step loop {int_epoch_time()}')
-    pull_online_character_info()
+    #print(f'one step loop {int_epoch_time()}')
+    if not pull_online_character_info():
+        print(f'RCON error prevented online character info export')
+        return
 
     quest_list = db_query(f'select quest_id, quest_name, active_flag, requirement_type, repeatable, '
                           f'trigger_x, trigger_y, trigger_z, trigger_radius, '
@@ -506,7 +523,7 @@ async def oneStepQuestUpdate():
         # either split things up so tons of quests arent being checked at a single location at once
         # of read all of the inventory in at once and then read from the DB
         if not char_id:
-            print(f'Skipping quest {quest_id}, no one in the box')
+            #print(f'Skipping quest {quest_id}, no one in the box')
             continue
 
         cooldown_records = db_query(f'select timeout_until from quest_timeout '
@@ -531,7 +548,10 @@ async def oneStepQuestUpdate():
                 display_quest_text(quest_id, 0, False, char_name)
                 run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
                 print(f'Quest {quest_id} completed by id {char_id} {char_name}')
-                add_cooldown(char_id, quest_id, 120)
+                if 'Y' in repeatable:
+                    add_cooldown(char_id, quest_id, 120)
+                else:
+                    add_cooldown(char_id, quest_id, 9999999999)
                 continue
 
             case 'BringItems':
@@ -544,11 +564,16 @@ async def oneStepQuestUpdate():
                             inventoryHasItem = check_inventory(char_id, 0, template_id)
                             if inventoryHasItem:
                                 consume_from_inventory(char_id, char_name, template_id)
-                                print(f'Quest {quest_id} - {char_id} has required item {template_id}')
                                 display_quest_text(quest_id, 0, False, char_name)
                                 grant_reward(char_id, char_name, quest_id)
                                 print(f'Quest {quest_id} completed by id {char_id} {char_name}')
-                                add_cooldown(char_id, quest_id, 9999999999)
+                                if 'Y' in repeatable:
+                                    add_cooldown(char_id, quest_id, 120)
+                                else:
+                                    add_cooldown(char_id, quest_id, 9999999999)
+                                if target_x:
+                                    run_console_command_by_name(char_name,
+                                                                f'teleportplayer {target_x} {target_y} {target_z}')
                             else:
                                 print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
                                       f'does not have the required item {template_id}')

@@ -3,11 +3,12 @@ import re
 import time
 import sqlite3
 import os
+from rcon import Console
 
 import discord.ext.commands
 from discord.ext import commands
 
-from functions.externalConnections import runRcon, downloadSave, db_query  #, runRcon3
+from functions.externalConnections import runRcon, downloadSave, db_query, notify_all  # , runRcon3
 from functions.common import custom_cooldown, modChannel, is_registered, get_rcon_id, get_single_registration, \
     pull_online_character_info, flatten_list, get_bot_config, set_bot_config
 from datetime import datetime
@@ -18,6 +19,9 @@ from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
 VETERAN_ROLE = int(os.getenv('VETERAN_ROLE'))
+RCON_HOST = os.getenv('RCON_HOST')
+RCON_PORT = int(os.getenv('RCON_PORT'))
+RCON_PASS = str(os.getenv('RCON_PASS'))
 
 class Admin(commands.Cog):
     """Cog class containing commands related to server status."""
@@ -68,24 +72,6 @@ class Admin(commands.Cog):
     async def prepare(self, ctx: commands.Context):
         await ctx.send(f'This message will be updated with status information!')
 
-    @commands.command(name='rcon3')
-    @commands.has_any_role('Admin')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def rcon3(self, ctx):
-        """
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-
-        print(f'ran rcon3')
-        response = await runRcon3()
-        await ctx.send(f'{response}')
 
     @commands.command(name='rcon')
     @commands.has_any_role('Admin')
@@ -127,61 +113,6 @@ class Admin(commands.Cog):
         await ctx.send(formattedOutput)
         # I could add a lookup for their account ID here also and link back to their character ID.
 
-    @commands.command(name='rcon2')
-    @commands.has_any_role('Admin')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
-    async def rcon2(self, ctx, *, flags: RconFlags):
-        """- Use RCON to run a single command
-
-        Uses RCON to run any single desired command, returns raw output.
-
-        Parameters
-        ----------
-        ctx
-        flags
-            - Single rcon command (can contain spaces)
-
-        Returns
-        -------
-
-        """
-        formattedOutput = ''
-
-        flags.command = re.sub('"', '\"', flags.command)
-
-        print(f'rcon2 command executed')
-        print(f'{flags.command}')
-
-        rconResponse = runRcon(flags.command)
-
-        for x in rconResponse.output:
-            formattedOutput += str(x) + '\n'
-
-        await ctx.send(formattedOutput)
-        return
-        # I could add a lookup for their account ID here also and link back to their character ID.
-
-        #command = ''
-        #formattedOutput = ''
-        #
-        # for arg in args:
-        #     print(f'{arg}')
-        #     command += f'{arg} '
-        #
-        # command = re.sub(';', '\"', command)
-        #
-        # rconResponse = runRcon(command)
-        #
-        # # for x in rconResponse.output:
-        # # if x[0]!='Idx':
-        # # connected_chars.append(x[1])
-        #
-        # for x in rconResponse.output:
-        #     formattedOutput += str(x) + '\n'
-        #
-        # await ctx.send(formattedOutput)
-        # # I could add a lookup for their account ID here also and link back to their character ID.
 
     @commands.command(name='gamechat')
     @commands.has_any_role('Admin')
@@ -655,6 +586,24 @@ class Admin(commands.Cog):
             runRcon(f'con {rconCharId} TeleportPlayer -17174.951172 -259672.125 87383.28125')
             await ctx.reply(f'Tossed `{name}` into the Volcano.')
             return
+
+    @commands.command(name='alert')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def Alert(self, ctx, style: int, text1: str, text2: str):
+        """
+        - Sends an alert to all online players
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+
+        await notify_all(ctx, 5, f'-Event-', 'Siptah beasts roam the Exiled Lands')
 
     @commands.command(name='jail', aliases=['capture', 'prison'])
     @commands.has_any_role('Admin', 'Moderator')

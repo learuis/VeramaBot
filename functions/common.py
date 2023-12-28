@@ -102,6 +102,7 @@ def popup_to_player(charName: str, message: str):
     print(f'PlayerMessage \"{charName}\" \"{message}\"')
 
 def flatten_list(input_list: list):
+    #print(f'{input_list}')
     output_list = (sum(input_list, ()))
     return output_list
 
@@ -217,6 +218,7 @@ def get_single_registration(char_name):
 def run_console_command_by_name(char_name: str, command: str):
     rcon_id = get_rcon_id(f'{char_name}')
     if not rcon_id:
+        print(f'No RCON ID returned by get_rcon_id')
         return False
     else:
         runRcon(f'con {rcon_id} {command}')
@@ -351,6 +353,10 @@ def pull_online_character_info():
     information_list = []
 
     charlistResponse = runRcon(f'listplayers')
+    if charlistResponse.error:
+        print(f'Error in RCON listplayers command at {datetime.now()}')
+        return False
+
     charlistResponse.output.pop(0)
     for response in charlistResponse.output:
         match = re.findall(r'\s+\d+ | [^|]*', response)
@@ -389,5 +395,7 @@ def pull_online_character_info():
 
     con.commit()
     con.close()
+
+    return True
 
     #print(f'end char info query {int_epoch_time()}')

@@ -318,7 +318,8 @@ class Utilities(commands.Cog):
             return
         else:
             #runRcon(f'con {rconCharId} TeleportPlayer -37665.277344 182622.6875 -8276.037109')
-            runRcon(f'con {rconCharId} TeleportPlayer 129890.84375 190925.296875 -19617.917969')
+            #runRcon(f'con {rconCharId} TeleportPlayer 129890.84375 190925.296875 -19617.917969')
+            runRcon(f'con {rconCharId} TeleportPlayer -14452.919922 209139.703125 -17296.822266')
             await ctx.reply(f'Teleported `{name}` to the Market.')
             return
 
