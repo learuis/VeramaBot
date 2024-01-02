@@ -1,6 +1,4 @@
 # VeramaBot.py
-import asyncio
-
 import discord
 import time
 import os
@@ -10,8 +8,9 @@ from discord.ext.commands import Bot
 from discord.ext import tasks
 from dotenv import load_dotenv
 
-from cogs.QuestSystem import questUpdate, oneStepQuestUpdate
-from functions.common import is_docker, modChannel, editStatus, place_markers, pull_online_character_info
+from cogs.CommunityBoons import update_boons
+from cogs.QuestSystem import oneStepQuestUpdate
+from functions.common import is_docker, editStatus, place_markers
 from cogs.Registration import RegistrationButton
 from cogs.FaithTrials import ChooseGod
 
@@ -68,6 +67,9 @@ async def on_ready():
     if not placeMarkers.is_running():
         placeMarkers.start()
 
+    if not boonChecker.is_running():
+        boonChecker.start()
+
 # @tasks.loop(seconds=30)
 # async def onlineCharacterInfo():
 #
@@ -76,13 +78,13 @@ async def on_ready():
 #     except TimeoutError:
 #         print(f'onlineCharacterInfo took too long to complete.')
 
-@tasks.loop(seconds=30)
-async def questChecker():
-
-    try:
-        await questUpdate()
-    except TimeoutError:
-        print(f'questUpdate took too long to complete.')
+# @tasks.loop(seconds=30)
+# async def questChecker():
+#
+#     try:
+#         await questUpdate()
+#     except TimeoutError:
+#         print(f'questUpdate took too long to complete.')
 
 @tasks.loop(seconds=30)
 async def oneStepQuestChecker():
@@ -110,6 +112,14 @@ async def placeMarkers():
     except TimeoutError:
         print(f'placeMarkers took too long to complete.')
 
+@tasks.loop(hours=1)
+async def boonChecker():
+
+    try:
+        update_boons()
+    except TimeoutError:
+        print(f'boonChecker took too long to complete.')
+
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
@@ -117,7 +127,7 @@ async def on_command_error(ctx, error):
         return
     if isinstance(error, commands.errors.CheckFailure):
         print(f'Command from {ctx.message.author} failed checks. '
-              f'{ctx.message.channel.id} / {ctx.message.channel.name}.')
+              f'{ctx.message.channel.id}.')
         channel = bot.get_channel(OUTCASTBOT_CHANNEL)
         await ctx.send(f'You do not have permission to use this command, or you cannot use that command in this '
                        f'channel. Try {channel.mention}!')

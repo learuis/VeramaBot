@@ -4,7 +4,7 @@ import re
 
 from discord.ext import commands
 from functions.externalConnections import runRcon
-from functions.common import custom_cooldown, modChannel, publicChannel, get_rcon_id, is_registered, place_markers
+from functions.common import custom_cooldown, get_rcon_id, is_registered, place_markers
 
 
 class ServerActions(commands.Cog):
@@ -17,7 +17,6 @@ class ServerActions(commands.Cog):
                       aliases=['list', 'lp'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def listplayers(self, ctx, name: str = None):
         """- Lists connected players
 
@@ -69,7 +68,6 @@ class ServerActions(commands.Cog):
     @commands.command(name='markers')
     @commands.has_any_role('Admin', 'Moderator', 'Helper')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
     async def markers(self, ctx):
         """- Place map markers (req 1 player online)
 
@@ -86,9 +84,6 @@ class ServerActions(commands.Cog):
 
         message = await ctx.send(f'Marker placement in progress... (~20 sec)')
 
-        settings_list = []
-        rconOutput = []
-
         marker_output = place_markers()
 
         if marker_output:
@@ -99,7 +94,6 @@ class ServerActions(commands.Cog):
     @commands.command(name='boss')
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def boss(self, ctx):
         """- Spawns a random Siptah boss at cursor position.
 

@@ -3,9 +3,7 @@ from rcon import Console
 from rcon.util import remove_formatting_codes
 from ftplib import FTP
 import sqlite3
-import time
 from timeout_function_decorator import timeout
-#from asyncrcon import AsyncRCON, AuthenticationException
 
 from dotenv import load_dotenv
 
@@ -144,7 +142,7 @@ def runRcon(command: str):
     returnValue.output = commandOutput
     return returnValue
 
-async def notify_all(ctx, style: int, text1: str, text2: str):
+def notify_all(style: int, text1: str, text2: str):
     failures = 0
 
     while failures < 6:
@@ -155,7 +153,7 @@ async def notify_all(ctx, style: int, text1: str, text2: str):
             failures += 1
 
     if failures == 6:
-        await ctx.send(f'Error connecting via RCON')
+        print(f'Error connecting via RCON')
         return
 
     for rcon_id in range(0, 39):
@@ -163,6 +161,53 @@ async def notify_all(ctx, style: int, text1: str, text2: str):
             res_body = console.command(f'con {rcon_id} testfifo {style} {text1} {text2}')
         except Exception:
             print(f'Could not notify player in slot {rcon_id}')
+            continue
+
+    console.close()
+
+def multi_rcon(commands: list[str]):
+    failures = 0
+
+    while failures < 6:
+        try:
+            console = Console(host=RCON_HOST, port=int(RCON_PORT), password=RCON_PASS)
+            break
+        except Exception:
+            failures += 1
+
+    if failures == 6:
+        print(f'Error connecting via RCON')
+        return False
+
+    for command in commands:
+        try:
+            console.command(f'{command}')
+            print(f'{command}')
+        except Exception:
+            print(f'Could not execute command {command}')
+            continue
+
+    console.close()
+
+def rcon_all(command: str):
+    failures = 0
+
+    while failures < 6:
+        try:
+            console = Console(host=RCON_HOST, port=int(RCON_PORT), password=RCON_PASS)
+            break
+        except Exception:
+            failures += 1
+
+    if failures == 6:
+        print(f'Error connecting via RCON')
+        return
+
+    for rcon_id in range(0, 39):
+        try:
+            console.command(f'con {rcon_id} {command}')
+        except Exception:
+            print(f'Could not run command {command} on player in slot {rcon_id}')
             continue
 
     console.close()

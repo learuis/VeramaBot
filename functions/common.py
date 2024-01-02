@@ -4,7 +4,6 @@ import time
 import requests
 import os
 import sqlite3
-import io
 
 from functions.externalConnections import runRcon, db_query
 from time import strftime
@@ -30,30 +29,6 @@ def custom_cooldown(ctx):
     else:
         #everyone else
         return discord.app_commands.Cooldown(5, 60)
-
-def modChannel(ctx):
-    if ctx.author.id == OWNER_USER_ID:
-        return True
-    execTime = time.strftime('%c')
-    print(f'Command {ctx.command} executed by {ctx.author} on {execTime} in {ctx.channel.name}')
-    channelList = [BOT_CHANNEL, OUTCASTBOT_CHANNEL, BOON_CHANNEL]
-    return ctx.channel.id in channelList
-
-def publicChannel(ctx):
-    if ctx.author.id == OWNER_USER_ID:
-        return True
-    execTime = time.strftime('%c')
-    print(f'Command {ctx.command} executed by {ctx.author} on {execTime} in {ctx.channel.name}')
-    channelList = [BOT_CHANNEL, OUTCASTBOT_CHANNEL, BOON_CHANNEL]
-    return ctx.channel.id in channelList
-
-def boonChannel(ctx):
-    if ctx.author.id == OWNER_USER_ID:
-        return True
-    execTime = time.strftime('%c')
-    print(f'Command {ctx.command} executed by {ctx.author} on {execTime} in {ctx.channel.name}')
-    channelList = [BOT_CHANNEL, OUTCASTBOT_CHANNEL, BOON_CHANNEL]
-    return ctx.channel.id in channelList
 
 def isInt(intToCheck):
     try:
@@ -110,6 +85,9 @@ def get_rcon_id(name: str):
     connected_chars = []
 
     rconResponse = runRcon('listplayers')
+    if rconResponse.error:
+        print(f'RCON error in get_rcon_id')
+        return False
     rconResponse.output.pop(0)
 
     for x in rconResponse.output:
@@ -117,6 +95,7 @@ def get_rcon_id(name: str):
         connected_chars.append(match)
 
     if not connected_chars:
+        print(f'RCON error in get_rcon_id')
         return False
 
     for x in connected_chars:
@@ -334,7 +313,7 @@ def get_bot_config(item: str):
 def set_bot_config(item: str, value: str):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
-    cur.execute(f'update config set value = \'{value}\' where item = \'{item}\' limit 1')
+    cur.execute(f'update config set value = \'{value}\' where item like \'{str(item)}\'')
     con.commit()
     con.close()
 
@@ -354,6 +333,7 @@ def pull_online_character_info():
 
     charlistResponse = runRcon(f'listplayers')
     if charlistResponse.error:
+        print(f'{charlistResponse.output}')
         print(f'Error in RCON listplayers command at {datetime.now()}')
         return False
 
@@ -375,7 +355,7 @@ def pull_online_character_info():
 
     locationResponse = runRcon(f'sql select a.id, c.char_name, a.x, a.y, a.z '
                                f'from actor_position as a left join characters as c on c.id = a.id '
-                               f'where a.id in ({criteria}) limit 30')
+                               f'where a.id in ({criteria}) limit 40')
     locationResponse.output.pop(0)
     for location in locationResponse.output:
         #print(f'{location}')

@@ -2,7 +2,7 @@ import math
 import re
 
 from discord.ext import commands
-from functions.common import custom_cooldown, publicChannel, is_registered, get_rcon_id
+from functions.common import custom_cooldown, is_registered, get_rcon_id
 from functions.externalConnections import runRcon
 
 
@@ -13,7 +13,6 @@ class ProvingGrounds(commands.Cog):
     @commands.command(name='provinggrounds', aliases=['pg'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
     async def provingGrounds(self, ctx):
         """
 

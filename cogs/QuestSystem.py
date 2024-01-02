@@ -1,11 +1,15 @@
+import datetime
 import re
 import sqlite3
-from timeout_function_decorator import timeout
 
 from discord.ext import commands
-from functions.common import custom_cooldown, is_registered, get_rcon_id, run_console_command_by_name, int_epoch_time, \
-    pull_online_character_info, flatten_list
-from functions.externalConnections import runRcon, db_query
+from datetime import datetime
+
+from cogs.CommunityBoons import update_boons
+from cogs.Reward import add_reward_record
+from functions.common import custom_cooldown, run_console_command_by_name, int_epoch_time, \
+    pull_online_character_info, flatten_list, get_bot_config, set_bot_config
+from functions.externalConnections import runRcon, db_query, notify_all, rcon_all
 
 
 def increment_step(quest_status, char_id, char_name, quest_id, quest_start_time):
@@ -52,7 +56,11 @@ def display_quest_text(quest_id, quest_status, alt, char_name):
 
     questText = db_query(f'select Style, Text1, Text2, AltStyle, AltText1, AltText2 from quest_text '
                          f'where quest_id = {quest_id} and step_number = {quest_status}')
-    #print(f'{questText}')
+    if not questText:
+        print(f'No text defined for {quest_id}, skipping')
+        return
+
+    print(f'{questText}')
 
     for record in questText:
         style = record[0]
@@ -85,23 +93,14 @@ def reset_quest_progress(quest_id):
 
     return
 
-def run_console_command_by_name_reset_quest(quest_id: int, char_name: str, command: str):
-
-    rcon_id = get_rcon_id(f'{char_name}')
-    if not rcon_id:
-        reset_quest_progress(quest_id)
-        return False
-    else:
-        print(f'{command}')
-        runRcon(f'con {rcon_id} {command}')
-
-    return
-
 def consume_from_inventory(char_id, char_name, template_id):
-    value = 0
     results = runRcon(f'sql select item_id from item_inventory '
                       f'where owner_id = {char_id} and inv_type = 0 '
                       f'and template_id = {template_id} limit 1')
+    if results.error:
+        print(f'RCON error received in consume_from_inventory')
+        return False
+
     if results.output:
         results.output.pop(0)
         if not results.output:
@@ -111,17 +110,22 @@ def consume_from_inventory(char_id, char_name, template_id):
             for result in results.output:
                 match = re.search(r'\s+\d+ | [^|]*', result)
                 item_slot = int(match[0])
-                run_console_command_by_name(char_name,f'setinventoryitemintstat {item_slot} 1 0 0')
+                run_console_command_by_name(char_name, f'setinventoryitemintstat {item_slot} 1 0 0')
                 print(f'Deleted {template_id} from {char_id} {char_name} in slot {item_slot}')
                 return True
     print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
     return True
 
 def check_inventory(owner_id, inv_type, template_id):
+    value = 0
 
     results = runRcon(f'sql select template_id from item_inventory '
                       f'where owner_id = {owner_id} and inv_type = {inv_type} '
                       f'and template_id = {template_id} limit 1')
+    if results.error:
+        print(f'RCON error received in check_inventory')
+        return False
+
     if results.output:
         results.output.pop(0)
         if not results.output:
@@ -151,57 +155,7 @@ def is_active_player_dead(char_id, quest_start_time):
     else:
         return True
 
-def check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius):
-    # this needs to be rewritten to move quest specific logic into the main function
-    nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
-    sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
-
-    connected_chars = []
-
-    # if player is offline, they should not be selected
-    # look for players who are on the quest first before looking for any player
-    rconResponse = runRcon(f'sql select a.id, c.char_name from actor_position as a '
-                           f'left join characters as c on c.id = a.id '
-                           f'left join account as acc on acc.id = c.playerId '
-                           f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
-                           f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
-                           f'and a.class like \'%BasePlayerChar_C%\' '
-                           f'and acc.online = 1 limit 1')
-    rconResponse.output.pop(0)
-
-    if rconResponse.output:
-        match = re.findall(r'\s+\d+ | [^|]*', rconResponse.output[0])
-
-        connected_chars.append(match)
-        character_info = sum(connected_chars, [])
-
-        if character_info:
-            char_id = int(character_info[0].strip())
-            char_name = str(character_info[1].strip())
-
-            questHistory = db_query(f'select char_id from quest_history '
-                                    f'where char_id = {char_id} and quest_id = {quest_id}')
-            if questHistory:
-                # if there are any records, the character has already completed this quest.
-                print(f'Quest {quest_id} - {char_name} is in the box with character ID {char_id}, '
-                      f'but has already completed it..')
-                rcon_id = get_rcon_id(f'{char_name}')
-                if not rcon_id:
-                    reset_quest_progress(quest_id)
-                    return False, False
-
-                runRcon(f'con {rcon_id} testFIFO 2 \"Complete!\" \"{quest_name}\"')
-
-                return False, False
-
-            print(f'Quest {quest_id} - {char_name} is in the trigger area with character ID {char_id}.')
-            return char_id, char_name
-
-    else:
-        print(f'Quest {quest_id} - No one is in the trigger area.')
-        return False, False
-
-def character_in_radius(trigger_x, trigger_y, trigger_radius):
+def character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius):
     nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
     sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
 
@@ -209,7 +163,8 @@ def character_in_radius(trigger_x, trigger_y, trigger_radius):
     #print(f'{nwPoint} {sePoint}')
     results = db_query(f'select char_id, char_name from online_character_info '
                        f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
-                       f'and x <= {sePoint[0]} and y <= {sePoint[1]} limit 1')
+                       f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
+                       f'and z >= {trigger_z-200} limit 1')
     if results:
         char_info = flatten_list(results)
     else:
@@ -224,32 +179,6 @@ def character_in_radius(trigger_x, trigger_y, trigger_radius):
         return char_id, char_name
     else:
         return False, False
-
-    # rconResponse = runRcon(f'sql select a.id, c.char_name from actor_position as a '
-    #                        f'left join characters as c on c.id = a.id '
-    #                        f'left join account as acc on acc.id = c.playerId '
-    #                        f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
-    #                        f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
-    #                        f'and a.class like \'%BasePlayerChar_C%\' '
-    #                        f'and acc.online = 1 limit 1')
-    # rconResponse.output.pop(0)
-    #
-    # if rconResponse.output:
-    #     match = re.findall(r'\s+\d+ | [^|]*', rconResponse.output[0])
-    #
-    #     connected_chars.append(match)
-    #     character_info = sum(connected_chars, [])
-    #
-    #     if character_info:
-    #         char_id = int(character_info[0].strip())
-    #         char_name = str(character_info[1].strip())
-    #
-    #         return char_id, char_name
-    #     else:
-    #         return False, False
-    # else:
-    #     return False, False
-
 
 def clear_cooldown(char_id, quest_id):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -266,28 +195,33 @@ def add_cooldown(char_id, quest_id, cooldown: int):
     cur = con.cursor()
 
     cur.execute(f'insert or ignore into quest_timeout '
-                f'values ({quest_id}, {char_id}, {int_epoch_time()+cooldown})')
+                f'values ({quest_id}, {char_id}, {int_epoch_time()+int(cooldown)})')
 
     con.commit()
     con.close()
 
-def grant_reward(char_id, char_name, quest_id):
+def grant_reward(char_id, char_name, quest_id, repeatable):
     reward_list = db_query(f'select reward_template_id, reward_qty, reward_feat_id, '
-                           f'reward_thrall_name, reward_emote_name '
+                           f'reward_thrall_name, reward_emote_name, reward_boon, reward_command '
                            f'from quest_rewards where quest_id = {quest_id}')
     if not reward_list:
         print(f'No records returned from reward list, skipping delivery')
         return
 
     for reward in reward_list:
-        (reward_template_id, reward_qty, reward_feat_id, reward_thrall_name, reward_emote_name) = reward
+        (reward_template_id, reward_qty, reward_feat_id, reward_thrall_name,
+         reward_emote_name, reward_boon, reward_command) = reward
+
         #display_quest_text(quest_id, 0, True, char_name)
         if reward_template_id and reward_qty:
-            run_console_command_by_name_reset_quest(quest_id, char_name,
-                                                    f'spawnitem {reward_template_id} {reward_qty}')
+            check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {reward_qty}')
+            if not check:
+                error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
+                add_reward_record(int(char_id), int(reward_template_id), int(reward_qty),
+                                  f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
             continue
         if reward_feat_id:
-            run_console_command_by_name_reset_quest(quest_id, char_name, f'learnfeat {reward_feat_id}')
+            run_console_command_by_name(char_name, f'learnfeat {reward_feat_id}')
             con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
             cur = con.cursor()
             cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({char_id},{reward_feat_id})')
@@ -295,215 +229,60 @@ def grant_reward(char_id, char_name, quest_id):
             con.close()
             continue
         if reward_thrall_name:
-            run_console_command_by_name_reset_quest(quest_id, char_name, f'dc spawn 1 thrall exact '
-                                                                         f'{reward_thrall_name}x')
-            run_console_command_by_name_reset_quest(quest_id, char_name, f'dc spawn 1 thrall exact '
-                                                                         f'{reward_thrall_name}')
+            run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {reward_thrall_name}x')
+            run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {reward_thrall_name}')
             continue
         if reward_emote_name:
             print(f'granting emote {reward_emote_name} to {char_name} / {char_id}')
-            run_console_command_by_name_reset_quest(quest_id, char_name, f'learnemote {reward_emote_name}')
+            run_console_command_by_name(char_name, f'learnemote {reward_emote_name}')
             continue
+        if reward_boon:
+            print(f'Activating boon {reward_boon}')
+            current_expiration = get_bot_config(f'{reward_boon}')
+            current_time = int_epoch_time()
+            if int(current_expiration) < current_time:
+                set_bot_config(f'{reward_boon}', str(current_time+259200))
+            else:
+                set_bot_config(f'{reward_boon}', str(int(current_expiration)+259200))
+            update_boons()
+            continue
+        if reward_command:
+            match reward_command:
+                case 'dc meteor spawn':
+                    current_time = int_epoch_time()
+                    last_meteor = get_bot_config(f'{reward_command}')
+                    next_meteor = current_time + int(repeatable)
+                    cooldown_time = int(last_meteor) - int(current_time)
+
+                    if current_time >= int(last_meteor) + int(repeatable):
+                        runRcon(f'con 0 {reward_command}')
+                        notify_all(7, f'-Boon-', f'Starfall!')
+                        set_bot_config(f'{reward_command}', f'{next_meteor}')
+                    else:
+                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time} seconds remain')
+                    continue
+
+                case 'AddPatron Patron_Thrallable 0':
+                    current_time = int_epoch_time()
+                    last_patron = get_bot_config(f'{reward_command}')
+                    next_patron = current_time + int(repeatable)
+                    cooldown_time = int(last_patron) - int(current_time)
+
+                    if current_time >= int(last_patron) + int(repeatable):
+                        rcon_all(f'{reward_command}')
+                        notify_all(7, f'-Boon-', f'Check your tavern for a new patron')
+                        set_bot_config(f'{reward_command}', f'{next_patron}')
+                    else:
+                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time} seconds remain')
+                    continue
+
         continue
 
     return
 
-    # con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-    # cur = con.cursor()
-    # cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},{feat})')
-    # con.commit()
-    # con.close()
-
-@timeout(5, TimeoutError)
-async def questUpdate():
-
-    value = 0
-    char_name = ''
-    char_id = 0
-
-    questList = db_query(f'select quest_id, quest_name, quest_status, quest_char_id, quest_char_name, quest_start_time '
-                         f'from quest_tracker')
-    print(f'{questList}')
-
-    for quest in questList:
-        quest_id = int(quest[0])
-        quest_name = str(quest[1])
-        quest_status = int(quest[2])
-        quest_char_id = quest[3]
-        quest_char_name = quest[4]
-        quest_start_time = quest[5]
-
-        #print(f'Looping through quest entry: {quest_id}, {quest_name}, {quest_status}, '
-        #      f'{quest_char_id}, {quest_char_name}')
-
-        questTriggers = db_query(f'select trigger_x, trigger_y, trigger_radius, trigger_type, template_id, '
-                                 f'target_x, target_y, target_z, spawn_name, spawn_qty, '
-                                 f'end_condition, target_container, step_ready '
-                                 f'from quest_triggers where quest_id = {quest_id} '
-                                 f'and quest_step_number = {quest_status}')
-
-        current_trigger = list(sum(questTriggers, ()))
-
-        (trigger_x, trigger_y, trigger_radius, trigger_type, template_id, target_x,
-         target_y, target_z, spawn_name, spawn_qty, end_condition, target_container, step_ready) = current_trigger
-
-        if not step_ready:
-            print(f'Quest {quest_id} - Step number {quest_status} is not ready')
-            continue
-
-        # rcon_id = get_rcon_id(f'{char_name}')
-        # if not rcon_id:
-        #     reset_quest_progress(quest_id)
-        #     continue
-
-        # step specific logic
-
-        # if not char_id == quest_char_id and quest_status > 0:
-        #     print(f'Quest {quest_id} is already in progress by {quest_char_name} with id {quest_char_id}')
-        #     runRcon(f'con {rcon_id} testFIFO 2 \"Sorry\" '
-        #             f'\"Quest is currently active. Come back later!\"')
-        #     continue
-
-        match trigger_type:
-            case 'Start':
-                char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
-
-                if not char_id and not char_name:
-                    continue
-
-                display_quest_text(quest_id, quest_status, False, char_name)
-                increment_step(quest_status, char_id, char_name, quest_id, int_epoch_time())
-
-                continue
-
-            case 'Visit':
-                char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
-
-                if not char_id and not char_name:
-                    continue
-
-                display_quest_text(quest_id, quest_status, False, char_name)
-                increment_step(quest_status, char_id, char_name, quest_id, int_epoch_time())
-
-                continue
-
-            case 'Bring Item' | 'Deliver':
-                char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
-
-                if not char_id and not char_name:
-                    continue
-
-                inventoryHasItem = False
-
-                if 'Bring Item' in trigger_type:
-                    inventoryHasItem = check_inventory(char_id, 0, template_id)
-                if 'Deliver' in trigger_type:
-                    inventoryHasItem = check_inventory(target_container, 4, template_id)
-
-                if inventoryHasItem:
-                    display_quest_text(quest_id, quest_status, False, char_name)
-                    increment_step(quest_status, char_id, char_name, quest_id, int_epoch_time())
-                    run_console_command_by_name_reset_quest(quest_id, char_name,
-                                                f'teleportplayer {target_x} {target_y} {target_z}')
-                else:
-                    display_quest_text(quest_id, quest_status, True, char_name)
-
-                continue
-
-            case 'Steal':
-                char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
-
-                if not char_id and not char_name:
-                    continue
-
-                inventoryHasItem = check_inventory(target_container, 4, template_id)
-
-                if inventoryHasItem:
-                    display_quest_text(quest_id, quest_status, True, char_name)
-                else:
-                    display_quest_text(quest_id, quest_status, False, char_name)
-                    increment_step(quest_status, char_id, char_name, quest_id, int_epoch_time())
-
-                    #This is not necessarily have to teleport....
-                    #run_console_command_by_name(quest_id, char_name,
-                    #                            f'teleportplayer {target_x} {target_y} {target_z}')
-
-            # case 'Spawn':
-            #     runRcon(f'con {rcon_id} dc spawn {spawn_qty} exact {spawn_name} silent s100')
-            #     rcon_id = get_rcon_id(f'{char_name}')
-            #     reset_quest_progress(quest_id)
-            #     if not rcon_id:
-            #         print(f'Reset quest due to offline character')
-            #         continue
-            #     runRcon(f'con {rcon_id} testFIFO 3 \"Zombies!\"')
-            #
-            #     if 'Deliver' in end_condition:
-            #         deliver_results = runRcon(f'sql select count(template_id) from item_inventory '
-            #                                   f'where owner_id = {target_container} '
-            #                                   f'and inv_type = 4 and template_id = {template_id}')
-            #         for result in deliver_results.output:
-            #             match = re.search(r'\s+\d+ | [^|]*', result)
-            #             print(f'{match}')
-            #             value = match[0]
-            #
-            #         if int(value) == 0:
-            #             print(f'Item has not been placed in the target container yet.')
-            #             continue
-            #
-            #         quest_status = increment_step(quest_status, char_id, char_name, quest_id)
-            #
-            #     continue
-
-            case 'Finish':
-                char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
-
-                if not char_id and not char_name:
-                    continue
-
-                display_quest_text(quest_id, quest_status, False, char_name)
-
-                run_console_command_by_name_reset_quest(quest_id, char_name, f'spawnitem {template_id} {spawn_qty}')
-
-                run_console_command_by_name_reset_quest(quest_id, char_name, f'dc spawn kill')
-
-                run_console_command_by_name_reset_quest(quest_id, char_name, f' teleportplayer {target_x} {target_y} {target_z}')
-
-                complete_quest(quest_id, char_id)
-
-                increment_step(quest_status, None, f'Waiting to be reset.', quest_id, int_epoch_time())
-
-                continue
-
-            case 'ResetMe':
-                inventoryHasItem = check_inventory(target_container, 4, template_id)
-
-                if inventoryHasItem:
-                    reset_quest_progress(quest_id)
-                else:
-                    print(f'Quest {quest_id} needs to be reset.')
-
-                continue
-
-            case _:
-                print(f'You done goofed.')
-                continue
-
-        continue
-
-    # if not character:
-    #     await ctx.reply(f'**Proving Grounds Testing**\n'
-    #                     f'Could not find a character registered to {ctx.author.mention}.')
-    #     return
-    #
-    # rconCharId = get_rcon_id(character.char_name)
-    # if not rconCharId:
-    #     await ctx.reply(f'**Proving Grounds Testing**\n'
-    #                     f'Character {character.char_name} must be online to begin the Proving Grounds.')
-    #     return
-
 async def oneStepQuestUpdate():
 
-    #print(f'one step loop {int_epoch_time()}')
+    #print(f'one-step loop {int_epoch_time()}')
     if not pull_online_character_info():
         print(f'RCON error prevented online character info export')
         return
@@ -517,11 +296,11 @@ async def oneStepQuestUpdate():
         (quest_id, quest_name, active_flag, requirement_type, repeatable,
          trigger_x, trigger_y, trigger_z, trigger_radius, target_x, target_y, target_z) = quest
 
-        char_id, char_name = character_in_radius(trigger_x, trigger_y, trigger_radius)
+        char_id, char_name = character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius)
 
         # add active flag kickout here
-        # either split things up so tons of quests arent being checked at a single location at once
-        # of read all of the inventory in at once and then read from the DB
+        # either split things up so tons of quests aren't being checked at a single location at once
+        # read all the inventory in at once and then read from the DB
         if not char_id:
             #print(f'Skipping quest {quest_id}, no one in the box')
             continue
@@ -532,7 +311,11 @@ async def oneStepQuestUpdate():
             cooldown = flatten_list(cooldown_records)
             cooldown_until = cooldown[0]
             if int(int_epoch_time() < cooldown_until):
-                print(f'Skipping quest {quest_id} for id {char_id} {char_name}, on cooldown')
+                cooldown_time = cooldown_until - int_epoch_time()
+                if cooldown_time > 6000:
+                    run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time} seconds remain')
+                    #display_quest_text(quest_id, 0, False, char_name)
+                print(f'Skipping quest {quest_id} / {quest_name} for id {char_id} {char_name}, on cooldown')
                 continue
             else:
                 print(f'Clearing cooldown on {quest_id} for id {char_id} {char_name}')
@@ -541,43 +324,42 @@ async def oneStepQuestUpdate():
         match requirement_type:
             case 'Information':
                 display_quest_text(quest_id, 0, False, char_name)
-                add_cooldown(char_id, quest_id, 120)
+                add_cooldown(char_id, quest_id, repeatable)
                 print(f'Quest {quest_id} completed by id {char_id} {char_name}')
                 continue
             case 'Presence':
                 display_quest_text(quest_id, 0, False, char_name)
-                run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
+                grant_reward(char_id, char_name, quest_id, repeatable)
+                if target_x:
+                    run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
                 print(f'Quest {quest_id} completed by id {char_id} {char_name}')
-                if 'Y' in repeatable:
-                    add_cooldown(char_id, quest_id, 120)
-                else:
-                    add_cooldown(char_id, quest_id, 9999999999)
+                add_cooldown(char_id, quest_id, repeatable)
                 continue
-
+            case 'Meteor':
+                grant_reward(char_id, char_name, quest_id, repeatable)
+                if target_x:
+                    run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
+                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                add_cooldown(char_id, quest_id, repeatable)
+                continue
             case 'BringItems':
-                req_list = db_query(f'select mode, template_id, item_qty '
+                req_list = db_query(f'select template_id, item_qty '
                                     f'from quest_requirements where quest_id = {quest_id}')
                 for requirement in req_list:
-                    (mode, template_id, item_qty) = requirement
-                    match mode:
-                        case 'All':
-                            inventoryHasItem = check_inventory(char_id, 0, template_id)
-                            if inventoryHasItem:
-                                consume_from_inventory(char_id, char_name, template_id)
-                                display_quest_text(quest_id, 0, False, char_name)
-                                grant_reward(char_id, char_name, quest_id)
-                                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
-                                if 'Y' in repeatable:
-                                    add_cooldown(char_id, quest_id, 120)
-                                else:
-                                    add_cooldown(char_id, quest_id, 9999999999)
-                                if target_x:
-                                    run_console_command_by_name(char_name,
-                                                                f'teleportplayer {target_x} {target_y} {target_z}')
-                            else:
-                                print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
-                                      f'does not have the required item {template_id}')
-                                continue
+                    (template_id, item_qty) = requirement
+                    inventoryHasItem = check_inventory(char_id, 0, template_id)
+                    if inventoryHasItem:
+                        consume_from_inventory(char_id, char_name, template_id)
+                        display_quest_text(quest_id, 0, False, char_name)
+                        grant_reward(char_id, char_name, quest_id, repeatable)
+                        print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                        add_cooldown(char_id, quest_id, repeatable)
+                        if target_x:
+                            run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
+                    else:
+                        print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
+                              f'does not have the required item {template_id}')
+                        continue
 
                 continue
 
@@ -704,49 +486,29 @@ class QuestSystem(commands.Cog):
 
         await ctx.send(f'Added Quest {quest_id} - {quest_name}')
 
-    @commands.command(name='addqueststep')
+    @commands.command(name='updatequesttext')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def addqueststep(self, ctx, trigger_type: str, quest_id: int, quest_step_number: int, trigger_x: float,
-                           trigger_y: float, trigger_z: float, trigger_radius: int, target_x, target_y,
-                           target_z, target_radius, template_id, spawn_name, spawn_qty, end_condition,
-                           target_container, step_ready: int):
+    async def updatequesttext(self, ctx, quest_id: int, style: int, text1: str, text2: str):
         """
 
         Parameters
         ----------
         ctx
-        trigger_type
         quest_id
-        quest_step_number
-        target_x
-        target_y
-        target_z
-        trigger_radius
-        template_id
-        target_container
-        trigger_x
-        trigger_y
-        trigger_z
-        spawn_name
-        spawn_qty
-        end_condition
-        target_radius
-        step_ready
+        style
+        text1
+        text2
 
         Returns
         -------
 
         """
         try:
-            str(trigger_type)
             int(quest_id)
-            int(quest_step_number)
-            float(trigger_x)
-            float(trigger_y)
-            float(trigger_z)
-            int(trigger_radius)
-            int(step_ready)
+            int(style)
+            str(text1)
+            str(text2)
         except ValueError:
             await ctx.send(f'Input error.')
             return
@@ -754,20 +516,286 @@ class QuestSystem(commands.Cog):
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur = con.cursor()
 
-        cur.execute(f'insert or ignore into quest_triggers (trigger_type, quest_id, quest_step_number, trigger_x, '
-                    f'trigger_y, trigger_z, trigger_radius, target_x, target_y, '
-                    f'target_z, target_radius, template_id, spawn_name, spawn_qty, end_condition, '
-                    f'target_container, step_ready ) '
-                    f'values ( \'{trigger_type}\', {quest_id}, {quest_step_number}, {trigger_x}, '
-                    f'{trigger_y}, {trigger_z}, {trigger_radius}, {target_x}, {target_y}, '
-                    f'{target_z}, {target_radius}, {template_id}, \'{spawn_name}\', {spawn_qty}, \'{end_condition}\', '
-                    f'{target_container}, {step_ready} )')
+        cur.execute(f'update or ignore quest_text set quest_id = {quest_id}, step_number = 0, style = {style}, '
+                    f'Text1 = \'{text1}\', Text2 = \'{text2}\' where quest_id = {quest_id}')
 
         con.commit()
         con.close()
 
-        await ctx.send(f'Added Quest Trigger Step {quest_id} - {quest_step_number} \'{trigger_type}\'')
+        await ctx.send(f'Modified Quest Text: {quest_id} 0 {style} \'{text1}\' \'{text2}\'')
+
+    @commands.command(name='updatequestcooldown')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def addqueststep(self, ctx, quest_id: int, new_cooldown: int):
+        """
+
+        Parameters
+        ----------
+        ctx
+        quest_id
+        new_cooldown
+
+        Returns
+        -------
+
+        """
+        try:
+            int(quest_id)
+            int(new_cooldown)
+        except ValueError:
+            await ctx.send(f'Input error.')
+            return
+
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+
+        cur.execute(f'update one_step_quests set repeatable = \'{new_cooldown}\' where quest_id = {quest_id}')
+
+        con.commit()
+        con.close()
+
+        await ctx.send(f'Modified Quest Cooldown: {quest_id} {new_cooldown}')
 
 @commands.Cog.listener()
 async def setup(bot):
     await bot.add_cog(QuestSystem(bot))
+
+# @timeout(5, TimeoutError)
+# async def questUpdate():
+#
+#     value = 0
+#     char_name = ''
+#     char_id = 0
+#
+#     questList = db_query(f'select quest_id, quest_name, quest_status, quest_char_id, quest_char_name,
+#     quest_start_time '
+#                          f'from quest_tracker')
+#     print(f'{questList}')
+#
+#     for quest in questList:
+#         quest_id = int(quest[0])
+#         quest_name = str(quest[1])
+#         quest_status = int(quest[2])
+#         quest_char_id = quest[3]
+#         quest_char_name = quest[4]
+#         quest_start_time = quest[5]
+#
+#         #print(f'Looping through quest entry: {quest_id}, {quest_name}, {quest_status}, '
+#         #      f'{quest_char_id}, {quest_char_name}')
+#
+#         questTriggers = db_query(f'select trigger_x, trigger_y, trigger_radius, trigger_type, template_id, '
+#                                  f'target_x, target_y, target_z, spawn_name, spawn_qty, '
+#                                  f'end_condition, target_container, step_ready '
+#                                  f'from quest_triggers where quest_id = {quest_id} '
+#                                  f'and quest_step_number = {quest_status}')
+#
+#         current_trigger = list(sum(questTriggers, ()))
+#
+#         (trigger_x, trigger_y, trigger_radius, trigger_type, template_id, target_x,
+#          target_y, target_z, spawn_name, spawn_qty, end_condition, target_container, step_ready) = current_trigger
+#
+#         if not step_ready:
+#             print(f'Quest {quest_id} - Step number {quest_status} is not ready')
+#             continue
+#
+#         # rcon_id = get_rcon_id(f'{char_name}')
+#         # if not rcon_id:
+#         #     reset_quest_progress(quest_id)
+#         #     continue
+#
+#         # step specific logic
+#
+#         # if not char_id == quest_char_id and quest_status > 0:
+#         #     print(f'Quest {quest_id} is already in progress by {quest_char_name} with id {quest_char_id}')
+#         #     runRcon(f'con {rcon_id} testFIFO 2 \"Sorry\" '
+#         #             f'\"Quest is currently active. Come back later!\"')
+#         #     continue
+#
+#         match trigger_type:
+#             case 'Start':
+#                 char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
+#
+#                 if not char_id and not char_name:
+#                     continue
+#
+#                 display_quest_text(quest_id, quest_status, False, char_name)
+#                 increment_step(quest_status, char_id, char_name, quest_id, int_epoch_time())
+#
+#                 continue
+#
+#             case 'Visit':
+#                 char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
+#
+#                 if not char_id and not char_name:
+#                     continue
+#
+#                 display_quest_text(quest_id, quest_status, False, char_name)
+#                 increment_step(quest_status, char_id, char_name, quest_id, int_epoch_time())
+#
+#                 continue
+#
+#             case 'Bring Item' | 'Deliver':
+#                 char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
+#
+#                 if not char_id and not char_name:
+#                     continue
+#
+#                 inventoryHasItem = False
+#
+#                 if 'Bring Item' in trigger_type:
+#                     inventoryHasItem = check_inventory(char_id, 0, template_id)
+#                 if 'Deliver' in trigger_type:
+#                     inventoryHasItem = check_inventory(target_container, 4, template_id)
+#
+#                 if inventoryHasItem:
+#                     display_quest_text(quest_id, quest_status, False, char_name)
+#                     increment_step(quest_status, char_id, char_name, quest_id, int_epoch_time())
+#                     run_console_command_by_name_reset_quest(quest_id, char_name,
+#                                                 f'teleportplayer {target_x} {target_y} {target_z}')
+#                 else:
+#                     display_quest_text(quest_id, quest_status, True, char_name)
+#
+#                 continue
+#
+#             case 'Steal':
+#                 char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
+#
+#                 if not char_id and not char_name:
+#                     continue
+#
+#                 inventoryHasItem = check_inventory(target_container, 4, template_id)
+#
+#                 if inventoryHasItem:
+#                     display_quest_text(quest_id, quest_status, True, char_name)
+#                 else:
+#                     display_quest_text(quest_id, quest_status, False, char_name)
+#                     increment_step(quest_status, char_id, char_name, quest_id, int_epoch_time())
+#
+#                     #This is not necessarily have to teleport....
+#                     #run_console_command_by_name(quest_id, char_name,
+#                     #                            f'teleportplayer {target_x} {target_y} {target_z}')
+#
+#             # case 'Spawn':
+#             #     runRcon(f'con {rcon_id} dc spawn {spawn_qty} exact {spawn_name} silent s100')
+#             #     rcon_id = get_rcon_id(f'{char_name}')
+#             #     reset_quest_progress(quest_id)
+#             #     if not rcon_id:
+#             #         print(f'Reset quest due to offline character')
+#             #         continue
+#             #     runRcon(f'con {rcon_id} testFIFO 3 \"Zombies!\"')
+#             #
+#             #     if 'Deliver' in end_condition:
+#             #         deliver_results = runRcon(f'sql select count(template_id) from item_inventory '
+#             #                                   f'where owner_id = {target_container} '
+#             #                                   f'and inv_type = 4 and template_id = {template_id}')
+#             #         for result in deliver_results.output:
+#             #             match = re.search(r'\s+\d+ | [^|]*', result)
+#             #             print(f'{match}')
+#             #             value = match[0]
+#             #
+#             #         if int(value) == 0:
+#             #             print(f'Item has not been placed in the target container yet.')
+#             #             continue
+#             #
+#             #         quest_status = increment_step(quest_status, char_id, char_name, quest_id)
+#             #
+#             #     continue
+#
+#             case 'Finish':
+#                 char_id, char_name = check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius)
+#
+#                 if not char_id and not char_name:
+#                     continue
+#
+#                 display_quest_text(quest_id, quest_status, False, char_name)
+#
+#                 run_console_command_by_name_reset_quest(quest_id, char_name, f'spawnitem {template_id} {spawn_qty}')
+#
+#                 run_console_command_by_name_reset_quest(quest_id, char_name, f'dc spawn kill')
+#
+#                 run_console_command_by_name_reset_quest(quest_id, char_name, f' teleportplayer
+#                 {target_x} {target_y} {target_z}')
+#
+#                 complete_quest(quest_id, char_id)
+#
+#                 increment_step(quest_status, None, f'Waiting to be reset.', quest_id, int_epoch_time())
+#
+#                 continue
+#
+#             case 'ResetMe':
+#                 inventoryHasItem = check_inventory(target_container, 4, template_id)
+#
+#                 if inventoryHasItem:
+#                     reset_quest_progress(quest_id)
+#                 else:
+#                     print(f'Quest {quest_id} needs to be reset.')
+#
+#                 continue
+#
+#             case _:
+#                 print(f'You done goofed.')
+#                 continue
+#
+#         continue
+#
+#     # if not character:
+#     #     await ctx.reply(f'**Proving Grounds Testing**\n'
+#     #                     f'Could not find a character registered to {ctx.author.mention}.')
+#     #     return
+#     #
+#     # rconCharId = get_rcon_id(character.char_name)
+#     # if not rconCharId:
+#     #     await ctx.reply(f'**Proving Grounds Testing**\n'
+#     #                     f'Character {character.char_name} must be online to begin the Proving Grounds.')
+#     #     return
+
+# def check_trigger_radius(quest_id, quest_name, trigger_x, trigger_y, trigger_radius):
+#     # this needs to be rewritten to move quest specific logic into the main function
+#     nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
+#     sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
+#
+#     connected_chars = []
+#
+#     # if player is offline, they should not be selected
+#     # look for players who are on the quest first before looking for any player
+#     rconResponse = runRcon(f'sql select a.id, c.char_name from actor_position as a '
+#                            f'left join characters as c on c.id = a.id '
+#                            f'left join account as acc on acc.id = c.playerId '
+#                            f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
+#                            f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
+#                            f'and a.class like \'%BasePlayerChar_C%\' '
+#                            f'and acc.online = 1 limit 1')
+#     rconResponse.output.pop(0)
+#
+#     if rconResponse.output:
+#         match = re.findall(r'\s+\d+ | [^|]*', rconResponse.output[0])
+#
+#         connected_chars.append(match)
+#         character_info = sum(connected_chars, [])
+#
+#         if character_info:
+#             char_id = int(character_info[0].strip())
+#             char_name = str(character_info[1].strip())
+#
+#             questHistory = db_query(f'select char_id from quest_history '
+#                                     f'where char_id = {char_id} and quest_id = {quest_id}')
+#             if questHistory:
+#                 # if there are any records, the character has already completed this quest.
+#                 print(f'Quest {quest_id} - {char_name} is in the box with character ID {char_id}, '
+#                       f'but has already completed it..')
+#                 rcon_id = get_rcon_id(f'{char_name}')
+#                 if not rcon_id:
+#                     reset_quest_progress(quest_id)
+#                     return False, False
+#
+#                 runRcon(f'con {rcon_id} testFIFO 2 \"Complete!\" \"{quest_name}\"')
+#
+#                 return False, False
+#
+#             print(f'Quest {quest_id} - {char_name} is in the trigger area with character ID {char_id}.')
+#             return char_id, char_name
+#
+#     else:
+#         print(f'Quest {quest_id} - No one is in the trigger area.')
+#         return False, False

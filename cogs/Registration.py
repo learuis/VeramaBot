@@ -5,8 +5,8 @@ import os
 
 from discord import ui
 from discord.ext import commands
-from functions.common import custom_cooldown, modChannel, get_character_id, is_registered, get_registration, \
-    get_member_from_userid, publicChannel, last_season_char
+from functions.common import custom_cooldown, get_character_id, is_registered, get_registration, \
+    get_member_from_userid, last_season_char
 from datetime import date
 from dotenv import load_dotenv
 
@@ -120,7 +120,6 @@ class Registration(commands.Cog):
                       aliases=['forcereg', 'linkchar'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def registrationForce(self, ctx, discord_user: discord.Member, name: str, funcom_id: str, game_char_id: int):
         """- Manually create a character registration record
 
@@ -173,7 +172,6 @@ class Registration(commands.Cog):
     @commands.command(name='registrationlist', aliases=['reglist'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def register(self, ctx):
         """- Lists all registered characters
 
@@ -225,7 +223,6 @@ class Registration(commands.Cog):
     @commands.command(name='registrationdelete', aliases=['regdelete', 'regdel'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def registrationdelete(self, ctx,
                                  recordToDelete: int = commands.parameter(default=0)):
         """- Delete a record from the registration database
@@ -258,7 +255,6 @@ class Registration(commands.Cog):
     @commands.command(name='registrationlookup', aliases=['reglook', 'whois', 'who'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def registrationLookup(self, ctx, name: str):
         """- Look up registrations based on partial character name
 
@@ -293,7 +289,6 @@ class Registration(commands.Cog):
     @commands.command(name='clanlookup', aliases=['clanwho', 'whoclan', 'clan'])
     @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
     async def clanLookup(self, ctx, searchTerm: str):
         """ - Look up clan membership
 
@@ -315,7 +310,6 @@ class Registration(commands.Cog):
         -------
 
         """
-        rconResponse = []
         playerList = []
         clanList = []
         outputString = ''

@@ -23,6 +23,16 @@ class Warps(commands.Cog):
         -------
 
         """
+        outputString = 'List of Available Warps: '
+
+        if 'list' in destination.casefold():
+            output = db_query(f'select warp_name from warp_locations')
+            output = flatten_list(output)
+            for warp_name in output:
+                outputString += f'{warp_name}, '
+            await ctx.send(f'{outputString}')
+            return
+
         if 'quest' in destination.casefold():
             if not quest_id:
                 await ctx.reply(f'You must specify a quest ID in order to teleport there.!')
@@ -52,13 +62,47 @@ class Warps(commands.Cog):
             return
         else:
             runRcon(f'con {rconCharId} TeleportPlayer {x} {y} {z}')
-            await ctx.reply(f'Teleported `{name}` to the {description}.')
+            await ctx.reply(f'Teleported `{name}` to {description}.')
             return
 
         # #output_list = list(sum(output, ()))
         #
         # for location in output:
         #     (warp_id, description, warp_name, marker_label, x, y, z, marker_flag) = location
+
+    @commands.command(name='addwarp')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def addwarp(self, ctx, description: str, warp_name: str, marker_label: str,
+                      x: float, y: float, z: float, marker_flag: str):
+        """
+
+        Parameters
+        ----------
+        ctx
+        description
+        warp_name
+        marker_label
+        x
+        y
+        z
+        marker_flag
+
+        Returns
+        -------
+
+        """
+        try:
+            str(description)
+            str(warp_name)
+            str(marker_label)
+            float(x)
+            float(y)
+            float(z)
+            str(marker_flag)
+        except TypeError:
+            await ctx.send(f'Error in one or more parameters.')
+
 
 @commands.Cog.listener()
 async def setup(bot):

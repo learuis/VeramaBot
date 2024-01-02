@@ -5,7 +5,7 @@ import discord
 import os
 
 from discord.ext import commands
-from functions.common import custom_cooldown, modChannel, is_registered, publicChannel, get_rcon_id
+from functions.common import custom_cooldown, is_registered, get_rcon_id
 from dotenv import load_dotenv
 
 from functions.externalConnections import db_query, runRcon
@@ -135,7 +135,6 @@ class FaithTrials(commands.Cog):
     @commands.command(name='faithlist', aliases=['listfaith', 'listgods'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def faithList(self, ctx, faith: str):
         """- List players who are members of a faith
 
@@ -209,7 +208,6 @@ class FaithTrials(commands.Cog):
     @commands.command(name='bless', aliases=['blessing', 'faithreward'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def quest(self, ctx, faith: str, blessing: str, playerCount: int):
         """
         Usage:
@@ -360,7 +358,6 @@ class FaithTrials(commands.Cog):
     @commands.command(name='faith')
     @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
     async def faith(self, ctx):
         """- Delivers faith rewards to your character
 

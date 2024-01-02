@@ -1,15 +1,17 @@
 import time
 import sqlite3
 import ast
+from datetime import datetime
 
 import discord
 
-from functions.common import isInt, percentage, get_single_registration, is_registered, publicChannel, boonChannel
-from functions.externalConnections import runRcon, db_query
+from functions.common import isInt, percentage, get_single_registration, is_registered, \
+    set_bot_config, get_bot_config, int_epoch_time
+from functions.externalConnections import runRcon, db_query, multi_rcon
 
 from discord.ext import commands
 
-from functions.common import custom_cooldown, modChannel
+from functions.common import custom_cooldown
 
 class CommunityBoons(commands.Cog):
     """Cog class containing commands related to server status.
@@ -23,7 +25,6 @@ class CommunityBoons(commands.Cog):
                       aliases=['logdel', 'boondel', 'delboon', 'delboons'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def deleteboonlog(self, ctx,
                             command: str = commands.parameter(default='error'),
                             target: int = commands.parameter(default=-1)):
@@ -92,7 +93,6 @@ class CommunityBoons(commands.Cog):
                       aliases=['bcon', 'bconsume', 'booncon'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
     async def boonconsume(self, ctx,
                           identifier: str):
         """- Consumes materials for boon activation
@@ -221,7 +221,6 @@ class CommunityBoons(commands.Cog):
                       aliases=['log', 'blog', 'boon', 'boons'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
     async def boonlog(self, ctx,
                       name: str = commands.parameter(default='error'),
                       quantity: str = commands.parameter(default=0),
@@ -330,12 +329,56 @@ class CommunityBoons(commands.Cog):
         await ctx.send(f'{outputString}')
 
     @commands.command(name='booninfo',
-                      aliases=['boonrep', 'brep', 'binfo', 'boonreport'])
-    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+                      aliases=['binfo'])
+    @commands.has_any_role('Admin', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(boonChannel)
-    async def booninfo(self, ctx,
-                       command: str = commands.parameter(default='report')):
+    async def booninfo(self, ctx):
+        """- Reports on current boon status
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        outputString = f'**Boon Status as of {datetime.fromtimestamp(float(int_epoch_time()))}**\n'
+        settings_list = [['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],
+                         ['Preservation (Item Spoil Rate)', 'ItemSpoilRateScale'],
+                         ['Training (XP From Kills)', 'PlayerXPKillMultiplier'],
+                         ['Maintenance (Durability)', 'DurabilityMultiplier'],
+                         ['Abundance (Harvest Amount)', 'HarvestAmountMultiplier'],
+                         ['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier'],
+                         ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier'],
+                         ['Starfall (Meteor Shower)', 'dc meteor spawn']]
+
+        for setting in settings_list:
+            (boon_name, setting_name) = setting
+            value = get_bot_config(f'{setting_name}')
+
+            if 'Starfall' in boon_name:
+                if int(value) >= int_epoch_time():
+                    current_expiration = datetime.fromtimestamp(float(value))
+                    outputString += f'Boon of {boon_name} will be available at: {current_expiration} Eastern Time\n'
+                else:
+                    outputString += f'Boon of {boon_name} is available to be triggered.\n'
+                continue
+
+            if int(value) >= int_epoch_time():
+                current_expiration = datetime.fromtimestamp(float(value))
+                outputString += f'Boon of {boon_name} is active until: {current_expiration} Eastern Time\n'
+            else:
+                outputString += f'Boon of {boon_name} is not currently active.\n'
+
+        await ctx.reply(f'{outputString}')
+
+    @commands.command(name='old_booninfo',
+                      aliases=['old_boonrep', 'old_brep', 'old_binfo', 'old_boonreport'])
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def old_booninfo(self, ctx,
+                           command: str = commands.parameter(default='report')):
         """- Reports on boon contributions
 
         Accesses the VeramaBot database to report on boon contributions. If no arguments
@@ -478,12 +521,37 @@ class CommunityBoons(commands.Cog):
 
                 await ctx.send(outputString)
 
-    @commands.command(name='boonset',
-                      aliases=['setboons', 'setboon'])
+    @commands.command(name='boonset')
+    @commands.has_any_role('Admin')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def setboon(self, ctx, boon_name: str, expiration_time: int):
+        """
+
+        Parameters
+        ----------
+        ctx
+        boon_name
+        expiration_time
+
+        Returns
+        -------
+
+        """
+        settings_list = ['ItemConvertionMultiplier', 'ItemSpoilRateScale', 'PlayerXPKillMultiplier',
+                         'DurabilityMultiplier', 'HarvestAmountMultiplier', 'ResourceRespawnSpeedMultiplier',
+                         'NPCRespawnMultiplier']
+        if boon_name in settings_list:
+            set_bot_config(f'{boon_name}', str(expiration_time))
+            await ctx.reply(f'Setting {boon_name} expiration time to {expiration_time}')
+            update_boons()
+        else:
+            await ctx.reply(f'Invalid boon specified')
+
+    @commands.command(name='old_boonset',
+                      aliases=['old_setboons', 'old_setboon'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
-    async def setboon(self, ctx, option: str = commands.parameter(default='check'), *args):
+    async def old_setboon(self, ctx, option: str = commands.parameter(default='check'), *args):
         """- Modify Boon settings
 
         Checks, activates or deactivates a list of boons, or all of them at once.
@@ -739,7 +807,6 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='titleclear', aliases=['cleartitle'])
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
     async def titleClear(self, ctx):
         """- Removes your current title
 
@@ -769,7 +836,6 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='title')
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
     async def title(self, ctx, set_title: int = 0):
         """- Check titles you have earned or set your title.
 
@@ -813,6 +879,54 @@ class CommunityBoons(commands.Cog):
         else:
             await ctx.reply(f'You have not earned any titles this season.')
             return
+
+def update_boons():
+    command_prep = []
+    command_list = []
+    currentTime = int_epoch_time()
+
+    if int(get_bot_config(f'ItemConvertionMultiplier')) >= currentTime:
+        command_prep.append(['ItemConvertionMultiplier', '0.7'])
+    else:
+        command_prep.append(['ItemConvertionMultiplier', '1.0'])
+
+    if int(get_bot_config(f'ItemSpoilRateScale')) >= currentTime:
+        command_prep.append(['ItemSpoilRateScale', '0.7'])
+    else:
+        command_prep.append(['ItemSpoilRateScale', '1.0'])
+
+    if int(get_bot_config(f'PlayerXPKillMultiplier')) >= currentTime:
+        command_prep.append(['PlayerXPKillMultiplier', '1.5'])
+    else:
+        command_prep.append(['PlayerXPKillMultiplier', '1.0'])
+
+    if int(get_bot_config(f'DurabilityMultiplier')) >= currentTime:
+        command_prep.append(['DurabilityMultiplier', '0.7'])
+    else:
+        command_prep.append(['DurabilityMultiplier', '1.0'])
+
+    if int(get_bot_config(f'HarvestAmountMultiplier')) >= currentTime:
+        command_prep.append(['HarvestAmountMultiplier', '2.0'])
+    else:
+        command_prep.append(['HarvestAmountMultiplier', '1.5'])
+
+    if int(get_bot_config(f'ResourceRespawnSpeedMultiplier')) >= currentTime:
+        command_prep.append(['ResourceRespawnSpeedMultiplier', '0.7'])
+    else:
+        command_prep.append(['ResourceRespawnSpeedMultiplier', '1.0'])
+
+    if int(get_bot_config(f'NPCRespawnMultiplier')) >= currentTime:
+        command_prep.append(['NPCRespawnMultiplier', '0.7'])
+    else:
+        command_prep.append(['NPCRespawnMultiplier', '1.0'])
+
+    for command in command_prep:
+        (setting, value) = command
+        new_command = f'SetServerSetting {setting} {value}'
+        command_list.append(new_command)
+
+    multi_rcon(command_list)
+
 
 @commands.Cog.listener()
 async def setup(bot):
