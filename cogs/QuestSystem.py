@@ -1,14 +1,15 @@
 import datetime
 import re
 import sqlite3
+import random
 
 from discord.ext import commands
 from datetime import datetime
 
 from cogs.CommunityBoons import update_boons
 from cogs.Reward import add_reward_record
-from functions.common import custom_cooldown, run_console_command_by_name, int_epoch_time, \
-    pull_online_character_info, flatten_list, get_bot_config, set_bot_config
+from functions.common import (custom_cooldown, run_console_command_by_name, int_epoch_time,
+                              flatten_list, get_bot_config, set_bot_config)
 from functions.externalConnections import runRcon, db_query, notify_all, rcon_all
 
 
@@ -190,6 +191,15 @@ def clear_cooldown(char_id, quest_id):
     con.commit()
     con.close()
 
+def finish_cooldowns():
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'delete from quest_timeout where timeout_until <= {int_epoch_time()}')
+
+    con.commit()
+    con.close()
+
 def add_cooldown(char_id, quest_id, cooldown: int):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
@@ -202,7 +212,7 @@ def add_cooldown(char_id, quest_id, cooldown: int):
 
 def grant_reward(char_id, char_name, quest_id, repeatable):
     reward_list = db_query(f'select reward_template_id, reward_qty, reward_feat_id, '
-                           f'reward_thrall_name, reward_emote_name, reward_boon, reward_command '
+                           f'reward_thrall_name, reward_emote_name, reward_boon, reward_command, range_min, range_max '
                            f'from quest_rewards where quest_id = {quest_id}')
     if not reward_list:
         print(f'No records returned from reward list, skipping delivery')
@@ -210,7 +220,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
 
     for reward in reward_list:
         (reward_template_id, reward_qty, reward_feat_id, reward_thrall_name,
-         reward_emote_name, reward_boon, reward_command) = reward
+         reward_emote_name, reward_boon, reward_command, range_min, range_max) = reward
 
         #display_quest_text(quest_id, 0, True, char_name)
         if reward_template_id and reward_qty:
@@ -229,7 +239,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
             con.close()
             continue
         if reward_thrall_name:
-            run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {reward_thrall_name}x')
+            runRcon(f'con 0 dc spawn 1 thrall exact {reward_thrall_name}x')
             run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {reward_thrall_name}')
             continue
         if reward_emote_name:
@@ -244,6 +254,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
                 set_bot_config(f'{reward_boon}', str(current_time+259200))
             else:
                 set_bot_config(f'{reward_boon}', str(int(current_expiration)+259200))
+            notify_all(7, f'-Boon-', f'{reward_boon} improvement +3 days')
             update_boons()
             continue
         if reward_command:
@@ -259,7 +270,8 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
                         notify_all(7, f'-Boon-', f'Starfall!')
                         set_bot_config(f'{reward_command}', f'{next_meteor}')
                     else:
-                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time} seconds remain')
+                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time}s until '
+                                                               f'Boon of Starfall is available')
                     continue
 
                 case 'AddPatron Patron_Thrallable 0':
@@ -273,19 +285,30 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
                         notify_all(7, f'-Boon-', f'Check your tavern for a new patron')
                         set_bot_config(f'{reward_command}', f'{next_patron}')
                     else:
-                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time} seconds remain')
+                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time}s until '
+                                                               f'Boon of Freedom is available')
                     continue
 
+                case 'random range':
+                    random_reward = random.randint(int(range_min), int(range_max))
+                    check = run_console_command_by_name(char_name, f'spawnitem {random_reward} 1')
+                    if not check:
+                        error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
+                        add_reward_record(int(char_id), int(random_reward), 1,
+                                          f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
+                    continue
         continue
 
     return
 
-async def oneStepQuestUpdate():
+async def oneStepQuestUpdate(bot):
+
+    bot.quest_running = True
 
     #print(f'one-step loop {int_epoch_time()}')
-    if not pull_online_character_info():
-        print(f'RCON error prevented online character info export')
-        return
+    # if not pull_online_character_info():
+    #     print(f'RCON error prevented online character info export')
+    #     return
 
     quest_list = db_query(f'select quest_id, quest_name, active_flag, requirement_type, repeatable, '
                           f'trigger_x, trigger_y, trigger_z, trigger_radius, '
@@ -305,6 +328,9 @@ async def oneStepQuestUpdate():
             #print(f'Skipping quest {quest_id}, no one in the box')
             continue
 
+        #clear all fulfilled cooldowns
+        finish_cooldowns()
+
         cooldown_records = db_query(f'select timeout_until from quest_timeout '
                                     f'where character_id = {char_id} and quest_id = {quest_id} limit 1')
         if cooldown_records:
@@ -312,10 +338,13 @@ async def oneStepQuestUpdate():
             cooldown_until = cooldown[0]
             if int(int_epoch_time() < cooldown_until):
                 cooldown_time = cooldown_until - int_epoch_time()
-                if cooldown_time > 6000:
-                    run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time} seconds remain')
-                    #display_quest_text(quest_id, 0, False, char_name)
-                print(f'Skipping quest {quest_id} / {quest_name} for id {char_id} {char_name}, on cooldown')
+                if cooldown_time > 12000:
+                    # run_console_command_by_name(char_name, f'testFIFO 7 Complete Quest already completed')
+                    print(f'Quest {quest_id} / {quest_name} is already complete for id {char_id} {char_name}')
+                else:
+                    # run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time} seconds remain')
+                    # display_quest_text(quest_id, 0, False, char_name)
+                    print(f'Skipping quest {quest_id} / {quest_name} for id {char_id} {char_name}, on cooldown')
                 continue
             else:
                 print(f'Clearing cooldown on {quest_id} for id {char_id} {char_name}')
@@ -336,9 +365,9 @@ async def oneStepQuestUpdate():
                 add_cooldown(char_id, quest_id, repeatable)
                 continue
             case 'Meteor':
-                grant_reward(char_id, char_name, quest_id, repeatable)
                 if target_x:
                     run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
+                grant_reward(char_id, char_name, quest_id, repeatable)
                 print(f'Quest {quest_id} completed by id {char_id} {char_name}')
                 add_cooldown(char_id, quest_id, repeatable)
                 continue
@@ -362,6 +391,8 @@ async def oneStepQuestUpdate():
                         continue
 
                 continue
+
+    bot.quest_running = False
 
 class QuestSystem(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -556,6 +587,33 @@ class QuestSystem(commands.Cog):
         con.close()
 
         await ctx.send(f'Modified Quest Cooldown: {quest_id} {new_cooldown}')
+
+    @commands.command(name='replayquesttext')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def createquest(self, ctx, quest_id: int, char_name: str):
+        """
+
+        Parameters
+        ----------
+        ctx
+        quest_id
+        char_name
+
+        Returns
+        -------
+
+        """
+        try:
+            int(quest_id)
+            str(char_name)
+        except ValueError:
+            await ctx.send(f'Input error.')
+            return
+
+        display_quest_text(quest_id, 0, False, char_name)
+
+        await ctx.send(f'Displayed text for quest {quest_id} to {char_name}')
 
 @commands.Cog.listener()
 async def setup(bot):

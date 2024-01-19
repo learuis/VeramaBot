@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 from cogs.CommunityBoons import update_boons
 from cogs.QuestSystem import oneStepQuestUpdate
-from functions.common import is_docker, editStatus, place_markers
+from functions.common import is_docker, editStatus, place_markers, pull_online_character_info
 from cogs.Registration import RegistrationButton
 from cogs.FaithTrials import ChooseGod
 
@@ -30,8 +30,7 @@ if is_docker():
 else:
     bot: Bot = commands.Bot(command_prefix=['vt/', 'Vt/'], intents=intents)
 
-bot.maintenance_flag = False
-bot.market_night = False
+bot.quest_running = False
 
 # @bot.event
 # async def on_ready():
@@ -55,8 +54,8 @@ async def on_ready():
     if not liveStatus.is_running():
         liveStatus.start()
 
-    # if not onlineCharacterInfo.is_running():
-    #     onlineCharacterInfo.start()
+    if not onlineCharacterInfo.is_running():
+        onlineCharacterInfo.start()
 
     # if not questChecker.is_running():
     #     questChecker.start()
@@ -70,13 +69,13 @@ async def on_ready():
     if not boonChecker.is_running():
         boonChecker.start()
 
-# @tasks.loop(seconds=30)
-# async def onlineCharacterInfo():
-#
-#     try:
-#         pull_online_character_info()
-#     except TimeoutError:
-#         print(f'onlineCharacterInfo took too long to complete.')
+@tasks.loop(seconds=30)
+async def onlineCharacterInfo():
+
+    try:
+        pull_online_character_info()
+    except TimeoutError:
+        print(f'onlineCharacterInfo took too long to complete.')
 
 # @tasks.loop(seconds=30)
 # async def questChecker():
@@ -88,8 +87,11 @@ async def on_ready():
 
 @tasks.loop(seconds=30)
 async def oneStepQuestChecker():
+    # if bot.quest_running:
+    #     print(f'Previous quest loop did not complete in time. Skipping this run.')
+    #     return
     try:
-        await oneStepQuestUpdate()
+        await oneStepQuestUpdate(bot)
     except TimeoutError:
         print(f'oneStepQuestUpdate took too long to complete.')
 
@@ -109,6 +111,7 @@ async def placeMarkers():
 
     try:
         place_markers()
+        print(f'placing markers via loop')
     except TimeoutError:
         print(f'placeMarkers took too long to complete.')
 

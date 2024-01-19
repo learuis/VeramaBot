@@ -478,24 +478,28 @@ class Admin(commands.Cog):
                     await message.edit(content=outputString)
                     return
 
-    @commands.command(name='marketnight')
+    @commands.command(name='startevent')
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def marketnight(self, ctx):
+    async def startevent(self, ctx, location: str):
         """
 
         Parameters
         ----------
         ctx
+        location
+            as: x y z
 
         Returns
         -------
 
         """
-
-        ctx.bot.market_night = not ctx.bot.market_night
-        await ctx.send(f'Market Night Teleport Flag has been set to {ctx.bot.market_night}')
-        print(ctx.bot.maintenance_flag)
+        if location == '0':
+            set_bot_config('event_location', str(location))
+            await ctx.send(f'Event Teleport Flag has been disabled!')
+        else:
+            currentSetting = set_bot_config('event_location', str(location))
+            await ctx.send(f'Event Teleport Flag has been enabled!')
 
     '''@commands.command(name='fixstatus')
     @commands.has_any_role('Admin')

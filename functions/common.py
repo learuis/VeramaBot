@@ -201,7 +201,7 @@ def run_console_command_by_name(char_name: str, command: str):
         return False
     else:
         runRcon(f'con {rcon_id} {command}')
-        return
+        return True
 
 async def editStatus(message, bot):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
@@ -248,7 +248,7 @@ async def editStatus(message, bot):
     if int(currentPlayers) < 5:
         onlineSymbol = f':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
-    if bot.maintenance_flag:
+    if int(get_bot_config(f'maintenance_flag')) == 1:
         await message.edit(content=f'**Server Status**\n'
                                    f'__{currentTime}__\n'
                                    f'- Server Name: `{SERVER_NAME}`\n'
@@ -331,6 +331,12 @@ def pull_online_character_info():
     char_id_list = []
     information_list = []
 
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+    cur.execute(f'delete from online_character_info')
+    con.commit()
+    con.close()
+
     charlistResponse = runRcon(f'listplayers')
     if charlistResponse.error:
         print(f'{charlistResponse.output}')
@@ -364,9 +370,6 @@ def pull_online_character_info():
 
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
-    cur.execute(f'delete from online_character_info')
-
-    con.commit()
 
     for info in information_list:
         cur.execute(f'insert or ignore into online_character_info (char_id,char_name,x,y,z) '

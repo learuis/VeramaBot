@@ -351,13 +351,14 @@ class CommunityBoons(commands.Cog):
                          ['Abundance (Harvest Amount)', 'HarvestAmountMultiplier'],
                          ['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier'],
                          ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier'],
-                         ['Starfall (Meteor Shower)', 'dc meteor spawn']]
+                         ['Starfall (Meteor Shower)', 'dc meteor spawn'],
+                         ['Freedom (Thrallable Patron)', 'AddPatron Patron_Thrallable 0']]
 
         for setting in settings_list:
             (boon_name, setting_name) = setting
             value = get_bot_config(f'{setting_name}')
 
-            if 'Starfall' in boon_name:
+            if 'Starfall' in boon_name or 'Freedom' in boon_name:
                 if int(value) >= int_epoch_time():
                     current_expiration = datetime.fromtimestamp(float(value))
                     outputString += f'Boon of {boon_name} will be available at: {current_expiration} Eastern Time\n'

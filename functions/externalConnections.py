@@ -93,7 +93,7 @@ def db_delete_single_record(table: str, key_field: str, record_to_delete: int):
 #
 #     return res
 
-@timeout(5, TimeoutError)
+@timeout(7, TimeoutError)
 def runRcon(command: str):
 
     class RconResponse:
@@ -104,26 +104,32 @@ def runRcon(command: str):
     returnValue = RconResponse()
     
     commandOutput = []
-    failures = 0
+    connection_failures = 0
+    command_failures = 0
 
-    while failures < 6:
+    while connection_failures < 6:
         try:
             console = Console(host=RCON_HOST, port=int(RCON_PORT), password=RCON_PASS)
             break
         except Exception:
-            failures += 1
+            connection_failures += 1
 
-    if failures == 6:
+    if connection_failures == 6:
         returnValue.output = ['Authentication failed 5 times in a row.']
         returnValue.error = 1
         return returnValue
-    
-    #add error handling here
-    #res_body = console.command(command).body
-    try:
-        res_body = console.command(command)
-    except Exception:
-        returnValue.output = ['Received few bytes exception.']
+
+    while command_failures < 6:
+        try:
+            res_body = console.command(command)
+            #print(f'trying rcon command {command}')
+            break
+        except Exception:
+            command_failures += 1
+            print(f'RCON Failure #{command_failures}')
+
+    if command_failures == 6:
+        returnValue.output = ['Received few bytes exception 5x in a row']
         returnValue.error = 1
         return returnValue
 

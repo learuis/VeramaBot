@@ -9,7 +9,7 @@ from discord.ext import commands
 
 from time import localtime, strftime
 
-from functions.common import custom_cooldown, ununicode, get_rcon_id, is_registered
+from functions.common import custom_cooldown, ununicode, get_rcon_id, is_registered, get_bot_config
 
 from functions.externalConnections import runRcon, db_query
 
@@ -291,7 +291,7 @@ class Utilities(commands.Cog):
         -------
 
         """
-        if not ctx.bot.market_night:
+        if '0' in get_bot_config('market_night'):
             await ctx.reply(f'This command can only be used during Market Night!')
             return
 
@@ -311,8 +311,46 @@ class Utilities(commands.Cog):
             #runRcon(f'con {rconCharId} TeleportPlayer -37665.277344 182622.6875 -8276.037109')
             #runRcon(f'con {rconCharId} TeleportPlayer 129890.84375 190925.296875 -19617.917969')
             runRcon(f'con {rconCharId} TeleportPlayer -14452.919922 209139.703125 -17296.822266')
+            #runRcon(f'con {rconCharId} TeleportPlayer -14412.728516 34739.1875 -8678.910156')
             await ctx.reply(f'Teleported `{name}` to the Market.')
             return
+
+    @commands.command(name='event')
+    @commands.has_any_role('Outcasts')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def event(self, ctx):
+        """- Teleports you to an event location.
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        location = get_bot_config('event_location')
+        if location == '0':
+            await ctx.reply(f'This command can only be used during an event!')
+            return
+
+        character = is_registered(ctx.author.id)
+
+        if not character:
+            await ctx.reply(f'No character registered to player {ctx.author.mention}!')
+            return
+        else:
+            name = character.char_name
+
+        rconCharId = get_rcon_id(character.char_name)
+        if not rconCharId:
+            await ctx.reply(f'Character `{name}` must be online to teleport to an event!')
+            return
+        else:
+            runRcon(f'con {rconCharId} TeleportPlayer {location}')
+            await ctx.reply(f'Teleported `{name}` to the event location.')
+            return
+
 
     @commands.command(name='outcastoverview', aliases=['oo', 'overview'])
     @commands.has_any_role('Outcasts')
