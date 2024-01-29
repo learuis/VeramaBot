@@ -65,45 +65,6 @@ class Warps(commands.Cog):
             await ctx.reply(f'Teleported `{name}` to {description}.')
             return
 
-        # #output_list = list(sum(output, ()))
-        #
-        # for location in output:
-        #     (warp_id, description, warp_name, marker_label, x, y, z, marker_flag) = location
-
-    @commands.command(name='addwarp')
-    @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def addwarp(self, ctx, description: str, warp_name: str, marker_label: str,
-                      x: float, y: float, z: float, marker_flag: str):
-        """
-
-        Parameters
-        ----------
-        ctx
-        description
-        warp_name
-        marker_label
-        x
-        y
-        z
-        marker_flag
-
-        Returns
-        -------
-
-        """
-        try:
-            str(description)
-            str(warp_name)
-            str(marker_label)
-            float(x)
-            float(y)
-            float(z)
-            str(marker_flag)
-        except TypeError:
-            await ctx.send(f'Error in one or more parameters.')
-
-
 @commands.Cog.listener()
 async def setup(bot):
     await bot.add_cog(Warps(bot))

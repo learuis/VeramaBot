@@ -1,17 +1,39 @@
-import io
-import random
 import re
+import os
+import sys
+import time
+from time import strftime, localtime
 
 from discord.ext import commands
 from functions.externalConnections import runRcon
-from functions.common import custom_cooldown, get_rcon_id, is_registered, place_markers
+from functions.common import custom_cooldown, place_markers
 
+TOKEN = os.getenv('DISCORD_TOKEN')
 
 class ServerActions(commands.Cog):
     """Cog class containing commands related to server status."""
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @commands.command(name='bye')
+    @commands.has_any_role('Admin')
+    async def bye(self, ctx):
+        """- Shut down VeramaBot
+
+        Gracefully exits VeramaBot.
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        quittime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
+        await ctx.send(f'Later! VeramaBot shut down on {quittime}.')
+        sys.exit(0)
 
     @commands.command(name='listplayers',
                       aliases=['list', 'lp'])
@@ -91,13 +113,12 @@ class ServerActions(commands.Cog):
 
         return
 
-    @commands.command(name='boss')
-    @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def boss(self, ctx):
-        """- Spawns a random Siptah boss at cursor position.
+    @commands.command(name='bot')
+    @commands.has_any_role('Admin')
+    async def bot(self, ctx):
+        """- Restarts down VeramaBot
 
-        Uses RCON to spawn a random Siptah boss at the location your target is currently pointing at
+        Gracefully exits VeramaBot.
 
         Parameters
         ----------
@@ -107,34 +128,10 @@ class ServerActions(commands.Cog):
         -------
 
         """
-
-        monsterlist = []
-
-        character = is_registered(ctx.author.id)
-
-        if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
-            return
-
-        file = io.open('data/boss_py.dat', mode='r')
-
-        for line in file:
-            monsterlist.append(line)
-
-        file.close()
-
-        monster = random.choice(monsterlist)
-        monster = f'dc spawn exact {monster}'
-
-        rconCharId = get_rcon_id(character.char_name)
-        if not rconCharId:
-            await ctx.reply(f'Character {character.char_name} must be online to spawn bosses')
-            return
-        else:
-            runRcon(f'con {rconCharId} {monster}')
-
-            await ctx.send(f'Spawned `{monster}` at `{character.char_name}\'s` position')
-            return
+        quittime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
+        await ctx.send(f'Attempting to restart bot... {quittime}.')
+        await ctx.bot.close()
+        await ctx.bot.login(TOKEN)
 
 @commands.Cog.listener()
 async def setup(bot):

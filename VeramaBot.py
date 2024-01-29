@@ -9,10 +9,9 @@ from discord.ext import tasks
 from dotenv import load_dotenv
 
 from cogs.CommunityBoons import update_boons
-from cogs.QuestSystem import oneStepQuestUpdate
-from functions.common import is_docker, editStatus, place_markers, pull_online_character_info
+from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info
+from functions.common import is_docker, editStatus, place_markers
 from cogs.Registration import RegistrationButton
-from cogs.FaithTrials import ChooseGod
 
 load_dotenv('data/server.env')
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -49,16 +48,12 @@ async def on_ready():
         await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
 
     bot.add_view(RegistrationButton())
-    bot.add_view(ChooseGod())
 
     if not liveStatus.is_running():
         liveStatus.start()
 
     if not onlineCharacterInfo.is_running():
         onlineCharacterInfo.start()
-
-    # if not questChecker.is_running():
-    #     questChecker.start()
 
     if not oneStepQuestChecker.is_running():
         oneStepQuestChecker.start()
@@ -77,19 +72,10 @@ async def onlineCharacterInfo():
     except TimeoutError:
         print(f'onlineCharacterInfo took too long to complete.')
 
-# @tasks.loop(seconds=30)
-# async def questChecker():
-#
-#     try:
-#         await questUpdate()
-#     except TimeoutError:
-#         print(f'questUpdate took too long to complete.')
 
 @tasks.loop(seconds=30)
 async def oneStepQuestChecker():
-    # if bot.quest_running:
-    #     print(f'Previous quest loop did not complete in time. Skipping this run.')
-    #     return
+
     try:
         await oneStepQuestUpdate(bot)
     except TimeoutError:
@@ -154,20 +140,3 @@ async def on_command_error(ctx, error):
         raise error
 
 bot.run(TOKEN)
-
-"""
-@bot.command(name='size', brief='Change a player\'s size (test only)', help='Changes the size of a player by copying \
-            from a reference thrall (test only)')
-@commands.has_role('Admin')
-@commands.check(checkChannel)
-async def size(ctx, charName):
-    #nothing
-    print(0)
-    #take in player name, sex, chosen size
-    #kick them from the server
-    #listplayers to make sure they're offline
-    #get their char id from the database
-    #get the char id of the source entity
-    #run sql to copy their current layout to placeholder
-    #run sql to copy the source layout to current layout
-"""

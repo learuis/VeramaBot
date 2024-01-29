@@ -7,9 +7,9 @@ import os
 import discord.ext.commands
 from discord.ext import commands
 
-from functions.externalConnections import runRcon, downloadSave, db_query, notify_all, rcon_all
+from functions.externalConnections import runRcon, downloadSave, db_query, rcon_all
 from functions.common import custom_cooldown, is_registered, get_rcon_id, get_single_registration, \
-    pull_online_character_info, get_bot_config, set_bot_config
+    get_bot_config, set_bot_config
 from datetime import datetime
 from datetime import timezone
 from time import strftime
@@ -191,7 +191,7 @@ class Admin(commands.Cog):
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def veteran2(self, ctx):
         """
-        Adds the Veteran Outcast role to everyone who registered in Season 4
+        Adds the Veteran Outcast role to everyone who registered in Season 5
 
         Parameters
         ----------
@@ -203,7 +203,7 @@ class Admin(commands.Cog):
         """
         vet_role = ctx.author.guild.get_role(VETERAN_ROLE)
 
-        user_list = db_query(f'select discord_user from registration where season = 4')
+        user_list = db_query(f'select discord_user from registration where season = 5')
 
         users = list(sum(user_list, ()))
 
@@ -478,48 +478,6 @@ class Admin(commands.Cog):
                     await message.edit(content=outputString)
                     return
 
-    @commands.command(name='startevent')
-    @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def startevent(self, ctx, location: str):
-        """
-
-        Parameters
-        ----------
-        ctx
-        location
-            as: x y z
-
-        Returns
-        -------
-
-        """
-        if location == '0':
-            set_bot_config('event_location', str(location))
-            await ctx.send(f'Event Teleport Flag has been disabled!')
-        else:
-            currentSetting = set_bot_config('event_location', str(location))
-            await ctx.send(f'Event Teleport Flag has been enabled!')
-
-    '''@commands.command(name='fixstatus')
-    @commands.has_any_role('Admin')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(modChannel)
-    async def fixStatus(self, ctx):
-        """
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        if not VeramaBot.liveStatus.is_running():
-            VeramaBot.liveStatus.start()
-            await ctx.send(f'Attempting to restart status monitor...')'''
-
     @commands.command(name='dbquery', aliases=['db', 'query'])
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
@@ -577,29 +535,6 @@ class Admin(commands.Cog):
             await ctx.reply(f'Tossed `{name}` into the Volcano.')
             return
 
-    @commands.command(name='alert')
-    @commands.has_any_role('Admin')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def Alert(self, ctx, style: int = commands.parameter(default=5),
-                    text1: str = commands.parameter(default=f'-Event-'),
-                    text2: str = commands.parameter(default=f'Siptah beasts roam the Exiled Lands')):
-        """
-        - Sends an alert to all online players
-
-        Parameters
-        ----------
-        ctx
-        style
-        text1
-        text2
-
-        Returns
-        -------
-
-        """
-
-        notify_all(style, f'{text1}', f'{text2}')
-
     @commands.command(name='rcon_all')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
@@ -621,63 +556,6 @@ class Admin(commands.Cog):
         except TypeError:
             await ctx.send(f'Command formatted incorrectly.')
         rcon_all(command)
-
-    @commands.command(name='jail', aliases=['capture', 'prison'])
-    @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def jail(self, ctx, cell: int, name: str):
-        """Sends the named player to Fort Greenwall
-
-        Parameters
-        ----------
-        ctx
-        cell
-            Cell number to summon the player to.
-        name
-            Player name to drop!
-
-        Returns
-        -------
-
-        """
-        rconCharId = get_rcon_id(name)
-        if not rconCharId:
-            await ctx.reply(f'Character `{name}` must be online to send to Fort Greenwall!')
-            return
-        else:
-            match cell:
-                case 0:
-                    runRcon(f'con {rconCharId} TeleportPlayer 218110.859375 -124766.046875 -16443.873047')
-                case 1:
-                    runRcon(f'con {rconCharId} TeleportPlayer 219121.40625 -126644.085938 -16396.664063')
-                case 2:
-                    runRcon(f'con {rconCharId} TeleportPlayer 218992.71875 -127653.546875 -16312.618164')
-                case 3:
-                    runRcon(f'con {rconCharId} TeleportPlayer 217231.015625 -127617.046875 -16296.007813')
-                case 4:
-                    runRcon(f'con {rconCharId} TeleportPlayer 217324.59375 -126616.6875 -16287.055664')
-                case _:
-                    await ctx.reply(f'Cell Number must be provided (0-4). 0 = Yard')
-                    return
-
-            await ctx.reply(f'Sent `{name}` to Fort Greenwall in cell {cell}.')
-            return
-
-    @commands.command(name='onlinecharinfo')
-    @commands.has_any_role('Admin')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def onlinecharinfo(self, ctx):
-        """
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        pull_online_character_info()
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))

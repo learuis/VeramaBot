@@ -4,7 +4,6 @@ import os
 from discord.ext import commands
 from functions.common import custom_cooldown, get_rcon_id, is_registered, get_single_registration
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
-from dotenv import load_dotenv
 
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 

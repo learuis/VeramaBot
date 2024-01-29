@@ -232,17 +232,23 @@ async def editStatus(message, bot):
     onlineSymbol = ':blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
 
     if int(currentPlayers) == 40:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::orange_circle:'
+        onlineSymbol = (f':orange_circle::orange_circle::orange_circle::orange_circle:'
+                        f':orange_circle::orange_circle::orange_circle:')
     if int(currentPlayers) < 35:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::blue_circle:'
+        onlineSymbol = (f':orange_circle::orange_circle::orange_circle::orange_circle:'
+                        f':orange_circle::orange_circle::blue_circle:')
     if int(currentPlayers) < 30:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::orange_circle::blue_circle::blue_circle:'
+        onlineSymbol = (f':orange_circle::orange_circle::orange_circle::orange_circle:'
+                        f':orange_circle::blue_circle::blue_circle:')
     if int(currentPlayers) < 25:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::orange_circle::blue_circle::blue_circle::blue_circle:'
+        onlineSymbol = (f':orange_circle::orange_circle::orange_circle::orange_circle:'
+                        f':blue_circle::blue_circle::blue_circle:')
     if int(currentPlayers) < 20:
-        onlineSymbol = f':orange_circle::orange_circle::orange_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+        onlineSymbol = (f':orange_circle::orange_circle::orange_circle::blue_circle:'
+                        f':blue_circle::blue_circle::blue_circle:')
     if int(currentPlayers) < 15:
-        onlineSymbol = f':orange_circle::orange_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
+        onlineSymbol = (f':orange_circle::orange_circle::blue_circle::blue_circle:'
+                        f':blue_circle::blue_circle::blue_circle:')
     if int(currentPlayers) < 10:
         onlineSymbol = f':orange_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle::blue_circle:'
     if int(currentPlayers) < 5:
@@ -324,61 +330,3 @@ def int_epoch_time():
     epoch_time = int(round(current_time.timestamp()))
 
     return epoch_time
-
-def pull_online_character_info():
-    #print(f'start char info query {int_epoch_time()}')
-    connected_chars = []
-    char_id_list = []
-    information_list = []
-
-    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-    cur = con.cursor()
-    cur.execute(f'delete from online_character_info')
-    con.commit()
-    con.close()
-
-    charlistResponse = runRcon(f'listplayers')
-    if charlistResponse.error:
-        print(f'{charlistResponse.output}')
-        print(f'Error in RCON listplayers command at {datetime.now()}')
-        return False
-
-    charlistResponse.output.pop(0)
-    for response in charlistResponse.output:
-        match = re.findall(r'\s+\d+ | [^|]*', response)
-        connected_chars.append(match)
-
-    for char in connected_chars:
-        char_name = char[1].strip()
-        #print(char_name)
-        registration = get_single_registration(char_name)
-        if not registration:
-            continue
-        char_id = registration[0]
-        char_id_list.append(str(char_id))
-
-    criteria = ','.join(char_id_list)
-
-    locationResponse = runRcon(f'sql select a.id, c.char_name, a.x, a.y, a.z '
-                               f'from actor_position as a left join characters as c on c.id = a.id '
-                               f'where a.id in ({criteria}) limit 40')
-    locationResponse.output.pop(0)
-    for location in locationResponse.output:
-        #print(f'{location}')
-        locMatch = re.findall(r'\s+\d+ | [^|]*', location)
-        information_list.append(locMatch)
-
-    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-    cur = con.cursor()
-
-    for info in information_list:
-        cur.execute(f'insert or ignore into online_character_info (char_id,char_name,x,y,z) '
-                    f'values ({info[0].strip()},\'{info[1].strip()}\','
-                    f'{info[2].strip()},{info[3].strip()},{info[4].strip()})')
-
-    con.commit()
-    con.close()
-
-    return True
-
-    #print(f'end char info query {int_epoch_time()}')

@@ -1,19 +1,11 @@
-import math
-import sys
-import time
 import sqlite3
 import re
-import os
 
 from discord.ext import commands
 
-from time import localtime, strftime
+from functions.common import custom_cooldown, ununicode, is_registered
 
-from functions.common import custom_cooldown, ununicode, get_rcon_id, is_registered, get_bot_config
-
-from functions.externalConnections import runRcon, db_query
-
-TOKEN = os.getenv('DISCORD_TOKEN')
+from functions.externalConnections import db_query
 
 async def split_message(outputString, author):
     splitOutput = ''
@@ -44,112 +36,6 @@ class Utilities(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-
-    @commands.command(name='eldarium',
-                      aliases=['Eldarium', 'eld', 'e'])
-    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def eldarium(self, ctx, gold_coins: int = 0, gold_bars: int = 0):
-        """- Calculated Decaying Eldarium value for a list of materials.
-
-        Returns the spawnitem command for pasting into the game console.
-
-        Example: 3,245 gold coins and 202 gold ingots
-        Usage: v/eld 3245 202
-
-        Parameters
-        ----------
-        ctx
-        gold_coins
-        gold_bars
-
-        Returns
-        -------
-
-        """
-
-        leftover = gold_coins % 10
-        print(leftover)
-        rounded_gold_coins = math.floor(gold_coins * 10) / 10
-        print(rounded_gold_coins)
-
-        converted = int((rounded_gold_coins / 10)) + (int(gold_bars) * 3)
-        await ctx.send(f'`{leftover}` gold coins rounded off.\n'
-                       f'Decaying Eldarium conversion for `{int(rounded_gold_coins)}` '
-                       f'gold coins, `{gold_bars}` gold bars = `{converted}`:\n\n`spawnitem 11499 {converted}`')
-
-    @commands.command(name='s3_eldarium')
-    @commands.has_any_role('Admin')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def s3_eldarium(self, ctx, stacks: int, heads: int, keys: int, skulls: int):
-        """- Calculates Eldarium value for a list of materials.
-
-        Returns the spawnitem command for pasting into the game console.
-        ===============================================
-
-        Example: For 10 Stacks of materials, 3 Dragon Heads, 6 Skeleton Keys, and 72 Sorcerer Skulls
-
-        Usage: v/eld 10 3 6 72
-
-        Parameters
-        ----------
-        ctx
-        stacks
-            - Stacks of Materials (worth 25)
-        heads
-            - Dragon Heads (worth 25)
-        keys
-            - Skeleton Keys (worth 5)
-        skulls
-            - Sorcerer Skulls (worth 1)
-
-        Returns
-        -------
-
-        """
-
-        converted = str((stacks * 25) + (heads * 25) + (keys * 5) + skulls)
-        await ctx.send(f'Eldarium conversion for {stacks} stacks, {heads} heads, {keys} keys, {skulls} skulls:' +
-                       f'\n`spawnitem 11498 {str(converted)}`')
-
-    @commands.command(name='bye')
-    @commands.has_any_role('Admin')
-    async def bye(self, ctx):
-        """- Shut down VeramaBot
-
-        Gracefully exits VeramaBot.
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        quittime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
-        await ctx.send(f'Later! VeramaBot shut down on {quittime}.')
-        sys.exit(0)
-
-    @commands.command(name='bot')
-    @commands.has_any_role('Admin')
-    async def bot(self, ctx):
-        """- Restarts down VeramaBot
-
-        Gracefully exits VeramaBot.
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        quittime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
-        await ctx.send(f'Attempting to restart bot... {quittime}.')
-        await ctx.bot.close()
-        await ctx.bot.login(TOKEN)
 
     @commands.command(name='namelookup',
                       aliases=['search', 'find'])
@@ -276,81 +162,6 @@ class Utilities(commands.Cog):
                 await message.edit(content=str(outputString))
         else:
             await message.edit(content=f'No matching entries found.')
-
-    @commands.command(name='market')
-    @commands.has_any_role('Outcasts')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def market(self, ctx):
-        """- Teleports you to the market.
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        if '0' in get_bot_config('market_night'):
-            await ctx.reply(f'This command can only be used during Market Night!')
-            return
-
-        character = is_registered(ctx.author.id)
-
-        if not character:
-            await ctx.reply(f'No character registered to player {ctx.author.mention}!')
-            return
-        else:
-            name = character.char_name
-
-        rconCharId = get_rcon_id(character.char_name)
-        if not rconCharId:
-            await ctx.reply(f'Character `{name}` must be online to teleport to the Market!')
-            return
-        else:
-            #runRcon(f'con {rconCharId} TeleportPlayer -37665.277344 182622.6875 -8276.037109')
-            #runRcon(f'con {rconCharId} TeleportPlayer 129890.84375 190925.296875 -19617.917969')
-            runRcon(f'con {rconCharId} TeleportPlayer -14452.919922 209139.703125 -17296.822266')
-            #runRcon(f'con {rconCharId} TeleportPlayer -14412.728516 34739.1875 -8678.910156')
-            await ctx.reply(f'Teleported `{name}` to the Market.')
-            return
-
-    @commands.command(name='event')
-    @commands.has_any_role('Outcasts')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def event(self, ctx):
-        """- Teleports you to an event location.
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        location = get_bot_config('event_location')
-        if location == '0':
-            await ctx.reply(f'This command can only be used during an event!')
-            return
-
-        character = is_registered(ctx.author.id)
-
-        if not character:
-            await ctx.reply(f'No character registered to player {ctx.author.mention}!')
-            return
-        else:
-            name = character.char_name
-
-        rconCharId = get_rcon_id(character.char_name)
-        if not rconCharId:
-            await ctx.reply(f'Character `{name}` must be online to teleport to an event!')
-            return
-        else:
-            runRcon(f'con {rconCharId} TeleportPlayer {location}')
-            await ctx.reply(f'Teleported `{name}` to the event location.')
-            return
-
 
     @commands.command(name='outcastoverview', aliases=['oo', 'overview'])
     @commands.has_any_role('Outcasts')

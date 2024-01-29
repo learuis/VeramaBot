@@ -72,27 +72,6 @@ def db_delete_single_record(table: str, key_field: str, record_to_delete: int):
 
     return check_res
 
-# async def runRcon3():
-#     print(f'inside runRcon3')
-#     print(f'{RCON_HOST}:{RCON_PORT} {RCON_PASS}')
-#     rcon = AsyncRCON(f'{RCON_HOST}:{RCON_PORT}', f'{RCON_PASS}')
-#     try:
-#         print(f'trying')
-#         await rcon.open_connection()
-#     except AuthenticationException:
-#         print('Login failed: Unauthorized.')
-#         return
-#
-#     print(f'sending command')
-#     res = await rcon.command(f'listplayers')
-#     if not res:
-#         print(f'nothing from server')
-#     print(res)
-#
-#     rcon.close()
-#
-#     return res
-
 @timeout(7, TimeoutError)
 def runRcon(command: str):
 
@@ -122,7 +101,6 @@ def runRcon(command: str):
     while command_failures < 6:
         try:
             res_body = console.command(command)
-            #print(f'trying rcon command {command}')
             break
         except Exception:
             command_failures += 1

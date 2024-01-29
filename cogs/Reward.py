@@ -32,7 +32,7 @@ class Rewards(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def giveReward(self, ctx, itemId: int, quantity: int, name: str, *reason):
-        """- Gives a reward to the tagged player
+        """- Gives a reward to the named player to retrieve with v/claim
 
         Parameters
         ----------
@@ -44,7 +44,7 @@ class Rewards(commands.Cog):
         name
             Character name. Must be registered and linked to char id.
         reason
-            A message which will pop up for the character in game.
+            An explanation of the reward
 
         Returns
         -------
@@ -191,114 +191,6 @@ class Rewards(commands.Cog):
                 res = db_delete_single_record('reward_claim', 'record_num', recordToDelete)
 
                 await ctx.send(f'Deleted record:\n{res}')
-
-    """
-    @commands.command(name='claim')
-    @commands.has_any_role('Outcasts')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    @commands.check(publicChannel)
-    async def claim(self, ctx):
-    """
-    """- Delivers veteran or helper rewards to your character
-
-    Parameters
-    ----------
-    ctx
-
-    Returns
-    -------
-
-    """
-
-    """
-    character = is_registered(ctx.author.id)
-
-    if not character:
-        await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
-        return
-
-    rconCharId = get_rcon_id(character.char_name)
-    if not rconCharId:
-        await ctx.reply(f'Character {character.char_name} must be online to claim rewards.')
-        return
-
-    results = db_query(f'select discord_id from reward_claim '
-                       f'where discord_id = {ctx.author.id} and claim_type = {ANNIVERSARY_ROLE}')
-
-    if results:
-        for result in results:
-            if result[0] == ctx.author.id:
-                await ctx.reply(f'No rewards are available for you to claim.')
-                return
-            else:
-                pass
-    else:
-        role = ctx.author.get_role(ANNIVERSARY_ROLE)
-        if role:
-            message = await ctx.reply(f'You qualify for the Band of Outcasts 1st Anniversary Reward! '
-                                      f'Please wait...')
-            rconCommand = f'con {rconCharId} spawnitem 29034 1'
-            if rconCommand:
-                rconResponse = runRcon(rconCommand)
-                if rconResponse.error == 1:
-                    await ctx.send(f'Authentication error on {rconCommand}')
-                    return
-
-            reward_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-            reward_cur = reward_con.cursor()
-
-            insertResults = reward_cur.execute(f'insert into reward_claim (discord_id,claim_type) '
-                                               f'values ({ctx.author.id},{ANNIVERSARY_ROLE})')
-            reward_con.commit()
-
-            if insertResults:
-                await message.edit(content=f'Granted {role.name} reward to {character.char_name}. '
-                                           f'Check your inventory!')
-                reward_con.close()
-                return
-            else:
-                await message.edit(content=f'Error when granting {role.name} reward to {character.char_name}.')
-                return
-
-        #sql select all records from the faith claim table that match character id and are not older than 2 weeks
-        #output those into a list
-        #loop through list to grant each item.
-
-        else:
-            await ctx.reply(f'No rewards are available for you to claim.')
-            return
-    """
-
-    """ Veteran reward
-    role = ctx.author.get_role(VETERAN_ROLE)
-    if role:
-        message = await ctx.reply(f'You qualify for a veteran reward! Please wait...')
-        rconCommand = f'con {rconCharId} spawnitem 10002 1'
-        #rconCommand = f'con {rconCharId} say spawnitem 11108 777'
-        if rconCommand:
-            rconResponse = runRcon(rconCommand)
-            if rconResponse.error == 1:
-                await ctx.send(f'Authentication error on {rconCommand}')
-                print(f'auth1')
-                return
-
-        rconCommand = f'con {rconCharId} spawnitem 10001 1'
-        #rconCommand = f'con {rconCharId} say spawnitem 16002 900'
-        if rconCommand:
-            rconResponse = runRcon(rconCommand)
-            if rconResponse.error == 1:
-                await ctx.send(f'Authentication error on {rconCommand}')
-                print(f'auth2')
-                return
-
-        reward_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-        reward_cur = reward_con.cursor()
-
-        insertResults = reward_cur.execute(f'insert into reward_claim (discord_id,claim_type) '
-                                           f'values ({ctx.author.id},{VETERAN_ROLE})')
-        reward_con.commit()
-        """
-
 
 @commands.Cog.listener()
 async def setup(bot):

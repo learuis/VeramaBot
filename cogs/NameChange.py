@@ -77,7 +77,7 @@ class NameChange(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def changeName(self, ctx, discord_user: discord.Member, new_name: str):
-        """- Changes player name
+        """- Changes registered player name
 
         Usage: v/namechange @discorduser "New Name Here"
 
