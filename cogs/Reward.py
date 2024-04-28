@@ -75,7 +75,7 @@ class Rewards(commands.Cog):
     @commands.command(name='claim')
     @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def faith(self, ctx):
+    async def claim(self, ctx):
         """- Delivers item rewards to your character
 
         Parameters
@@ -188,7 +188,7 @@ class Rewards(commands.Cog):
             except ValueError:
                 await ctx.send(f'Invalid record number')
             else:
-                res = db_delete_single_record('reward_claim', 'record_num', recordToDelete)
+                res = db_delete_single_record('event_rewards', 'record_num', recordToDelete)
 
                 await ctx.send(f'Deleted record:\n{res}')
 

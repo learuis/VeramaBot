@@ -344,15 +344,17 @@ class CommunityBoons(commands.Cog):
 
         """
         outputString = f'**Boon Status as of {datetime.fromtimestamp(float(int_epoch_time()))}**\n'
-        settings_list = [['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],
-                         ['Preservation (Item Spoil Rate)', 'ItemSpoilRateScale'],
-                         ['Training (XP From Kills)', 'PlayerXPKillMultiplier'],
-                         ['Maintenance (Durability)', 'DurabilityMultiplier'],
-                         ['Abundance (Harvest Amount)', 'HarvestAmountMultiplier'],
-                         ['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier'],
-                         ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier'],
-                         ['Starfall (Meteor Shower)', 'dc meteor spawn'],
-                         ['Freedom (Thrallable Patron)', 'AddPatron Patron_Thrallable 0']]
+        settings_list = [['XP Rate Scale', 'PlayerXPRateMultiplier']]
+
+        #['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],
+        #['Preservation (Item Spoil Rate)', 'ItemSpoilRateScale'],
+        #['Training (XP From Kills)', 'PlayerXPKillMultiplier'],
+        #['Maintenance (Durability)', 'DurabilityMultiplier'],
+        #['Abundance (Harvest Amount)', 'HarvestAmountMultiplier'],
+        #['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier'],
+        #['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier'],
+        #['Starfall (Meteor Shower)', 'dc meteor spawn'],
+        #['Freedom (Thrallable Patron)', 'AddPatron Patron_Thrallable 0']]
 
         for setting in settings_list:
             (boon_name, setting_name) = setting
@@ -360,15 +362,16 @@ class CommunityBoons(commands.Cog):
 
             if 'Starfall' in boon_name or 'Freedom' in boon_name:
                 if int(value) >= int_epoch_time():
-                    current_expiration = datetime.fromtimestamp(float(value))
-                    outputString += f'Boon of {boon_name} will be available at: {current_expiration} Eastern Time\n'
+                    #current_expiration = datetime.fromtimestamp(float(value))
+                    outputString += f'Boon of {boon_name} will be available at: <t:{int(value)}> in your time zone.\n'
                 else:
                     outputString += f'Boon of {boon_name} is available to be triggered.\n'
                 continue
 
             if int(value) >= int_epoch_time():
-                current_expiration = datetime.fromtimestamp(float(value))
-                outputString += f'Boon of {boon_name} is active until: {current_expiration} Eastern Time\n'
+                #current_expiration = datetime.fromtimestamp(float(value))
+                #{current_expiration}
+                outputString += f'Boon of {boon_name} is active until: <t:{int(value)}> in your time zone.\n'
             else:
                 outputString += f'Boon of {boon_name} is not currently active.\n'
 
@@ -518,7 +521,7 @@ class CommunityBoons(commands.Cog):
                 if res:
                     for x in res:
                         outputString += (f'__{str(x[2])}__: Current Quota Period: {int(x[1]):,} - '
-                                         f'All of Season 4: {int(x[3]):,}\n')
+                                         f'All of Season 6: {int(x[3]):,}\n')
 
                 await ctx.send(outputString)
 
@@ -886,6 +889,14 @@ def update_boons():
     command_list = []
     currentTime = int_epoch_time()
 
+    if int(get_bot_config(f'maintenance_flag')) == 1:
+        print(f'Skipping boons loop, server in maintenance mode')
+        return
+
+    if int(get_bot_config(f'boons_toggle')) == 0:
+        print(f'Skipping boons loop, boons globally disabled')
+        return
+
     if int(get_bot_config(f'ItemConvertionMultiplier')) >= currentTime:
         command_prep.append(['ItemConvertionMultiplier', '0.7'])
     else:
@@ -901,15 +912,20 @@ def update_boons():
     else:
         command_prep.append(['PlayerXPKillMultiplier', '1.0'])
 
+    if int(get_bot_config(f'PlayerXPRateMultiplier')) >= currentTime:
+        command_prep.append(['PlayerXPRateMultiplier', '1.0'])
+    else:
+        command_prep.append(['PlayerXPRateMultiplier', '0.5'])
+
     if int(get_bot_config(f'DurabilityMultiplier')) >= currentTime:
         command_prep.append(['DurabilityMultiplier', '0.7'])
     else:
         command_prep.append(['DurabilityMultiplier', '1.0'])
 
     if int(get_bot_config(f'HarvestAmountMultiplier')) >= currentTime:
-        command_prep.append(['HarvestAmountMultiplier', '2.0'])
-    else:
         command_prep.append(['HarvestAmountMultiplier', '1.5'])
+    else:
+        command_prep.append(['HarvestAmountMultiplier', '1.0'])
 
     if int(get_bot_config(f'ResourceRespawnSpeedMultiplier')) >= currentTime:
         command_prep.append(['ResourceRespawnSpeedMultiplier', '0.7'])

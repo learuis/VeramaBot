@@ -107,7 +107,7 @@ def update_registered_name(input_user, name):
     cur = con.cursor()
 
     cur.execute(f'update registration set character_name = \'{name}\' where discord_user = \'{input_user}\' '
-                f'and season = 5')
+                f'and season = 6')
     con.commit()
     con.close()
 
@@ -122,7 +122,7 @@ def is_registered(discord_id: int):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
-                f'and season = 5')
+                f'and season = 6')
     result = cur.fetchone()
 
     con.close()
@@ -145,7 +145,7 @@ def last_season_char(discord_id: int):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
-                f'and season = 4 order by id desc limit 1')
+                f'and season = 5 order by id desc limit 1')
     result = cur.fetchone()
 
     con.close()
@@ -165,7 +165,7 @@ def get_registration(char_name):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
-                f'\'%{char_name}%\' and season = 5')
+                f'\'%{char_name}%\' and season = 6')
     results = cur.fetchall()
 
     con.close()
@@ -184,7 +184,7 @@ def get_single_registration(char_name):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
-                f'\'%{char_name}%\' and season = 5 limit 1')
+                f'\'%{char_name}%\' and season = 6 limit 1')
     results = cur.fetchone()
 
     con.close()
@@ -276,6 +276,10 @@ async def editStatus(message, bot):
 def place_markers():
     #settings_list = []
     response = False
+
+    if int(get_bot_config(f'maintenance_flag')) == 1:
+        print(f'Skipping marker loop, server in maintenance mode')
+        return response
 
     marker_list = db_query(f'select marker_label, x, y from warp_locations where marker_flag = \'Y\'')
 

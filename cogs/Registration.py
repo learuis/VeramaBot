@@ -62,15 +62,15 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
         if is_registered(interaction.user.id):
             cur_sub.execute(f'update registration set character_name = \'{self.charName}\', '
                             f'funcom_id = \'{self.funcomId}\', game_char_id = {charId} '
-                            f'where discord_user = \'{interaction.user.id}\' and season = 5')
-            outputString = (f'Your Season 5 registration has been updated: {self.charName} (id {charId}) '
+                            f'where discord_user = \'{interaction.user.id}\' and season = 6')
+            outputString = (f'Your Season 6 registration has been updated: {self.charName} (id {charId}) '
                             f'with Funcom ID: {self.funcomId} to user {interaction.user.mention}')
         else:
             cur_sub.execute(f'insert into registration '
                             f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
                             f'(\'{interaction.user.id}\',\'{self.charName}\',\'{self.funcomId}\','
-                            f'\'{date.today()}\',5,{charId})')
-            outputString = (f'Registered Season 5 character: {self.charName} (id {charId}) '
+                            f'\'{date.today()}\',6,{charId})')
+            outputString = (f'Registered Season 6 character: {self.charName} (id {charId}) '
                             f'with Funcom ID: {self.funcomId} '
                             f' to user {interaction.user.mention}. You have been granted a feat as a reward! '
                             f'Go to the <#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` while online'
@@ -96,8 +96,8 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
         else:
             previous_name = f'<none>'
 
-        await channel.send(f'__Season 5 Character Name:__ {self.charName}\n'
-                           f'__Last Season Name:__ {previous_name}\n'
+        await channel.send(f'__Season 6 Character Name:__ {self.charName}\n'
+                           f'__Previous Season Name:__ {previous_name}\n'
                            f'__Funcom ID:__ {self.funcomId}\n'
                            f'__Discord:__ {interaction.user.mention}\n')
 
@@ -142,7 +142,7 @@ class Registration(commands.Cog):
 
         """
         #fix me!
-        season = 5
+        season = 6
 
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur = con.cursor()
@@ -160,10 +160,10 @@ class Registration(commands.Cog):
         await ctx.invoke(self.bot.get_command('registrationlist'))
 
         channel = ctx.author.guild.get_channel(AUTOREG_CHANNEL)
-        await channel.send(f'__Character Name:__ {name}\n'
+        await channel.send(f'__Season {season} Character Name:__ {name}\n'
+                           f'__Previous Season Name:__ <none>\n'
                            f'__Funcom ID:__ {funcom_id}\n'
-                           f'__Discord:__ {discord_user.mention}\n'
-                           f'__Season:__ 5')
+                           f'__Discord:__ {discord_user.mention}\n')
 
         await ctx.author.add_roles(ctx.author.guild.get_role(REG_ROLE))
 
@@ -189,7 +189,7 @@ class Registration(commands.Cog):
         splitOutput = ''
         once = True
 
-        res = db_query(f'select * from registration where season = 5')
+        res = db_query(f'select * from registration where season = 6')
 
         for x in res:
             outputString += f'{x}\n'

@@ -13,10 +13,18 @@ from functions.common import (custom_cooldown, run_console_command_by_name, int_
 from functions.externalConnections import runRcon, db_query, notify_all, rcon_all
 
 def pull_online_character_info():
-    #print(f'start char info query {int_epoch_time()}')
+    print(f'start char info query {int_epoch_time()}')
     connected_chars = []
     char_id_list = []
     information_list = []
+
+    if int(get_bot_config(f'maintenance_flag')) == 1:
+        print(f'Skipping online char info loop, server in maintenance mode')
+        return False
+
+    if int(get_bot_config(f'quest_toggle')) == 0:
+        print(f'Skipping online char info loop, quests are globally disabled')
+        return
 
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
@@ -66,9 +74,8 @@ def pull_online_character_info():
     con.commit()
     con.close()
 
+    print(f'end char info query {int_epoch_time()}')
     return True
-
-    #print(f'end char info query {int_epoch_time()}')
 
 def complete_quest(quest_id: int, char_id: int):
 
@@ -180,7 +187,7 @@ def character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius):
     results = db_query(f'select char_id, char_name from online_character_info '
                        f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
                        f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
-                       f'and z >= {trigger_z-200} limit 1')
+                       f'and z >= {trigger_z-100} and z <= {trigger_z+100} limit 1')
     if results:
         char_info = flatten_list(results)
     else:
@@ -266,10 +273,10 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
             current_expiration = get_bot_config(f'{reward_boon}')
             current_time = int_epoch_time()
             if int(current_expiration) < current_time:
-                set_bot_config(f'{reward_boon}', str(current_time+259200))
+                set_bot_config(f'{reward_boon}', str(current_time+10800))
             else:
-                set_bot_config(f'{reward_boon}', str(int(current_expiration)+259200))
-            notify_all(7, f'-Boon-', f'{reward_boon} improvement +3 days')
+                set_bot_config(f'{reward_boon}', str(int(current_expiration)+10800))
+            notify_all(7, f'-Boon-', f'{reward_boon} improvement +3 hours')
             update_boons()
             continue
         if reward_command:
@@ -312,13 +319,32 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
                         add_reward_record(int(char_id), int(random_reward), 1,
                                           f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
                     continue
+
+                case 'treasure hunt':
+                    location = get_bot_config(f'current_treasure_location')
+                    result = str(db_query(f'select location_name from treasure_locations where id = {location}'))
+                    print(f'{result}')
+                    location_name = re.search(r'[a-zA-Z\s\-]+', result)
+                    run_console_command_by_name(char_name, f'testFIFO 6 Treasure {location_name.group()}')
+
         continue
 
     return
 
 async def oneStepQuestUpdate(bot):
 
+    if int(get_bot_config(f'maintenance_flag')) == 1:
+        print(f'Skipping quest loop, server in maintenance mode')
+        bot.quest_running = False
+        return
+
+    if int(get_bot_config(f'quest_toggle')) == 0:
+        print(f'Skipping quest loop, quests are globally disabled')
+        bot.quest_running = False
+        return
+
     bot.quest_running = True
+    #print(f'boop')
 
     quest_list = db_query(f'select quest_id, quest_name, active_flag, requirement_type, repeatable, '
                           f'trigger_x, trigger_y, trigger_z, trigger_radius, '
@@ -355,6 +381,10 @@ async def oneStepQuestUpdate(bot):
                 clear_cooldown(char_id, quest_id)
 
         match requirement_type:
+            case 'Treasure':
+                grant_reward(char_id, char_name, quest_id, repeatable)
+                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                continue
             case 'Information':
                 display_quest_text(quest_id, 0, False, char_name)
                 add_cooldown(char_id, quest_id, repeatable)
@@ -376,6 +406,7 @@ async def oneStepQuestUpdate(bot):
                 add_cooldown(char_id, quest_id, repeatable)
                 continue
             case 'BringItems':
+                missingitem = 0
                 req_list = db_query(f'select template_id, item_qty '
                                     f'from quest_requirements where quest_id = {quest_id}')
                 for requirement in req_list:
@@ -383,16 +414,18 @@ async def oneStepQuestUpdate(bot):
                     inventoryHasItem = check_inventory(char_id, 0, template_id)
                     if inventoryHasItem:
                         consume_from_inventory(char_id, char_name, template_id)
-                        display_quest_text(quest_id, 0, False, char_name)
-                        grant_reward(char_id, char_name, quest_id, repeatable)
-                        print(f'Quest {quest_id} completed by id {char_id} {char_name}')
-                        add_cooldown(char_id, quest_id, repeatable)
-                        if target_x:
-                            run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
                     else:
+                        missingitem += 1
                         print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
                               f'does not have the required item {template_id}')
                         continue
+                if missingitem == 0:
+                    display_quest_text(quest_id, 0, False, char_name)
+                    grant_reward(char_id, char_name, quest_id, repeatable)
+                    print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                    add_cooldown(char_id, quest_id, repeatable)
+                    if target_x:
+                        run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
 
                 continue
 

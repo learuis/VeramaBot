@@ -97,7 +97,7 @@ async def placeMarkers():
 
     try:
         place_markers()
-        print(f'placing markers via loop')
+        #print(f'placing markers via loop')
     except TimeoutError:
         print(f'placeMarkers took too long to complete.')
 
