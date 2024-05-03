@@ -213,7 +213,7 @@ class Utilities(commands.Cog):
         match command:
             case 'type':
                 if name:
-                    output = db_query(f'select enemy_name, character_name, max(kills) from kill_counter '
+                    output = db_query(False, f'select enemy_name, character_name, max(kills) from kill_counter '
                                       f'where kills > 1 and enemy_name like \'%{name}%\' '
                                       f'group by enemy_name order by kills desc, enemy_name desc;')
                     if output:
@@ -221,7 +221,7 @@ class Utilities(commands.Cog):
                     else:
                         outputString += f'No results.'
                 else:
-                    output = db_query(f'select enemy_name, character_name, max(kills) from kill_counter '
+                    output = db_query(False, f'select enemy_name, character_name, max(kills) from kill_counter '
                                       f'where kills >= 10 group by enemy_name order by kills desc , enemy_name desc;')
                     if output:
                         outputString += f'**Most Kills of All Enemy Types**:\n'
@@ -236,15 +236,15 @@ class Utilities(commands.Cog):
                 char_info = is_registered(ctx.author.id)
                 if not char_info:
                     await ctx.send(f'Your character must be registered in order to see your full Outcast Overview!')
-                output = db_query(f'select enemy_name, character_name, count(character_name) from wrapped '
+                output = db_query(False, f'select enemy_name, character_name, count(character_name) from wrapped '
                                   f'where character_name = \'{char_info.char_name}\' '
                                   f'group by enemy_name order by count(character_name) desc;')
                 if output:
-                    count = db_query(f'select count(character_name) from wrapped '
+                    count = db_query(False, f'select count(character_name) from wrapped '
                                      f'where character_name = \'{char_info.char_name}\'')
                     count = sum(count, ())
 
-                    ranking = db_query(f'select character_name, count(character_name) '
+                    ranking = db_query(False, f'select character_name, count(character_name) '
                                        f'from wrapped group by character_name order by count(character_name) desc;')
 
                     for index, line in enumerate(ranking):
@@ -265,7 +265,7 @@ class Utilities(commands.Cog):
                     return
 
             case 'top':
-                output = db_query(f'select character_name, count(character_name) '
+                output = db_query(False, f'select character_name, count(character_name) '
                                   f'from wrapped group by character_name order by count(character_name) desc limit 25;')
                 if output:
                     outputString += f'**Outcast Overview: Top 25 Most Kills**\n\n'
@@ -275,7 +275,7 @@ class Utilities(commands.Cog):
 
             case 'character':
                 if name:
-                    output = db_query(f'select enemy_name, character_name, count(character_name) from wrapped '
+                    output = db_query(False, f'select enemy_name, character_name, count(character_name) from wrapped '
                                       f'where character_name like \'%{name}%\' '
                                       f'group by enemy_name order by count(character_name) desc limit 25;')
                     if output:

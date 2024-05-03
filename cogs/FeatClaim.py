@@ -203,7 +203,7 @@ class FeatClaim(commands.Cog):
             outputString = ''
             splitOutput = ''
             once = True
-            results = db_query(f'select * from featclaim')
+            results = db_query(False, f'select * from featclaim')
 
             for result in results:
                 outputString += f'{result}\n'
@@ -262,7 +262,7 @@ class FeatClaim(commands.Cog):
 
         """
         outputString = '__Valid feats for use with v/featadd:__\n'
-        results = db_query('select * from valid_feats order by feat_name asc')
+        results = db_query(False, 'select * from valid_feats order by feat_name asc')
         splitOutput = ''
         once = True
 

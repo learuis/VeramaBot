@@ -281,7 +281,7 @@ def place_markers():
         print(f'Skipping marker loop, server in maintenance mode')
         return response
 
-    marker_list = db_query(f'select marker_label, x, y from warp_locations where marker_flag = \'Y\'')
+    marker_list = db_query(False, f'select marker_label, x, y from warp_locations where marker_flag = \'Y\'')
 
     #marker_list = flatten_list(result_list)
 

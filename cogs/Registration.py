@@ -189,7 +189,7 @@ class Registration(commands.Cog):
         splitOutput = ''
         once = True
 
-        res = db_query(f'select * from registration where season = 6')
+        res = db_query(False, f'select * from registration where season = 6')
 
         for x in res:
             outputString += f'{x}\n'

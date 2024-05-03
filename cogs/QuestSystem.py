@@ -103,7 +103,7 @@ def display_quest_text(quest_id, quest_status, alt, char_name):
     altText1 = ''
     altText2 = ''
 
-    questText = db_query(f'select Style, Text1, Text2, AltStyle, AltText1, AltText2 from quest_text '
+    questText = db_query(False, f'select Style, Text1, Text2, AltStyle, AltText1, AltText2 from quest_text '
                          f'where quest_id = {quest_id} and step_number = {quest_status}')
     if not questText:
         print(f'No text defined for {quest_id}, skipping')
@@ -184,7 +184,7 @@ def character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius):
 
     #connected_chars = []
     #print(f'{nwPoint} {sePoint}')
-    results = db_query(f'select char_id, char_name from online_character_info '
+    results = db_query(False, f'select char_id, char_name from online_character_info '
                        f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
                        f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
                        f'and z >= {trigger_z-100} and z <= {trigger_z+100} limit 1')
@@ -233,7 +233,7 @@ def add_cooldown(char_id, quest_id, cooldown: int):
     con.close()
 
 def grant_reward(char_id, char_name, quest_id, repeatable):
-    reward_list = db_query(f'select reward_template_id, reward_qty, reward_feat_id, '
+    reward_list = db_query(False, f'select reward_template_id, reward_qty, reward_feat_id, '
                            f'reward_thrall_name, reward_emote_name, reward_boon, reward_command, range_min, range_max '
                            f'from quest_rewards where quest_id = {quest_id}')
     if not reward_list:
@@ -322,7 +322,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
 
                 case 'treasure hunt':
                     location = get_bot_config(f'current_treasure_location')
-                    result = str(db_query(f'select location_name from treasure_locations where id = {location}'))
+                    result = str(db_query(False, f'select location_name from treasure_locations where id = {location}'))
                     print(f'{result}')
                     location_name = re.search(r'[a-zA-Z\s\-]+', result)
                     run_console_command_by_name(char_name, f'testFIFO 6 Treasure {location_name.group()}')
@@ -346,7 +346,7 @@ async def oneStepQuestUpdate(bot):
     bot.quest_running = True
     #print(f'boop')
 
-    quest_list = db_query(f'select quest_id, quest_name, active_flag, requirement_type, repeatable, '
+    quest_list = db_query(False, f'select quest_id, quest_name, active_flag, requirement_type, repeatable, '
                           f'trigger_x, trigger_y, trigger_z, trigger_radius, '
                           f'target_x, target_y, target_z '
                           f'from one_step_quests')
@@ -361,10 +361,14 @@ async def oneStepQuestUpdate(bot):
             #print(f'Skipping quest {quest_id}, no one in the box')
             continue
 
+        if active_flag == 0:
+            display_quest_text(999999, 0, False, char_name)
+            continue
+
         #clear all fulfilled cooldowns
         finish_cooldowns()
 
-        cooldown_records = db_query(f'select timeout_until from quest_timeout '
+        cooldown_records = db_query(False, f'select timeout_until from quest_timeout '
                                     f'where character_id = {char_id} and quest_id = {quest_id} limit 1')
         if cooldown_records:
             cooldown = flatten_list(cooldown_records)
@@ -407,7 +411,7 @@ async def oneStepQuestUpdate(bot):
                 continue
             case 'BringItems':
                 missingitem = 0
-                req_list = db_query(f'select template_id, item_qty '
+                req_list = db_query(False, f'select template_id, item_qty '
                                     f'from quest_requirements where quest_id = {quest_id}')
                 for requirement in req_list:
                     (template_id, item_qty) = requirement

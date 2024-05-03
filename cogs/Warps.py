@@ -26,7 +26,7 @@ class Warps(commands.Cog):
         outputString = 'List of Available Warps: '
 
         if 'list' in destination.casefold():
-            output = db_query(f'select warp_name from warp_locations')
+            output = db_query(False, f'select warp_name from warp_locations')
             output = flatten_list(output)
             for warp_name in output:
                 outputString += f'{warp_name}, '
@@ -43,7 +43,7 @@ class Warps(commands.Cog):
         else:
             query_command = f'select * from warp_locations where warp_name like \'%{destination.casefold()}%\' limit 1'
 
-        output = db_query(f'{query_command}')
+        output = db_query(False, f'{query_command}')
 
         warp_entry = flatten_list(output)
         (warp_id, description, warp_name, marker_label, x, y, z, marker_flag) = warp_entry

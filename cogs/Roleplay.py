@@ -23,7 +23,7 @@ class Roleplay(commands.Cog):
         """
         outputMessage = f'__Online Roleplayers:__\n'
 
-        results = db_query(f'select online.char_id, online.char_name, reg.discord_user '
+        results = db_query(False, f'select online.char_id, online.char_name, reg.discord_user '
                            f'from online_character_info as online '
                            f'left join registration as reg on online.char_id = reg.game_char_id '
                            f'where reg.season = 6')

@@ -857,7 +857,7 @@ class CommunityBoons(commands.Cog):
 
         character = is_registered(ctx.author.id)
         if character:
-            results = db_query(f'select title from earned_titles where contributor = \'{ctx.author.id}\'')
+            results = db_query(False, f'select title from earned_titles where contributor = \'{ctx.author.id}\'')
         else:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}!')
             return

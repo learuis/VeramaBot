@@ -5,6 +5,7 @@ from datetime import date, timedelta
 from discord.ext import commands
 from functions.common import custom_cooldown, get_rcon_id, get_single_registration, is_registered
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
+from textwrap import wrap
 
 from dotenv import load_dotenv
 
@@ -60,13 +61,16 @@ class Rewards(commands.Cog):
         else:
             (char_id, char_name, discord_id) = characters
 
-        result = db_query(f'select name from cust_item_xref where template_id = {itemId} limit 1')
+        result = db_query(False, f'select name from cust_item_xref where template_id = {itemId} limit 1')
 
         for x in result:
             itemName = x[0]
 
         for word in reason:
             reasonString += f'{word} '
+
+        if len(reasonString) > 256:
+            await ctx.reply(f'Reason text too long! (max 256 characters)')
 
         add_reward_record(int(char_id), int(itemId), int(quantity), str(reasonString))
 
@@ -88,6 +92,8 @@ class Rewards(commands.Cog):
         """
         character = is_registered(ctx.author.id)
         insertResults = []
+        splitOutput = ''
+        once = True
 
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
@@ -98,7 +104,7 @@ class Rewards(commands.Cog):
             await ctx.reply(f'Character {character.char_name} must be online to claim rewards.')
             return
 
-        results = db_query(f'select record_num, reward_material, reward_quantity, reward_name from event_rewards '
+        results = db_query(False, f'select record_num, reward_material, reward_quantity, reward_name from event_rewards '
                            f'where character_id = {character.id} '
                            f'and reward_date >= \'{date.today() - timedelta(days = 14)}\' '
                            f'and claim_flag = 0')
@@ -129,8 +135,29 @@ class Rewards(commands.Cog):
                 reward_con.close()
 
             if insertResults:
-                await message.edit(content=f'{outputString}')
+
+                if outputString:
+                    if len(outputString) > 1800:
+                        workList = outputString.splitlines()
+                        for items in workList:
+                            splitOutput += f'{str(items)}\n'
+                            if len(str(splitOutput)) > 1800:
+                                if once:
+                                    once = False
+                                    await message.edit(content=str(splitOutput))
+                                    splitOutput = '(continued)\n'
+                                else:
+                                    await ctx.send(str(splitOutput))
+                                    splitOutput = '(continued)\n'
+                            else:
+                                continue
+                        await ctx.send(str(splitOutput))
+                    else:
+                        await message.edit(content=f'{outputString}')
+                        return
                 return
+
+
             else:
                 await message.edit(content=f'Error when granting rewards to {character.char_name}.')
                 return
@@ -155,7 +182,7 @@ class Rewards(commands.Cog):
         """
         outputString = f'reward_date | character_id | reward_material | reward_quantity | claim_flag | reward_name\n'
 
-        res = db_query(f'select * from event_rewards')
+        res = db_query(False, f'select * from event_rewards')
 
         for x in res:
             outputString += f'{x}\n'

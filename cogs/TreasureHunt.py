@@ -70,7 +70,7 @@ def grant_treasure_rewards(character, target_name, bonus: int):
         treasure_roll = random.randint(int(1), int(100))
 
         if treasure_roll <= (category_chance + bonus):
-            results = db_query(f'select item_id, item_name from treasure_rewards '
+            results = db_query(False, f'select item_id, item_name from treasure_rewards '
                                f'where reward_category = {category} order by RANDOM() limit 1')
             to_add = flatten_list(results)
             reward_list.append(to_add)
@@ -120,7 +120,7 @@ class TreasureHunt(commands.Cog):
 
         target = int(get_bot_config(f'current_treasure_location'))
 
-        locs = db_query(f'select location_name, x, y, radius '
+        locs = db_query(False, f'select location_name, x, y, radius '
                         f'from treasure_locations '
                         f'where id = {target} limit 1')
 
@@ -129,7 +129,7 @@ class TreasureHunt(commands.Cog):
         nwPoint = [target_x - target_radius, target_y - target_radius]
         sePoint = [target_x + target_radius, target_y + target_radius]
 
-        online_chars = db_query(f'select x, y '
+        online_chars = db_query(False, f'select x, y '
                                 f'from online_character_info as online '
                                 f'where char_id = {character.id}')
 

@@ -40,11 +40,18 @@ def downloadSave():
 
     return returnFile
 
-def db_query(query: str):
+def db_query(commit_query: bool, query: str):
+    result = False
+
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
     cur.execute(query)
-    result = cur.fetchall()
+
+    if commit_query:
+        con.commit()
+        result = True
+    else:
+        result = cur.fetchall()
     con.close()
 
     if result:

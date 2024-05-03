@@ -203,7 +203,7 @@ class Admin(commands.Cog):
         """
         vet_role = ctx.author.guild.get_role(VETERAN_ROLE)
 
-        user_list = db_query(f'select discord_user from registration where season = 5')
+        user_list = db_query(False, f'select discord_user from registration where season = 5')
 
         users = list(sum(user_list, ()))
 
@@ -481,19 +481,27 @@ class Admin(commands.Cog):
     @commands.command(name='dbquery', aliases=['db', 'query'])
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def dbQuery(self, ctx, query: str):
+    async def dbQuery(self, ctx, commit_query: bool, query: str):
         """
 
         Parameters
         ----------
         ctx
+        commit_query
         query
 
         Returns
         -------
 
         """
-        results = db_query(f'{query}')
+        if commit_query:
+            results = db_query(True, f'{query}')
+            if results:
+                await ctx.send(f'Executed query: {query}')
+                return
+            return
+
+        results = db_query(False, f'{query}')
         if results:
             for result in results:
                 await ctx.send(f'{result}\n')
