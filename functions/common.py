@@ -281,6 +281,11 @@ def place_markers():
         print(f'Skipping marker loop, server in maintenance mode')
         return response
 
+    markers_last_placed = get_bot_config(f'markers_last_placed')
+    if int(markers_last_placed) > int_epoch_time() - 900:
+        print(f'Skipping marker loop, placed too recently')
+        return response
+
     marker_list = db_query(False, f'select marker_label, x, y from warp_locations where marker_flag = \'Y\'')
 
     #marker_list = flatten_list(result_list)
@@ -290,6 +295,7 @@ def place_markers():
         try:
             runRcon(command)
             response = f'Markers placed successfully.'
+            set_bot_config(f'markers_last_placed', str(int_epoch_time()))
         except TimeoutError:
             response = f'Error when trying to place markers.'
 

@@ -3,9 +3,10 @@ import re
 
 from discord.ext import commands
 
-from functions.common import custom_cooldown, ununicode, is_registered
+from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id
 
-from functions.externalConnections import db_query
+from functions.externalConnections import db_query, runRcon
+
 
 async def split_message(outputString, author):
     splitOutput = ''
@@ -213,11 +214,14 @@ class Utilities(commands.Cog):
         match command:
             case 'type':
                 if name:
-                    output = db_query(False, f'select enemy_name, character_name, max(kills) from kill_counter '
-                                      f'where kills > 1 and enemy_name like \'%{name}%\' '
-                                      f'group by enemy_name order by kills desc, enemy_name desc;')
+                    # output = db_query(False, f'select enemy_name, character_name, max(kills) from kill_counter '
+                    #                   f'where kills > 1 and enemy_name like \'%{name}%\' '
+                    #                   f'group by enemy_name order by kills desc, enemy_name desc;')
+                    output = db_query(False, f'select enemy_name, character_name, kills from kill_counter '
+                                             f'where kills > 10 and enemy_name like \'%{name}%\' '
+                                             f'order by kills desc, character_name desc limit 10;')
                     if output:
-                        outputString += f'**Most Kills (>=10) of Enemy Types matching `{name}`**:\n'
+                        outputString += f'**Top 10 Killers of Enemy Types matching `{name}`**:\n'
                     else:
                         outputString += f'No results.'
                 else:
@@ -303,7 +307,7 @@ class Utilities(commands.Cog):
                     if len(str(splitOutput)) > 1800:
                         if once:
                             once = False
-                            await ctx.author.send(str(splitOutput))
+                            await ctx.send(str(splitOutput))
                             splitOutput = '(continued)\n'
                         else:
                             await ctx.send(str(splitOutput))
@@ -315,6 +319,44 @@ class Utilities(commands.Cog):
 
         return
 
+    @commands.command(name='journey', aliases=['fixjourney'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def journey(self, ctx, name: str):
+        """- Fix a stuck journey step. Verify that they have completed the requirement before using.
+
+        Parameters
+        ----------
+        ctx
+        name
+            Provide the full character name, using quotes if there are spaces.
+
+        Returns
+        -------
+
+        """
+        message = await ctx.reply(f'Fixing current journey step for `{name}`...')
+
+        character = get_single_registration(name)
+
+        if not character:
+            await message.edit(content=f'No character named `{name}` registered!')
+            return
+        else:
+            (char_id, char_name, discord_id) = character
+
+        rconCharId = get_rcon_id(char_name)
+        if not rconCharId:
+            await message.edit(f'Character {char_name} must be online to fix a journey step.')
+            return
+
+        rconCommand = f'con {rconCharId} JourneyCompleteStepForCurrent'
+        rconResponse = runRcon(rconCommand)
+        if rconResponse.error == 1:
+            await message.edit(f'Authentication error on {rconCommand}')
+            return
+        else:
+            await message.edit(content=f'Stuck Journey step for `{char_name}` has been completed.')
 
 @commands.Cog.listener()
 async def setup(bot):

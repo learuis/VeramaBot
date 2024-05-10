@@ -12,7 +12,7 @@ from functions.common import custom_cooldown, is_registered, get_rcon_id, get_si
     get_bot_config, set_bot_config
 from datetime import datetime
 from datetime import timezone
-from time import strftime
+from time import strftime, localtime
 
 from dotenv import load_dotenv
 
@@ -565,5 +565,44 @@ class Admin(commands.Cog):
             await ctx.send(f'Command formatted incorrectly.')
         rcon_all(command)
 
+    @commands.command(name='lastonline')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def lastonline(self, ctx, char_name:str):
+        """- Checks when a player was last online.
+
+        Parameters
+        ----------
+        ctx
+        char_name
+
+        Returns
+        -------
+
+        """
+        outputString = ''
+        last_time_online = ''
+
+        response = runRcon(f'sql select lastTimeOnline from characters where char_name = \'{char_name}\' limit 1')
+        if response.output:
+            response.output.pop(0)
+
+            for record in response.output:
+                match = re.findall(r'\s+\d+ | [^|]*', record)
+                last_time_online = ''.join(str(timestamp) for timestamp in match)
+        else:
+            outputString = f'Character `{char_name}` could not be found.\n'
+            await ctx.reply(content=outputString)
+
+        last_time_online = strftime('%Y-%m-%d %H:%M:%S %Z', localtime(int(last_time_online)))
+        if response.error == 1:
+            outputString += f'\n\nRCON Error.'
+            await ctx.reply(content=outputString)
+            return
+        else:
+            outputString = f'Character `{char_name}` was last online at: {last_time_online}\n'
+            await ctx.reply(content=outputString)
+
+            return
 async def setup(bot):
     await bot.add_cog(Admin(bot))

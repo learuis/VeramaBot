@@ -1,4 +1,6 @@
 import os
+import re
+
 from rcon import Console
 from rcon.util import remove_formatting_codes
 from ftplib import FTP
@@ -133,8 +135,21 @@ def runRcon(command: str):
     returnValue.output = commandOutput
     return returnValue
 
+def count_online_players():
+    connected_chars = []
+
+    rconResponse = runRcon('listplayers')
+    rconResponse.output.pop(0)
+
+    for x in rconResponse.output:
+        match = re.findall(r'\s+\d+ | [^|]*', x)
+        connected_chars.append(match)
+
+    return len(connected_chars)
+
 def notify_all(style: int, text1: str, text2: str):
     failures = 0
+    command_list = []
 
     while failures < 6:
         try:
@@ -147,14 +162,22 @@ def notify_all(style: int, text1: str, text2: str):
         print(f'Error connecting via RCON')
         return
 
-    for rcon_id in range(0, 39):
-        try:
-            res_body = console.command(f'con {rcon_id} testfifo {style} {text1} {text2}')
-        except Exception:
-            print(f'Could not notify player in slot {rcon_id}')
-            continue
-
     console.close()
+
+    online_players = count_online_players()
+
+    if online_players > 0:
+        for rcon_id in range(0, online_players-1):
+            command_list.append(f'con {rcon_id} testfifo {style} {text1} {text2}')
+        multi_rcon(command_list)
+    else:
+        return
+
+    # try:
+    #     res_body = console.command(f'con {rcon_id} testfifo {style} {text1} {text2}')
+    # except Exception:
+    #     print(f'Could not notify player in slot {rcon_id}')
+    #     continue
 
 def multi_rcon(commands: list[str]):
     failures = 0

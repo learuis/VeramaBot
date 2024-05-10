@@ -277,7 +277,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
             else:
                 set_bot_config(f'{reward_boon}', str(int(current_expiration)+10800))
             notify_all(7, f'-Boon-', f'{reward_boon} improvement +3 hours')
-            update_boons()
+            update_boons(f'{reward_boon}')
             continue
         if reward_command:
             match reward_command:

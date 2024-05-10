@@ -92,6 +92,7 @@ class Events(commands.Cog):
         -------
 
         """
+
         location = get_bot_config('event_location')
         if location == '0':
             await ctx.reply(f'This command can only be used during an event!')

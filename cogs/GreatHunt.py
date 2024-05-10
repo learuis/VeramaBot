@@ -1,5 +1,4 @@
-import io
-import random
+import os
 
 from discord.ext import commands
 
@@ -7,6 +6,10 @@ from cogs.QuestSystem import character_in_radius
 from functions.common import custom_cooldown, is_registered, get_rcon_id
 from functions.externalConnections import runRcon
 
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 
 class GreatHunt(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -16,9 +19,7 @@ class GreatHunt(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def hunt(self, ctx):
-        """- Spawns a random Great Hunt boss at cursor position.
-
-        Uses RCON to spawn a random Siptah boss at the location your target is currently pointing at
+        """- Spawns the Sacred Hunt vendor at your location.
 
         Parameters
         ----------
@@ -57,7 +58,8 @@ class GreatHunt(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
         # char_id, char_name = character_in_radius(354927.28125, -34319.316406, -19872.861328, 200)
@@ -76,11 +78,11 @@ class GreatHunt(commands.Cog):
         #         await ctx.reply(f'Character {char_name} is not in the correct location!')
         #         return
 
-        char_id, char_name = character_in_radius(-164557.375, 6978.441895, -462.746765,200)
+        char_id, char_name = character_in_radius(-164557.375, 6978.441895, -462.746765, 200)
         if char_id:
             rconCharId = get_rcon_id(char_name)
             if not rconCharId:
-                await ctx.reply(f'Character {char_name} must be online to spawn the Great Hunt Vendor')
+                await ctx.reply(f'Character {char_name} must be online to spawn the Sacred Hunt Vendor')
                 return
             else:
                 runRcon(f'con {rconCharId} dc spawn exact {monster} r180')

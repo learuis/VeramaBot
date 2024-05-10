@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 load_dotenv('data/server.env')
 VETERAN_ROLE = int(os.getenv('VETERAN_ROLE'))
 ANNIVERSARY_ROLE = int(os.getenv('ANNIVERSARY_ROLE'))
+REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 
 def add_reward_record(char_id: int, itemId: int, quantity: int, reasonString: str):
     query = (f'insert into event_rewards (reward_date, character_id, reward_material, reward_quantity, '
@@ -96,7 +97,8 @@ class Rewards(commands.Cog):
         once = True
 
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
         rconCharId = get_rcon_id(character.char_name)

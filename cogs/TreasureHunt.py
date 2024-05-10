@@ -1,5 +1,6 @@
 import random
 import re
+import os
 
 from discord.ext import commands
 
@@ -9,6 +10,10 @@ from functions.common import custom_cooldown, get_bot_config, is_registered, fla
     run_console_command_by_name
 from functions.externalConnections import db_query, runRcon
 
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 
 def choose_new_treasure_location():
     location = random.randint(int(1), int(254))
@@ -94,7 +99,7 @@ class TreasureHunt(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts', 'Helper')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def dig(self, ctx):
-        """
+        """- Dig for treasure at your current location
 
         Parameters
         ----------
@@ -115,7 +120,8 @@ class TreasureHunt(commands.Cog):
 
         rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:
-            await ctx.reply(f'Character {character.char_name} must be online to dig for treasure!')
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
         target = int(get_bot_config(f'current_treasure_location'))
