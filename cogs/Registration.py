@@ -17,6 +17,8 @@ SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
 AUTOREG_CHANNEL = int(os.getenv('AUTOREG_CHANNEL'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 REG_ROLE = int(os.getenv('REG_ROLE'))
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 
 # noinspection PyUnresolvedReferences
@@ -62,15 +64,16 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
         if is_registered(interaction.user.id):
             cur_sub.execute(f'update registration set character_name = \'{self.charName}\', '
                             f'funcom_id = \'{self.funcomId}\', game_char_id = {charId} '
-                            f'where discord_user = \'{interaction.user.id}\' and season = 6')
-            outputString = (f'Your Season 6 registration has been updated: {self.charName} (id {charId}) '
+                            f'where discord_user = \'{interaction.user.id}\' and season = \'{CURRENT_SEASON}\'')
+            outputString = (f'Your Season {CURRENT_SEASON} registration has been updated: '
+                            f'{self.charName} (id {charId}) '
                             f'with Funcom ID: {self.funcomId} to user {interaction.user.mention}')
         else:
             cur_sub.execute(f'insert into registration '
                             f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
                             f'(\'{interaction.user.id}\',\'{self.charName}\',\'{self.funcomId}\','
-                            f'\'{date.today()}\',6,{charId})')
-            outputString = (f'Registered Season 6 character: {self.charName} (id {charId}) '
+                            f'\'{date.today()}\',{CURRENT_SEASON},{charId})')
+            outputString = (f'Registered Season {CURRENT_SEASON} character: {self.charName} (id {charId}) '
                             f'with Funcom ID: {self.funcomId} '
                             f' to user {interaction.user.mention}. You have been granted a feat as a reward! '
                             f'Go to the <#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` while online'

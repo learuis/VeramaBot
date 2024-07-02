@@ -196,7 +196,7 @@ def multi_rcon(commands: list[str]):
     for command in commands:
         try:
             console.command(f'{command}')
-            print(f'{command}')
+            #print(f'{command}')
         except Exception:
             print(f'Could not execute command {command}')
             continue

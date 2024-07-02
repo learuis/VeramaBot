@@ -19,6 +19,8 @@ OWNER_USER_ID = int(os.getenv('OWNER_USER_ID'))
 SERVER_PASSWORD = str(os.getenv('SERVER_PASSWORD'))
 SERVER_NAME = str(os.getenv('SERVER_NAME'))
 SERVER_PORT = int(os.getenv('SERVER_PORT'))
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 def custom_cooldown(ctx):
     whitelist = {'Admin', 'Moderator'}
@@ -107,7 +109,7 @@ def update_registered_name(input_user, name):
     cur = con.cursor()
 
     cur.execute(f'update registration set character_name = \'{name}\' where discord_user = \'{input_user}\' '
-                f'and season = 6')
+                f'and season = \'{CURRENT_SEASON}\'')
     con.commit()
     con.close()
 
@@ -122,7 +124,7 @@ def is_registered(discord_id: int):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
-                f'and season = 6')
+                f'and season = \'{CURRENT_SEASON}\'')
     result = cur.fetchone()
 
     con.close()
@@ -145,7 +147,7 @@ def last_season_char(discord_id: int):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
-                f'and season = 5 order by id desc limit 1')
+                f'and season = {PREVIOUS_SEASON} order by id desc limit 1')
     result = cur.fetchone()
 
     con.close()
@@ -165,7 +167,7 @@ def get_registration(char_name):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
-                f'\'%{char_name}%\' and season = 6')
+                f'\'%{char_name}%\' and season = {CURRENT_SEASON}')
     results = cur.fetchall()
 
     con.close()
@@ -184,7 +186,7 @@ def get_single_registration(char_name):
     cur = con.cursor()
 
     cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
-                f'\'%{char_name}%\' and season = 6 limit 1')
+                f'\'%{char_name}%\' and season = {CURRENT_SEASON} limit 1')
     results = cur.fetchone()
 
     con.close()

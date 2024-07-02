@@ -104,6 +104,7 @@ class Warps(commands.Cog):
             runRcon(f'con {rconCharId} TeleportPlayer {x} {y} {z}')
             await ctx.reply(f'Rescued `{name}` from the floor, teleported to `{description}`.')
             return
+
 @commands.Cog.listener()
 async def setup(bot):
     await bot.add_cog(Warps(bot))

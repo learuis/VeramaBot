@@ -13,7 +13,7 @@ from functions.common import (custom_cooldown, run_console_command_by_name, int_
 from functions.externalConnections import runRcon, db_query, notify_all, rcon_all
 
 def pull_online_character_info():
-    print(f'start char info query {int_epoch_time()}')
+    #print(f'start char info query {int_epoch_time()}')
     connected_chars = []
     char_id_list = []
     information_list = []
@@ -74,7 +74,7 @@ def pull_online_character_info():
     con.commit()
     con.close()
 
-    print(f'end char info query {int_epoch_time()}')
+    #print(f'end char info query {int_epoch_time()}')
     return True
 
 def complete_quest(quest_id: int, char_id: int):
@@ -324,7 +324,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
                     location = get_bot_config(f'current_treasure_location')
                     result = str(db_query(False, f'select location_name from treasure_locations where id = {location}'))
                     print(f'{result}')
-                    location_name = re.search(r'[a-zA-Z\s\-]+', result)
+                    location_name = re.search(r'[0-9a-zA-Z\s\-]+', result)
                     run_console_command_by_name(char_name, f'testFIFO 6 Treasure {location_name.group()}')
 
         continue

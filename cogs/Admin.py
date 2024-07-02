@@ -21,6 +21,7 @@ VETERAN_ROLE = int(os.getenv('VETERAN_ROLE'))
 RCON_HOST = os.getenv('RCON_HOST')
 RCON_PORT = int(os.getenv('RCON_PORT'))
 RCON_PASS = str(os.getenv('RCON_PASS'))
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 
 class Admin(commands.Cog):
     """Cog class containing commands related to server status."""
@@ -191,7 +192,7 @@ class Admin(commands.Cog):
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def veteran2(self, ctx):
         """
-        Adds the Veteran Outcast role to everyone who registered in Season 5
+        Adds the Veteran Outcast role to everyone who registered in the previous season
 
         Parameters
         ----------
@@ -203,7 +204,8 @@ class Admin(commands.Cog):
         """
         vet_role = ctx.author.guild.get_role(VETERAN_ROLE)
 
-        user_list = db_query(False, f'select discord_user from registration where season = 5')
+        user_list = db_query(False, f'select discord_user from registration '
+                                    f'where season = {PREVIOUS_SEASON}')
 
         users = list(sum(user_list, ()))
 
@@ -541,6 +543,32 @@ class Admin(commands.Cog):
         else:
             runRcon(f'con {rconCharId} TeleportPlayer -17174.951172 -259672.125 87383.28125')
             await ctx.reply(f'Tossed `{name}` into the Volcano.')
+            return
+
+    @commands.command(name='jail', aliases=['prison', 'capture'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def jail(self, ctx, name: str):
+        """- Sends the named player to jail
+
+        Parameters
+        ----------
+        ctx
+        name
+            Player name, use double quotes with there are spaces
+
+        Returns
+        -------
+
+        """
+
+        rconCharId = get_rcon_id(name)
+        if not rconCharId:
+            await ctx.reply(f'Character `{name}` must be online to send to jail!')
+            return
+        else:
+            runRcon(f'con {rconCharId} TeleportPlayer 218110.859375 -124766.046875 -16443.873047')
+            await ctx.reply(f'Sent `{name}` to jail.')
             return
 
     @commands.command(name='rcon_all')

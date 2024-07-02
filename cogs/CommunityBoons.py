@@ -1,6 +1,7 @@
 import time
 import sqlite3
 import ast
+import os
 from datetime import datetime
 
 import discord
@@ -12,6 +13,11 @@ from functions.externalConnections import runRcon, db_query, multi_rcon
 from discord.ext import commands
 
 from functions.common import custom_cooldown
+
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 
 class CommunityBoons(commands.Cog):
     """Cog class containing commands related to server status.
@@ -208,7 +214,7 @@ class CommunityBoons(commands.Cog):
         discord_id = regInfo[2]
 
         cur.execute(f'insert or ignore into earned_titles (contributor,title,season) '
-                    f'values (\'{discord_id}\',\'{boon[1]}\',4)')
+                    f'values (\'{discord_id}\',\'{boon[1]}\',\'{CURRENT_SEASON}\')')
         con.commit()
 
         await ctx.send(f'Title \'{boon[1]}\' for the ** {boon[2]} Boon of {boon[0]}** is awarded '
@@ -521,7 +527,7 @@ class CommunityBoons(commands.Cog):
                 if res:
                     for x in res:
                         outputString += (f'__{str(x[2])}__: Current Quota Period: {int(x[1]):,} - '
-                                         f'All of Season 6: {int(x[3]):,}\n')
+                                         f'All of Season {CURRENT_SEASON}: {int(x[3]):,}\n')
 
                 await ctx.send(outputString)
 
