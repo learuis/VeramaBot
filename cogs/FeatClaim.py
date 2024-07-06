@@ -108,6 +108,20 @@ class FeatClaim(commands.Cog):
 
         outputString = ''
 
+        target = get_rcon_id(charId.char_name)
+        try:
+            runRcon(f'con {target} learnallemotes')
+            outputString += f'\nGranted all emotes.'
+        except TimeoutError:
+            outputString += f'\nRCON Timeout when trying to grant all emotes.'
+
+        target = get_rcon_id(charId.char_name)
+        try:
+            runRcon(f'con {target} learnallpetemotes')
+            outputString += f'\nGranted all pet emotes.'
+        except TimeoutError:
+            outputString += f'\nRCON Timeout when trying to grant all pet emotes.'
+
         if not missingFeatString:
             outputString += f'Character {charId.char_name} (id {charId.id}) already knows all of '\
                             f'the Siptah feats currently available to them.'

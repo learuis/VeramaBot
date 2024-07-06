@@ -22,6 +22,7 @@ RCON_HOST = os.getenv('RCON_HOST')
 RCON_PORT = int(os.getenv('RCON_PORT'))
 RCON_PASS = str(os.getenv('RCON_PASS'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 class Admin(commands.Cog):
     """Cog class containing commands related to server status."""

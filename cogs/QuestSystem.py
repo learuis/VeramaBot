@@ -331,6 +331,19 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
 
     return
 
+def treasure_broadcast():
+
+    # treasure_last_announced = get_bot_config(f'treasure_last_announced')
+    # if int(treasure_last_announced) > int_epoch_time() - 3600:
+    #     print(f'Skipping treasure broadcast, executed too recently')
+    #     return
+
+    location = get_bot_config(f'current_treasure_location')
+    result = str(db_query(False, f'select location_name from treasure_locations where id = {location}'))
+    print(f'Broadcasting treasure location: {result}')
+    location_name = re.search(r'[0-9a-zA-Z\s\-]+', result)
+    rcon_all(f'testFIFO 6 Treasure {location_name.group()}')
+
 async def oneStepQuestUpdate(bot):
 
     if int(get_bot_config(f'maintenance_flag')) == 1:

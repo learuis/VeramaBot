@@ -136,6 +136,14 @@ def is_registered(discord_id: int):
     else:
         return False
 
+async def is_message_deleted(channel: discord.TextChannel, message_id):
+    try:
+        await channel.fetch_message(message_id)
+        return False
+    except discord.NotFound:
+        print(f'Could not find message {message_id} in channel {channel.id}')
+        return True
+
 def last_season_char(discord_id: int):
     class Registration:
         def __init__(self):

@@ -929,9 +929,9 @@ def update_boons(boon: str = ''):
             command_prep.append(['PlayerXPKillMultiplier', '1.0'])
 
         if int(get_bot_config(f'PlayerXPRateMultiplier')) >= currentTime:
-            command_prep.append(['PlayerXPRateMultiplier', '1.0'])
+            command_prep.append(['PlayerXPRateMultiplier', '1.5'])
         else:
-            command_prep.append(['PlayerXPRateMultiplier', '0.5'])
+            command_prep.append(['PlayerXPRateMultiplier', '1.0'])
 
         if int(get_bot_config(f'DurabilityMultiplier')) >= currentTime:
             command_prep.append(['DurabilityMultiplier', '0.7'])

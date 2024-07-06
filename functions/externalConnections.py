@@ -1,5 +1,6 @@
 import os
 import re
+import binascii
 
 from rcon import Console
 from rcon.util import remove_formatting_codes
@@ -32,8 +33,10 @@ def downloadSave():
     # For text files
 
     lines = []
+    #ftp.retrbinary('RETR ConanSandbox.log', open('data/ConanSandbox.log', 'wb').write)
     ftp.retrlines('RETR ConanSandbox.log', lambda d: lines.append(d + '\n'))
     f = open('data/ConanSandbox.log', 'w')
+    #returnFile.close()
     f.writelines(lines)
     returnFile = f
     f.close()
@@ -217,7 +220,9 @@ def rcon_all(command: str):
         print(f'Error connecting via RCON')
         return
 
-    for rcon_id in range(0, 39):
+    online_players = count_online_players()
+
+    for rcon_id in range(0, online_players-1):
         try:
             console.command(f'con {rcon_id} {command}')
         except Exception:

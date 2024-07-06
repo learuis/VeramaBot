@@ -1,3 +1,4 @@
+import math
 import random
 import re
 import os
@@ -52,13 +53,15 @@ def calculate_bonus(char_id):
     bonusMessage = ''
 
     bonus, expertise_points = get_character_expertise(char_id)
-    bonusMessage += f'Expertise Bonus: +{expertise_points} | '
+    bonusMessage += f'Expertise Bonus: `+{expertise_points*10}%` | '
 
     if check_inventory(char_id, 2, 4196):
         bonus += 10
-        bonusMessage += f'Gravedigger Bonus: +10'
+        bonusMessage += f'Gravedigger Bonus: `+100%`'
     else:
-        bonusMessage += f'Gravedigger Bonus: +0'
+        bonusMessage += f'Gravedigger Bonus: `+0%`'
+
+    bonusMessage += f'\nChance to find Treasure is increased by `{bonus*10}%`!'
 
     return bonus, bonusMessage
 
@@ -74,7 +77,7 @@ def grant_treasure_rewards(character, target_name, bonus: int):
 
         treasure_roll = random.randint(int(1), int(100))
 
-        if treasure_roll <= (category_chance + bonus):
+        if treasure_roll <= (category_chance + (category_chance * bonus/10)):
             results = db_query(False, f'select item_id, item_name from treasure_rewards '
                                f'where reward_category = {category} order by RANDOM() limit 1')
             to_add = flatten_list(results)

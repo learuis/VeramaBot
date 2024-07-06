@@ -20,7 +20,6 @@ REG_ROLE = int(os.getenv('REG_ROLE'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
-
 # noinspection PyUnresolvedReferences
 class RegistrationButton(discord.ui.View):
     def __init__(self):
@@ -73,14 +72,20 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                             f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
                             f'(\'{interaction.user.id}\',\'{self.charName}\',\'{self.funcomId}\','
                             f'\'{date.today()}\',{CURRENT_SEASON},{charId})')
+            # outputString = (f'Registered Season {CURRENT_SEASON} character: {self.charName} (id {charId}) '
+            #                 f'with Funcom ID: {self.funcomId} '
+            #                 f' to user {interaction.user.mention}. You have been granted a feat as a reward! '
+            #                 f'Go to the <#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` while online'
+            #                 f' to receive it!\nSome feats rewarded from quests will not appear in your Knowledge '
+            #                 f'list until you do this.')
             outputString = (f'Registered Season {CURRENT_SEASON} character: {self.charName} (id {charId}) '
                             f'with Funcom ID: {self.funcomId} '
-                            f' to user {interaction.user.mention}. You have been granted a feat as a reward! '
-                            f'Go to the <#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` while online'
-                            f' to receive it!\nSome feats rewarded from quests will not appear in your Knowledge '
-                            f'list until you do this.')
+                            f' to user {interaction.user.mention}.\n\nYou have been granted all emotes as a reward! '
+                            f'Go to the <#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` '
+                            f'while online to receive them! If you ever lose them for some reason, you can repeat '
+                            f'the command at any time.')
 
-        cur_sub.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},90212)')
+        # cur_sub.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},90212)')
 
         con_sub.commit()
         con_sub.close()
@@ -99,7 +104,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
         else:
             previous_name = f'<none>'
 
-        await channel.send(f'__Season 6 Character Name:__ {self.charName}\n'
+        await channel.send(f'__Season {CURRENT_SEASON} Character Name:__ {self.charName}\n'
                            f'__Previous Season Name:__ {previous_name}\n'
                            f'__Funcom ID:__ {self.funcomId}\n'
                            f'__Discord:__ {interaction.user.mention}\n')
@@ -192,7 +197,7 @@ class Registration(commands.Cog):
         splitOutput = ''
         once = True
 
-        res = db_query(False, f'select * from registration where season = 6')
+        res = db_query(False, f'select * from registration where season = {CURRENT_SEASON}')
 
         for x in res:
             outputString += f'{x}\n'

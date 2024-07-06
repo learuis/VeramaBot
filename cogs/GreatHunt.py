@@ -16,7 +16,7 @@ class GreatHunt(commands.Cog):
         self.bot = bot
 
     @commands.command(name='hunt')
-    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def hunt(self, ctx):
         """- Spawns the Sacred Hunt vendor at your location.

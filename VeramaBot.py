@@ -9,7 +9,7 @@ from discord.ext import tasks
 from dotenv import load_dotenv
 
 from cogs.CommunityBoons import update_boons
-from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info
+from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info, treasure_broadcast
 from functions.common import is_docker, editStatus, place_markers
 from cogs.Registration import RegistrationButton
 
@@ -64,6 +64,9 @@ async def on_ready():
     if not boonChecker.is_running():
         boonChecker.start()
 
+    # if not treasure_announcer.is_running():
+    #     treasure_announcer.start()
+
 @tasks.loop(seconds=30)
 async def onlineCharacterInfo():
 
@@ -108,6 +111,14 @@ async def boonChecker():
         update_boons()
     except TimeoutError:
         print(f'boonChecker took too long to complete.')
+
+# @tasks.loop(hours=1)
+# async def treasure_announcer():
+#
+#     try:
+#         treasure_broadcast()
+#     except TimeoutError:
+#         print(f'treasure_broadcast took too long to complete.')
 
 @bot.event
 async def on_command_error(ctx, error):
