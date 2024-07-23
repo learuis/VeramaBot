@@ -7,6 +7,7 @@ from discord.ext import commands
 from datetime import datetime
 
 from cogs.CommunityBoons import update_boons
+from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp
 from cogs.Reward import add_reward_record
 from functions.common import (custom_cooldown, run_console_command_by_name, int_epoch_time,
                               flatten_list, get_bot_config, set_bot_config, get_single_registration)
@@ -443,6 +444,22 @@ async def oneStepQuestUpdate(bot):
                     add_cooldown(char_id, quest_id, repeatable)
                     if target_x:
                         run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
+            case 'Blacksmith' | 'Armorer' | 'Archivist' | 'Tamer':
+                player_tier = get_profession_tier(char_id, requirement_type)
+                objective = get_current_objective(requirement_type, player_tier.tier)
+
+                inventoryHasItem = check_inventory(char_id, 0, objective.item_id)
+                if inventoryHasItem:
+                    consume_from_inventory(char_id, char_name, objective.item_id)
+                    display_quest_text(quest_id, 0, False, char_name)
+                    give_profession_xp(player_tier.char_id, player_tier.profession)
+                    print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+
+                else:
+                    display_quest_text(quest_id, 0, True, char_name)
+                    print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
+                          f'does not have the required item {objective.item_id} / {objective.item_name}')
+                    continue
 
                 continue
 

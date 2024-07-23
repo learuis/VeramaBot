@@ -280,7 +280,7 @@ async def editStatus(message, bot):
                                    f'- Password: `{SERVER_PASSWORD}`\n'
                                    f'- Server Online: `{onlineStatus}` {statusSymbol}\n'
                                    f'- Players Connected: `{currentPlayers}` / `{maxPlayers}` {onlineSymbol}\n'
-                                   f'Server restarts are at 4pm and 4am Eastern.')
+                                   f'Server restarts are at 12pm, 10pm and 4am Eastern.')
     return
 
 def place_markers():

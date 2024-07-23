@@ -8,13 +8,14 @@ from discord.ext import commands
 from cogs.QuestSystem import check_inventory
 from cogs.Reward import add_reward_record
 from functions.common import custom_cooldown, get_bot_config, is_registered, flatten_list, set_bot_config, get_rcon_id, \
-    run_console_command_by_name
+    run_console_command_by_name, get_single_registration
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
+OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 
 def choose_new_treasure_location():
     location = random.randint(int(1), int(254))
@@ -69,11 +70,13 @@ def calculate_bonus(char_id):
 def grant_treasure_rewards(character, target_name, bonus: int):
     reward_list = []
     default_reward = (11009, 'Eldarium Cache')
+    print(f'{character.id}')
+    print(f'{character}')
 
     for category in range(1, 5):
 
         category_chance = int(get_bot_config(f'treasure_{category}_chance'))
-        print(f'Class {category}: {category_chance+bonus}')
+        print(f'Class {category}: {(category_chance + (category_chance * bonus/10))}')
 
         treasure_roll = random.randint(int(1), int(100))
 
@@ -86,6 +89,7 @@ def grant_treasure_rewards(character, target_name, bonus: int):
             reward_list.append(default_reward)
 
     outputMessage = f'__Treasure Found__: (claim with `v/claim`)\n| '
+
     print(f'{reward_list}')
     for reward in reward_list:
         print(f'{reward}')
@@ -173,6 +177,48 @@ class TreasureHunt(commands.Cog):
         await ctx.reply(f'{outputMessage}')
 
         return
+
+    @commands.command(name='givetreasure')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def givetreasure(self, ctx, name: str, bonus: int = 0):
+        """
+
+        Parameters
+        ----------
+        ctx
+        name
+            Character to award the treasure to.
+        bonus
+            Input a bonus percentage chance to find treasure
+
+        Returns
+        -------
+
+        """
+        outputMessage = f''
+        calc_bonus = round(bonus / 10)
+
+        registration_record = get_single_registration(name)
+        (char_id, char_name, discord_id) = registration_record
+
+        character = is_registered(int(discord_id))
+
+        print(f'{character.id} {character.char_name} {discord_id}')
+        print(f'{character}')
+
+        if not character:
+            await ctx.send(f'No character named `{character.char_name}` registered!')
+            return
+        else:
+            user = self.bot.get_user(int(discord_id))
+
+            outputMessage += f'{user.mention}\n'
+            outputMessage += f'`{character.char_name}` has been awarded a bonus treasure! (claim with `v/claim`)\n'
+            outputMessage += f'\nChance to find Treasure is increased by `{bonus}%`!\n\n'
+            outputMessage += grant_treasure_rewards(character, f'', calc_bonus)
+            channel = self.bot.get_channel(OUTCASTBOT_CHANNEL)
+            await channel.send(outputMessage)
 
 @commands.Cog.listener()
 async def setup(bot):

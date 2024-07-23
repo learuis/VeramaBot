@@ -8,6 +8,7 @@ from discord.ext import commands
 from dotenv import load_dotenv
 
 from functions.common import is_message_deleted, is_registered
+from functions.externalConnections import db_query
 
 load_dotenv('data/server.env')
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
@@ -223,6 +224,39 @@ class Roleplaying(commands.Cog):
         else:
             await ctx.send(f'You have not yet created a character sheet. Go to <#{CHARSHEETS_CHANNEL}>.')
 
+    @commands.command(name='roleplay', aliases=['rp'])
+    @commands.has_any_role('Admin', 'Moderator', 'Roleplay')
+    async def Roleplay(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        outputMessage = f'__Online Roleplayers:__\n'
+
+        results = db_query(False, f'select online.char_id, online.char_name, reg.discord_user '
+                                  f'from online_character_info as online '
+                                  f'left join registration as reg on online.char_id = reg.game_char_id '
+                                  f'where reg.season = {CURRENT_SEASON}')
+
+        if results:
+            print(f'{results}')
+        else:
+            outputMessage += f'None'
+            return
+
+        message = await ctx.reply(f'{outputMessage}')
+
+        for result in results:
+            outputMessage += f'\n{result[1]} | <@{result[2]}>'
+
+        await message.edit(content=outputMessage)
+        return
 
 @commands.Cog.listener()
 async def setup(bot):

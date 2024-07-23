@@ -1,3 +1,5 @@
+import re
+
 from discord.ext import commands
 from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config
 from functions.externalConnections import db_query, runRcon
@@ -65,7 +67,7 @@ class Warps(commands.Cog):
             await ctx.reply(f'Teleported `{name}` to {description}.')
             return
 
-    @commands.command(name='stuck', aliases=['rescue', 'floor'])
+    @commands.command(name='stuck', aliases=['rescue', 'floor', 'home'])
     @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def stuck(self, ctx):
@@ -79,9 +81,11 @@ class Warps(commands.Cog):
         -------
 
         """
-
+        coordinates = []
         character = is_registered(ctx.author.id)
-        destination = get_bot_config('rescue_location')
+        target_x = 0
+        target_y = 0
+        target_z = 0
 
         if not character:
             await ctx.reply(f'No character registered to player {ctx.author.mention}!')
@@ -89,21 +93,69 @@ class Warps(commands.Cog):
         else:
             name = character.char_name
 
-        rconCharId = get_rcon_id(character.char_name)
-        if not rconCharId:
-            await ctx.reply(f'Character `{name}` must be online to be rescued!')
-            return
+        if 'home' in ctx.invoked_with:
+            location = get_bot_config('event_location')
+            if location == '0':
+                await ctx.reply(f'This command can only be used during an event!')
+                return
+
+            hex_name = bytes(name, 'utf8')
+            hex_name = hex_name.hex()
+            print(f'Char name in hex is {hex_name}')
+
+            commandString = (f'sql select x,y,z from actor_position where id in '
+                             f'(select object_id from properties '
+                             f'where hex(value) like \'%{hex_name}%\' '
+                             f'and name like \'%BP_BAC_SpawnPoints_C.SpawnOwnerName%\' limit 1)')
+            print(commandString)
+
+            rconResponse = runRcon(f'{commandString}')
+            if rconResponse.error:
+                print(f'RCON error in hex lookup')
+                return False
+            rconResponse.output.pop(0)
+            print(rconResponse)
+
+            for x in rconResponse.output:
+                match = re.findall(r'\s+\d+ | [^|]*', x)
+                coordinates.append(match)
+
+            print(coordinates)
+            if not coordinates:
+                print(f'RCON error in parsing')
+                return False
+
+            for record in coordinates:
+                target_x = record[0].strip()
+                target_y = record[1].strip()
+                target_z = record[2].strip()
+
+            rconCharId = get_rcon_id(character.char_name)
+            if not rconCharId:
+                await ctx.reply(f'Character `{name}` must be online to be rescued!')
+                return
+            else:
+                runRcon(f'con {rconCharId} TeleportPlayer {target_x} {target_y} {target_z}')
+                await ctx.reply(f'Returned Verama to their spawn.')
         else:
-            query_command = (f'select description, x, y, z from warp_locations where warp_name like '
-                             f'\'%{destination.casefold()}%\' limit 1')
+            destination = get_bot_config('rescue_location')
 
-            output = db_query(False, f'{query_command}')
+            rconCharId = get_rcon_id(character.char_name)
+            if not rconCharId:
+                await ctx.reply(f'Character `{name}` must be online to be rescued!')
+                return
+            else:
+                query_command = (f'select description, x, y, z from warp_locations where warp_name like '
+                                 f'\'%{destination.casefold()}%\' limit 1')
 
-            warp_entry = flatten_list(output)
-            (description, x, y, z) = warp_entry
-            runRcon(f'con {rconCharId} TeleportPlayer {x} {y} {z}')
-            await ctx.reply(f'Rescued `{name}` from the floor, teleported to `{description}`.')
-            return
+                output = db_query(False, f'{query_command}')
+
+                warp_entry = flatten_list(output)
+                (description, x, y, z) = warp_entry
+                runRcon(f'con {rconCharId} TeleportPlayer {x} {y} {z}')
+                await ctx.reply(f'Rescued `{name}` from the floor, teleported to `{description}`.')
+                return
+
 
 @commands.Cog.listener()
 async def setup(bot):

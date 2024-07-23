@@ -9,7 +9,9 @@ from discord.ext import tasks
 from dotenv import load_dotenv
 
 from cogs.CommunityBoons import update_boons
+from cogs.Professions import updateProfessionBoard
 from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info, treasure_broadcast
+from cogs.Roleplaying import RoleplayingButton
 from functions.common import is_docker, editStatus, place_markers
 from cogs.Registration import RegistrationButton
 
@@ -20,6 +22,8 @@ BOT_CHANNEL = int(os.getenv('BOT_CHANNEL'))
 STATUS_CHANNEL = int(os.getenv('STATUS_CHANNEL'))
 STATUS_MESSAGE = int(os.getenv('STATUS_MESSAGE'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
+PROFESSION_CHANNEL = int(os.getenv('PROFESSION_CHANNEL'))
+PROFESSION_MESSAGE = int(os.getenv('PROFESSION_MESSAGE'))
 
 intents = discord.Intents.all()
 intents.message_content = True
@@ -48,9 +52,13 @@ async def on_ready():
         await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
 
     bot.add_view(RegistrationButton())
+    bot.add_view(RoleplayingButton())
 
     if not liveStatus.is_running():
         liveStatus.start()
+
+    if not professionBoard.is_running():
+        professionBoard.start()
 
     if not onlineCharacterInfo.is_running():
         onlineCharacterInfo.start()
@@ -94,6 +102,17 @@ async def liveStatus():
         await editStatus(message, bot)
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented status updates.')
+
+@tasks.loop(minutes=1)
+async def professionBoard():
+
+    channel = bot.get_channel(PROFESSION_CHANNEL)
+    message = await channel.fetch_message(PROFESSION_MESSAGE)
+
+    try:
+        await updateProfessionBoard(message, bot)
+    except discord.errors.DiscordServerError:
+        print(f'Discord error prevented profession updates.')
 
 @tasks.loop(hours=1)
 async def placeMarkers():
