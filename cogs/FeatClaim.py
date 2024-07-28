@@ -41,6 +41,23 @@ def get_feat_list(charId: int):
 
     return featList
 
+def grant_feat(char_id, char_name, feat_id):
+    try:
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+        cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({char_id},{feat_id})')
+        con.commit()
+        con.close()
+    except Exception:
+        outputString = (f'Error when adding feat `{feat_id}` to Feat Claim table for '
+                        f'character `{char_name}` (id `{char_id}`)')
+        return outputString
+
+    outputString = f'Added Feat `{feat_id}` to Feat Claim table for character `{char_name}` (id `{char_id}'
+
+    return outputString
+
+
 class FeatClaim(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
@@ -123,7 +140,7 @@ class FeatClaim(commands.Cog):
             outputString += f'\nRCON Timeout when trying to grant all pet emotes.'
 
         if not missingFeatString:
-            outputString += f'Character {charId.char_name} (id {charId.id}) already knows all of '\
+            outputString += f'\nCharacter {charId.char_name} (id {charId.id}) already knows all of '\
                             f'the Siptah feats currently available to them.'
             await message.edit(content=outputString)
             return
@@ -190,13 +207,9 @@ class FeatClaim(commands.Cog):
             await ctx.reply(f'Feat `{feat}` is not permitted to be added to Feat Claim table.')
             return
 
-        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-        cur = con.cursor()
-        cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},{feat})')
-        con.commit()
-        con.close()
+        outputString = grant_feat(charId, name, feat)
 
-        await ctx.reply(f'Added Feat `{feat}` to Feat Claim table for character `{name}` (id `{charId}`)')
+        await ctx.reply(f'{outputString}')
 
     @commands.command(name='featlist', aliases=['listfeats', 'listfeat'])
     @commands.has_any_role('Admin', 'Moderator')
@@ -305,36 +318,36 @@ class FeatClaim(commands.Cog):
             else:
                 await ctx.send(str(outputString))
 
-    @commands.command(name='featdelete', aliases=['featdel', 'delfeat'])
-    @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def featDelete(self, ctx, recordToDelete: int = commands.parameter(default=0)):
-        """- Delete a record from the registration database
-
-        Deletes a selected record from the VeramaBot database table 'registration'.
-
-        Does not delete the entry in the registration channel.
-
-        Parameters
-        ----------
-        ctx
-        recordToDelete
-            Specify which record number should be deleted.
-        Returns
-        -------
-
-        """
-        if recordToDelete == 0:
-            await ctx.send(f'Record to delete must be specified. Use `v/help registrationdelete`')
-        else:
-            try:
-                int(recordToDelete)
-            except ValueError:
-                await ctx.send(f'Invalid record number')
-            else:
-                res = db_delete_single_record('featclaim', 'record_num', recordToDelete)
-
-                await ctx.send(f'Deleted record:\n{res}')
+    # @commands.command(name='featdelete', aliases=['featdel', 'delfeat'])
+    # @commands.has_any_role('Admin', 'Moderator')
+    # @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    # async def featDelete(self, ctx, recordToDelete: int = commands.parameter(default=0)):
+    #     """- Delete a record from the registration database
+    #
+    #     Deletes a selected record from the VeramaBot database table 'registration'.
+    #
+    #     Does not delete the entry in the registration channel.
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #     recordToDelete
+    #         Specify which record number should be deleted.
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     if recordToDelete == 0:
+    #         await ctx.send(f'Record to delete must be specified. Use `v/help registrationdelete`')
+    #     else:
+    #         try:
+    #             int(recordToDelete)
+    #         except ValueError:
+    #             await ctx.send(f'Invalid record number')
+    #         else:
+    #             res = db_delete_single_record('featclaim', 'record_num', recordToDelete)
+    #
+    #             await ctx.send(f'Deleted record:\n{res}')
 @commands.Cog.listener()
 async def setup(bot):
     await bot.add_cog(FeatClaim(bot))

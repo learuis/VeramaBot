@@ -55,12 +55,12 @@ class Events(commands.Cog):
             await ctx.send(f'Spawned `{monster}` at `{character.char_name}\'s` position')
             return
 
-    @commands.command(name='startevent')
+    @commands.command(name='startevent', aliases=['endevent'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def startevent(self, ctx, location: str):
+    async def startevent(self, ctx, location: str = commands.parameter(default='0')):
         """
-
+        Sets event location. Use quotes around coordinates like \"x y z\". Use v/endevent to disable.
         Parameters
         ----------
         ctx

@@ -110,7 +110,7 @@ async def professionBoard():
     message = await channel.fetch_message(PROFESSION_MESSAGE)
 
     try:
-        await updateProfessionBoard(message, bot)
+        await updateProfessionBoard(message)
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented profession updates.')
 

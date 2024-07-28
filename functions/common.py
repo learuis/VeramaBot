@@ -343,7 +343,7 @@ def set_bot_config(item: str, value: str):
     con.commit()
     con.close()
 
-    return
+    return value
 
 def int_epoch_time():
     current_time = datetime.now()

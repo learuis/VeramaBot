@@ -7,7 +7,7 @@ from discord.ext import commands
 from datetime import datetime
 
 from cogs.CommunityBoons import update_boons
-from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp
+from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp, give_favor, get_favor
 from cogs.Reward import add_reward_record
 from functions.common import (custom_cooldown, run_console_command_by_name, int_epoch_time,
                               flatten_list, get_bot_config, set_bot_config, get_single_registration)
@@ -96,13 +96,20 @@ def complete_quest(quest_id: int, char_id: int):
 
     return
 
-def display_quest_text(quest_id, quest_status, alt, char_name):
+def display_quest_text(quest_id, quest_status, alt, char_name,
+                       override_style: int = None, override_text1: str = None, override_text2: str = None):
     style = 0
     text1 = ''
     text2 = ''
     altStyle = ''
     altText1 = ''
     altText2 = ''
+
+    if override_style and override_text1 and override_text2:
+        print(f'Using override quest text for {quest_id}')
+        run_console_command_by_name(char_name,
+                                    f'testFIFO {override_style} \"{override_text1}\" \"{override_text2}\"')
+        return
 
     questText = db_query(False, f'select Style, Text1, Text2, AltStyle, AltText1, AltText2 from quest_text '
                          f'where quest_id = {quest_id} and step_number = {quest_status}')
@@ -446,13 +453,22 @@ async def oneStepQuestUpdate(bot):
                         run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
             case 'Blacksmith' | 'Armorer' | 'Archivist' | 'Tamer':
                 player_tier = get_profession_tier(char_id, requirement_type)
+                if player_tier.turn_ins_this_cycle >= int(get_bot_config(f'profession_cycle_limit')):
+                    print(f'Skipping quest {quest_id}, id {char_id} {char_name}, at cycle limit')
+                    display_quest_text(quest_id, 0, True, char_name,
+                                       2, f'Exceeded', f'Limit for this cycle')
+                    continue
+
+                get_favor(char_id, 'VoidforgedExiles')
                 objective = get_current_objective(requirement_type, player_tier.tier)
 
                 inventoryHasItem = check_inventory(char_id, 0, objective.item_id)
                 if inventoryHasItem:
                     consume_from_inventory(char_id, char_name, objective.item_id)
                     display_quest_text(quest_id, 0, False, char_name)
-                    give_profession_xp(player_tier.char_id, player_tier.profession)
+                    await give_profession_xp(
+                        player_tier.char_id, char_name, player_tier.profession, player_tier.tier, bot)
+                    give_favor(player_tier.char_id, 'VoidforgedExiles', player_tier.tier)
                     print(f'Quest {quest_id} completed by id {char_id} {char_name}')
 
                 else:

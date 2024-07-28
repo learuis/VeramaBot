@@ -7,7 +7,7 @@ import os
 import discord.ext.commands
 from discord.ext import commands
 
-from functions.externalConnections import runRcon, downloadSave, db_query, rcon_all
+from functions.externalConnections import runRcon, downloadSave, db_query, rcon_all, send_rcon_command
 from functions.common import custom_cooldown, is_registered, get_rcon_id, get_single_registration, \
     get_bot_config, set_bot_config
 from datetime import datetime
@@ -633,5 +633,32 @@ class Admin(commands.Cog):
             await ctx.reply(content=outputString)
 
             return
+
+    @commands.command(name='rcontest')
+    @commands.has_any_role('Admin', 'Moderator')
+    async def rcontest(self, ctx, *args):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        command = ''
+        formattedOutput = ''
+
+        for arg in args:
+            print(f'{arg}')
+            command += f'{arg} '
+
+        command = re.sub(';', '\"', command)
+
+        rconResponse = send_rcon_command(command)
+
+        await ctx.send(rconResponse)
+
 async def setup(bot):
     await bot.add_cog(Admin(bot))

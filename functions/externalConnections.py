@@ -1,6 +1,8 @@
 import os
 import re
-import binascii
+import socket
+import struct
+
 
 from rcon import Console
 from rcon.util import remove_formatting_codes
@@ -230,3 +232,52 @@ def rcon_all(command: str):
             continue
 
     console.close()
+
+def send_rcon_command(command):
+    #written by FreeFun
+    def create_packet(request_id, request_type, payload):
+        payload = payload.encode('utf-8')
+        length = 10 + len(payload)
+        return struct.pack('<iii', length, request_id, request_type) + payload + b'\x00\x00'
+
+    def read_response(sock):
+        # Read the length of the response
+        data = sock.recv(4)
+        if len(data) < 4:
+            raise ValueError("Failed to receive data")
+
+        length = struct.unpack('<i', data)[0]
+
+        # Read the rest of the response
+        data = sock.recv(length)
+        if len(data) < length:
+            raise ValueError("Failed to receive full data")
+
+        request_id, response_type = struct.unpack('<ii', data[:8])
+        response = data[8:].decode('utf-8')
+        return request_id, response
+
+    # Create a TCP/IP socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        # Connect the socket to the port where the server is listening
+        sock.connect((RCON_HOST, RCON_PORT))
+
+        # Send the RCON login request
+        login_packet = create_packet(1, 3, RCON_PASS)
+        sock.sendall(login_packet)
+        request_id, response = read_response(sock)
+
+        if request_id == -1:
+            raise ValueError("RCON login failed")
+
+        # Send the RCON command
+        command_packet = create_packet(2, 2, command)
+        sock.sendall(command_packet)
+        _, response = read_response(sock)
+
+        return response
+
+    finally:
+        sock.close()

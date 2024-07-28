@@ -136,7 +136,7 @@ class Warps(commands.Cog):
                 return
             else:
                 runRcon(f'con {rconCharId} TeleportPlayer {target_x} {target_y} {target_z}')
-                await ctx.reply(f'Returned Verama to their spawn.')
+                await ctx.reply(f'Returned `{name}` to their spawn.')
         else:
             destination = get_bot_config('rescue_location')
 
