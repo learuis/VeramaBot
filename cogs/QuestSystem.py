@@ -13,8 +13,9 @@ from functions.common import (custom_cooldown, run_console_command_by_name, int_
                               flatten_list, get_bot_config, set_bot_config, get_single_registration)
 from functions.externalConnections import runRcon, db_query, notify_all, rcon_all
 
+
 def pull_online_character_info():
-    #print(f'start char info query {int_epoch_time()}')
+    # print(f'start char info query {int_epoch_time()}')
     connected_chars = []
     char_id_list = []
     information_list = []
@@ -46,7 +47,7 @@ def pull_online_character_info():
 
     for char in connected_chars:
         char_name = char[1].strip()
-        #print(char_name)
+        # print(char_name)
         registration = get_single_registration(char_name)
         if not registration:
             continue
@@ -60,7 +61,7 @@ def pull_online_character_info():
                                f'where a.id in ({criteria}) limit 40')
     locationResponse.output.pop(0)
     for location in locationResponse.output:
-        #print(f'{location}')
+        # print(f'{location}')
         locMatch = re.findall(r'\s+\d+ | [^|]*', location)
         information_list.append(locMatch)
 
@@ -75,11 +76,11 @@ def pull_online_character_info():
     con.commit()
     con.close()
 
-    #print(f'end char info query {int_epoch_time()}')
+    # print(f'end char info query {int_epoch_time()}')
     return True
 
-def complete_quest(quest_id: int, char_id: int):
 
+def complete_quest(quest_id: int, char_id: int):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
@@ -95,6 +96,7 @@ def complete_quest(quest_id: int, char_id: int):
     con.close()
 
     return
+
 
 def display_quest_text(quest_id, quest_status, alt, char_name,
                        override_style: int = None, override_text1: str = None, override_text2: str = None):
@@ -112,7 +114,7 @@ def display_quest_text(quest_id, quest_status, alt, char_name,
         return
 
     questText = db_query(False, f'select Style, Text1, Text2, AltStyle, AltText1, AltText2 from quest_text '
-                         f'where quest_id = {quest_id} and step_number = {quest_status}')
+                                f'where quest_id = {quest_id} and step_number = {quest_status}')
     if not questText:
         print(f'No text defined for {quest_id}, skipping')
         return
@@ -133,6 +135,7 @@ def display_quest_text(quest_id, quest_status, alt, char_name,
         run_console_command_by_name(char_name, f'testFIFO {style} \"{text1}\" \"{text2}\"')
 
     return
+
 
 def consume_from_inventory(char_id, char_name, template_id):
     results = runRcon(f'sql select item_id from item_inventory '
@@ -157,6 +160,7 @@ def consume_from_inventory(char_id, char_name, template_id):
     print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
     return True
 
+
 def check_inventory(owner_id, inv_type, template_id):
     value = 0
 
@@ -177,7 +181,7 @@ def check_inventory(owner_id, inv_type, template_id):
 
     for result in results.output:
         match = re.search(r'\s+\d+ | [^|]*', result)
-        #print(f'{match}')
+        # print(f'{match}')
         value = match[0]
 
     if int(value) == template_id:
@@ -186,16 +190,48 @@ def check_inventory(owner_id, inv_type, template_id):
 
     return False
 
+def count_inventory_qty(owner_id, inv_type, template_id):
+    value = 0
+
+    results = runRcon(f'sql select trim(substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 4,2) || '
+                      f'substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 6,2)) as qty_hex '
+                      f'from item_inventory '
+                      f'where owner_id = {owner_id} and inv_type = {inv_type} and template_id = {template_id} limit 1')
+    if results.error:
+        print(f'RCON error received in check_inventory_qty')
+        return False
+
+    if results.output:
+        results.output.pop(0)
+        if not results.output:
+            print(f'The required item {template_id} is missing from the inventory of {owner_id}.')
+            return False
+    else:
+        print(f'Should this ever happen?')
+
+    for result in results.output:
+        match = re.search(r'\s+\d+ | [^|]*', result)
+        # print(f'{match}')
+        value = match[0]
+        value.strip()
+        value = int(value, 16)
+
+        print(f'The required item {template_id} x {value} is present in the inventory of {owner_id}.')
+        return value
+
+    return False
+
+
 def character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius):
     nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
     sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
 
-    #connected_chars = []
-    #print(f'{nwPoint} {sePoint}')
+    # connected_chars = []
+    # print(f'{nwPoint} {sePoint}')
     results = db_query(False, f'select char_id, char_name from online_character_info '
-                       f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
-                       f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
-                       f'and z >= {trigger_z-100} and z <= {trigger_z+100} limit 1')
+                              f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
+                              f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
+                              f'and z >= {trigger_z - 100} and z <= {trigger_z + 100} limit 1')
     if results:
         char_info = flatten_list(results)
     else:
@@ -211,6 +247,7 @@ def character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius):
     else:
         return False, False
 
+
 def clear_cooldown(char_id, quest_id):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
@@ -221,6 +258,7 @@ def clear_cooldown(char_id, quest_id):
     con.commit()
     con.close()
 
+
 def finish_cooldowns():
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
@@ -230,20 +268,22 @@ def finish_cooldowns():
     con.commit()
     con.close()
 
+
 def add_cooldown(char_id, quest_id, cooldown: int):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
     cur.execute(f'insert or ignore into quest_timeout '
-                f'values ({quest_id}, {char_id}, {int_epoch_time()+int(cooldown)})')
+                f'values ({quest_id}, {char_id}, {int_epoch_time() + int(cooldown)})')
 
     con.commit()
     con.close()
 
-def grant_reward(char_id, char_name, quest_id, repeatable):
+
+def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
     reward_list = db_query(False, f'select reward_template_id, reward_qty, reward_feat_id, '
-                           f'reward_thrall_name, reward_emote_name, reward_boon, reward_command, range_min, range_max '
-                           f'from quest_rewards where quest_id = {quest_id}')
+                                  f'reward_thrall_name, reward_emote_name, reward_boon, reward_command, range_min, range_max '
+                                  f'from quest_rewards where quest_id = {quest_id}')
     if not reward_list:
         print(f'No records returned from reward list, skipping delivery')
         return
@@ -252,7 +292,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
         (reward_template_id, reward_qty, reward_feat_id, reward_thrall_name,
          reward_emote_name, reward_boon, reward_command, range_min, range_max) = reward
 
-        #display_quest_text(quest_id, 0, True, char_name)
+        # display_quest_text(quest_id, 0, True, char_name)
         if reward_template_id and reward_qty:
             check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {reward_qty}')
             if not check:
@@ -281,9 +321,9 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
             current_expiration = get_bot_config(f'{reward_boon}')
             current_time = int_epoch_time()
             if int(current_expiration) < current_time:
-                set_bot_config(f'{reward_boon}', str(current_time+10800))
+                set_bot_config(f'{reward_boon}', str(current_time + 10800))
             else:
-                set_bot_config(f'{reward_boon}', str(int(current_expiration)+10800))
+                set_bot_config(f'{reward_boon}', str(int(current_expiration) + 10800))
             notify_all(7, f'-Boon-', f'{reward_boon} improvement +3 hours')
             update_boons(f'{reward_boon}')
             continue
@@ -335,12 +375,25 @@ def grant_reward(char_id, char_name, quest_id, repeatable):
                     location_name = re.search(r'[0-9a-zA-Z\s\-]+', result)
                     run_console_command_by_name(char_name, f'testFIFO 6 Treasure {location_name.group()}')
 
+                case 'profession':
+                    if tier == 0:
+                        tier = 1
+                    range_min = ((tier**2) * 8)
+                    range_max = (range_min * 1.5)
+                    random_qty = random.randint(int(range_min), int(range_max))
+
+                    check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {random_qty}')
+                    if not check:
+                        error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
+                        add_reward_record(int(char_id), int(reward_template_id), int(random_qty),
+                                          f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
+
         continue
 
     return
 
-def treasure_broadcast():
 
+def treasure_broadcast():
     # treasure_last_announced = get_bot_config(f'treasure_last_announced')
     # if int(treasure_last_announced) > int_epoch_time() - 3600:
     #     print(f'Skipping treasure broadcast, executed too recently')
@@ -352,8 +405,8 @@ def treasure_broadcast():
     location_name = re.search(r'[0-9a-zA-Z\s\-]+', result)
     rcon_all(f'testFIFO 6 Treasure {location_name.group()}')
 
-async def oneStepQuestUpdate(bot):
 
+async def oneStepQuestUpdate(bot):
     if int(get_bot_config(f'maintenance_flag')) == 1:
         print(f'Skipping quest loop, server in maintenance mode')
         bot.quest_running = False
@@ -365,12 +418,12 @@ async def oneStepQuestUpdate(bot):
         return
 
     bot.quest_running = True
-    #print(f'boop')
+    # print(f'boop')
 
     quest_list = db_query(False, f'select quest_id, quest_name, active_flag, requirement_type, repeatable, '
-                          f'trigger_x, trigger_y, trigger_z, trigger_radius, '
-                          f'target_x, target_y, target_z '
-                          f'from one_step_quests')
+                                 f'trigger_x, trigger_y, trigger_z, trigger_radius, '
+                                 f'target_x, target_y, target_z '
+                                 f'from one_step_quests')
 
     for quest in quest_list:
         (quest_id, quest_name, active_flag, requirement_type, repeatable,
@@ -379,18 +432,18 @@ async def oneStepQuestUpdate(bot):
         char_id, char_name = character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius)
 
         if not char_id:
-            #print(f'Skipping quest {quest_id}, no one in the box')
+            # print(f'Skipping quest {quest_id}, no one in the box')
             continue
 
         if active_flag == 0:
             display_quest_text(999999, 0, False, char_name)
             continue
 
-        #clear all fulfilled cooldowns
+        # clear all fulfilled cooldowns
         finish_cooldowns()
 
         cooldown_records = db_query(False, f'select timeout_until from quest_timeout '
-                                    f'where character_id = {char_id} and quest_id = {quest_id} limit 1')
+                                           f'where character_id = {char_id} and quest_id = {quest_id} limit 1')
         if cooldown_records:
             cooldown = flatten_list(cooldown_records)
             cooldown_until = cooldown[0]
@@ -433,7 +486,7 @@ async def oneStepQuestUpdate(bot):
             case 'BringItems':
                 missingitem = 0
                 req_list = db_query(False, f'select template_id, item_qty '
-                                    f'from quest_requirements where quest_id = {quest_id}')
+                                           f'from quest_requirements where quest_id = {quest_id}')
                 for requirement in req_list:
                     (template_id, item_qty) = requirement
                     inventoryHasItem = check_inventory(char_id, 0, template_id)
@@ -468,6 +521,7 @@ async def oneStepQuestUpdate(bot):
                     display_quest_text(quest_id, 0, False, char_name)
                     await give_profession_xp(
                         player_tier.char_id, char_name, player_tier.profession, player_tier.tier, bot)
+                    grant_reward(char_id, char_name, quest_id, repeatable, player_tier.tier)
                     give_favor(player_tier.char_id, 'VoidforgedExiles', player_tier.tier)
                     print(f'Quest {quest_id} completed by id {char_id} {char_name}')
 
@@ -480,6 +534,7 @@ async def oneStepQuestUpdate(bot):
                 continue
 
     bot.quest_running = False
+
 
 class QuestSystem(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -633,6 +688,7 @@ class QuestSystem(commands.Cog):
         """
         print(f'{ctx}')
         pull_online_character_info()
+
 
 @commands.Cog.listener()
 async def setup(bot):

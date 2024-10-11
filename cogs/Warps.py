@@ -1,9 +1,14 @@
 import re
+import os
 
 from discord.ext import commands
 from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config
 from functions.externalConnections import db_query, runRcon
 
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 
 class Warps(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -67,7 +72,7 @@ class Warps(commands.Cog):
             await ctx.reply(f'Teleported `{name}` to {description}.')
             return
 
-    @commands.command(name='stuck', aliases=['rescue', 'floor', 'home'])
+    @commands.command(name='stuck', aliases=['rescue', 'floor', 'home', 'unstuck'])
     @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def stuck(self, ctx):
@@ -88,7 +93,9 @@ class Warps(commands.Cog):
         target_z = 0
 
         if not character:
-            await ctx.reply(f'No character registered to player {ctx.author.mention}!')
+            channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to player {ctx.author.mention}! '
+                            f'Please register here: {channel.mention} ')
             return
         else:
             name = character.char_name

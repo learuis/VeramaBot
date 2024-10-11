@@ -82,6 +82,10 @@ async def onlineCharacterInfo():
         pull_online_character_info()
     except TimeoutError:
         print(f'onlineCharacterInfo took too long to complete.')
+        return
+    except Exception:
+        print(f'onlineCharacterInfo ended with an exception')
+        return
 
 
 @tasks.loop(seconds=30)
@@ -91,6 +95,10 @@ async def oneStepQuestChecker():
         await oneStepQuestUpdate(bot)
     except TimeoutError:
         print(f'oneStepQuestUpdate took too long to complete.')
+        return
+    except Exception:
+        print(f'oneStepQuestChecker ended with an exception')
+        return
 
 @tasks.loop(minutes=1)
 async def liveStatus():
@@ -102,6 +110,10 @@ async def liveStatus():
         await editStatus(message, bot)
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented status updates.')
+        return
+    except Exception:
+        print(f'liveStatus ended with an exception')
+        return
 
 @tasks.loop(minutes=1)
 async def professionBoard():
@@ -113,6 +125,10 @@ async def professionBoard():
         await updateProfessionBoard(message)
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented profession updates.')
+        return
+    except Exception:
+        print(f'professionBoard ended with an exception')
+        return
 
 @tasks.loop(hours=1)
 async def placeMarkers():
@@ -121,7 +137,11 @@ async def placeMarkers():
         place_markers()
         #print(f'placing markers via loop')
     except TimeoutError:
-        print(f'placeMarkers took too long to complete.')
+        print(f'place_mrkers took too long to complete.')
+        return
+    except Exception:
+        print(f'place_markers ended with an exception')
+        return
 
 @tasks.loop(hours=1)
 async def boonChecker():
@@ -130,6 +150,10 @@ async def boonChecker():
         update_boons()
     except TimeoutError:
         print(f'boonChecker took too long to complete.')
+        return
+    except Exception:
+        print(f'boonChecker ended with an exception')
+        return
 
 # @tasks.loop(hours=1)
 # async def treasure_announcer():

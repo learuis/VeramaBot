@@ -9,7 +9,7 @@ from discord.ext import commands
 
 from functions.externalConnections import runRcon, downloadSave, db_query, rcon_all, send_rcon_command
 from functions.common import custom_cooldown, is_registered, get_rcon_id, get_single_registration, \
-    get_bot_config, set_bot_config
+    get_bot_config, set_bot_config, add_bot_config
 from datetime import datetime
 from datetime import timezone
 from time import strftime, localtime
@@ -342,7 +342,10 @@ class Admin(commands.Cog):
 
         """
 
-        set_bot_config(item.casefold(), value.casefold())
+        if get_bot_config(item.casefold()):
+            set_bot_config(item.casefold(), value.casefold())
+        else:
+            add_bot_config(item.casefold(), value.casefold())
 
         await ctx.send(f'Set {item.casefold()} = {value.casefold()}')
 

@@ -1,12 +1,85 @@
+import os
+import sqlite3
+
 import discord
 from discord.ext import commands
+from dotenv import load_dotenv
+
 from functions.common import (custom_cooldown, is_registered,
-                              get_rcon_id, ununicode, update_registered_name)
-from functions.externalConnections import runRcon
+                              get_rcon_id, ununicode, update_registered_name, get_bot_config, flatten_list,
+                              set_bot_config)
+from functions.externalConnections import runRcon, db_query
+
+load_dotenv('data/server.env')
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+
+
+def randomizeOrigin():
+    current_origin = get_bot_config(f'zucchini_origin')
+
+    query_command = f'select origin from origins where origin <> \'{current_origin}\' order by RANDOM() limit 1'
+    output = db_query(False, f'{query_command}')
+    print(f'{output}')
+
+    origin_output = flatten_list(output)
+    print(f'{origin_output}')
+
+    new_origin = origin_output[0]
+
+    set_bot_config(f'zucchini_origin', new_origin)
+
+    return new_origin
+
 
 class NameChange(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @commands.command(name='randomname')
+    @commands.has_any_role('Admin', 'Chameleon')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def randomname(self, ctx, update: bool = False):
+        """
+
+        Parameters
+        ----------
+        ctx
+        update
+
+        Returns
+        -------
+
+        """
+
+        character = is_registered(ctx.author.id)
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        new_origin = randomizeOrigin()
+
+        new_name = f'{new_origin} Exile'
+
+        await ctx.reply(f'Current name is: {character.char_name} \n'
+                        f'New name would be: {new_name}')
+
+        if update:
+            commandString = f'sql update characters set char_name = \'{new_name}\' where id = {character.id}'
+            print(commandString)
+
+            rconResponse = runRcon(f'{commandString}')
+            rconResponse.output.pop(0)
+            print(rconResponse)
+
+            queryString = (f'update registration set character_name = \'{new_name}\' '
+                           f'where game_char_id = {character.id} and season = \'{CURRENT_SEASON}\'')
+            db_query(True, queryString)
+
+            outputString = (f'Your Season {CURRENT_SEASON} registration has been updated: '
+                            f'{new_name} (id {character.id}) to user {ctx.author.mention}')
+            await ctx.reply(f'{outputString}')
+
+            return
 
     @commands.command(name='idlookup')
     @commands.has_any_role('Admin', 'Moderator')

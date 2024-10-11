@@ -5,7 +5,7 @@ import os
 
 from discord.ext import commands
 
-from cogs.QuestSystem import check_inventory
+from cogs.QuestSystem import check_inventory, count_inventory_qty
 from cogs.Reward import add_reward_record
 from functions.common import custom_cooldown, get_bot_config, is_registered, flatten_list, set_bot_config, get_rcon_id, \
     run_console_command_by_name, get_single_registration
@@ -58,16 +58,25 @@ def calculate_bonus(char_id):
 
     if check_inventory(char_id, 2, 4196):
         bonus += 10
-        bonusMessage += f'Gravedigger Bonus: `+100%`'
+        bonusMessage += f'Gravedigger Bonus: `+100%` | '
     else:
-        bonusMessage += f'Gravedigger Bonus: `+0%`'
+        bonusMessage += f'Gravedigger Bonus: `+0%` | '
+
+    count_lucky_coins = get_bot_config(f'count_lucky_coins')
+    if 'yes' in count_lucky_coins:
+        lucky_coins = count_inventory_qty(char_id, 0, 80256)
+        if lucky_coins:
+            bonus += 0.01 * lucky_coins
+            bonusMessage += f'Lucky Coin Bonus: `+{lucky_coins/10}%`'
+        else:
+            bonusMessage += f'Lucky Coin Bonus: `+0%`'
 
     bonusMessage += f'\nChance to find Treasure is increased by `{bonus*10}%`!'
 
     return bonus, bonusMessage
 
 
-def grant_treasure_rewards(character, target_name, bonus: int):
+def grant_treasure_rewards(character, target_name, bonus):
     reward_list = []
     default_reward = (11009, 'Eldarium Cache')
     print(f'{character.id}')
@@ -122,13 +131,14 @@ class TreasureHunt(commands.Cog):
         outputMessage = ''
 
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}. '
+                            f'Visit {reg_channel.mention}!')
             return
 
         rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await ctx.reply(f'Character {character.char_name} must be online to dig!')
             return
 
         target = int(get_bot_config(f'current_treasure_location'))
@@ -145,6 +155,10 @@ class TreasureHunt(commands.Cog):
         online_chars = db_query(False, f'select x, y '
                                 f'from online_character_info as online '
                                 f'where char_id = {character.id}')
+
+        if not online_chars:
+            await ctx.reply(f'Character {character.char_name} must be online to dig for treasure!')
+            return
 
         (digger_x, digger_y) = flatten_list(online_chars)
 

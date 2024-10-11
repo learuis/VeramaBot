@@ -167,15 +167,21 @@ def last_season_char(discord_id: int):
     else:
         return False
 
-def get_registration(char_name):
-
+def get_registration(char_name: str, char_id: int = 0):
     returnList = []
     char_name = str(char_name).casefold()
+
+    if char_id:
+        query_string = (f'select game_char_id, character_name, discord_user from registration '
+                        f'where game_char_id = {char_id} and season = {CURRENT_SEASON}')
+    else:
+        query_string = (f'select game_char_id, character_name, discord_user from registration '
+                        f'where character_name like \'%{char_name}%\' and season = {CURRENT_SEASON}')
+
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
-    cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
-                f'\'%{char_name}%\' and season = {CURRENT_SEASON}')
+    cur.execute(f'{query_string}')
     results = cur.fetchall()
 
     con.close()
@@ -325,24 +331,19 @@ def place_markers():
     # return response
 
 def get_bot_config(item: str):
-    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-    cur = con.cursor()
-    cur.execute(f'select value from config where item like \'%{item}%\' limit 1')
-    result = cur.fetchone()
-    con.close()
-
-    value = result[0]
-    #print(f"{value}")
-
+    result = db_query(False, f'select value from config where item like \'%{item}%\' limit 1')
+    if not result:
+        return False
+    for record in result:
+        value = record[0]
     return value
 
 def set_bot_config(item: str, value: str):
-    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-    cur = con.cursor()
-    cur.execute(f'update config set value = \'{value}\' where item like \'{str(item)}\'')
-    con.commit()
-    con.close()
+    db_query(True, f'update config set value = \'{value}\' where item like \'{str(item)}\'')
+    return value
 
+def add_bot_config(item: str, value: str):
+    db_query(True, f'insert into config (item, value) values (\'{item}\', \'{value}\')')
     return value
 
 def int_epoch_time():

@@ -6,7 +6,7 @@ from time import strftime, localtime
 
 from discord.ext import commands
 from functions.externalConnections import runRcon
-from functions.common import custom_cooldown, place_markers
+from functions.common import custom_cooldown, place_markers, set_bot_config
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -105,6 +105,7 @@ class ServerActions(commands.Cog):
         """
 
         message = await ctx.send(f'Marker placement in progress... (~20 sec)')
+        set_bot_config(f'markers_last_placed', f'0')
 
         marker_output = place_markers()
 
@@ -129,7 +130,7 @@ class ServerActions(commands.Cog):
 
         """
         quittime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
-        await ctx.send(f'Attempting to restart bot... {quittime}.')
+        await ctx.send(f'Attempting to restart stopped bot services... {quittime}.')
         await ctx.bot.close()
         await ctx.bot.login(TOKEN)
 

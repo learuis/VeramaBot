@@ -48,7 +48,6 @@ def downloadSave():
     return returnFile
 
 def db_query(commit_query: bool, query: str):
-    result = False
 
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
@@ -172,7 +171,7 @@ def notify_all(style: int, text1: str, text2: str):
     online_players = count_online_players()
 
     if online_players > 0:
-        for rcon_id in range(0, online_players-1):
+        for rcon_id in range(0, online_players):
             command_list.append(f'con {rcon_id} testfifo {style} {text1} {text2}')
         multi_rcon(command_list)
     else:

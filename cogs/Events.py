@@ -1,9 +1,15 @@
 import io
 import random
+import os
 
 from discord.ext import commands
 from functions.common import custom_cooldown, is_registered, get_rcon_id, set_bot_config, get_bot_config
 from functions.externalConnections import runRcon, notify_all
+
+from dotenv import load_dotenv
+
+load_dotenv('data/server.env')
+REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 
 
 class Events(commands.Cog):
@@ -101,7 +107,9 @@ class Events(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            await ctx.reply(f'No character registered to player {ctx.author.mention}!')
+            channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to player {ctx.author.mention}! '
+                            f'Please register here: {channel.mention} ')
             return
         else:
             name = character.char_name
