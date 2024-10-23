@@ -6,6 +6,8 @@ from functions.common import custom_cooldown, get_rcon_id, is_registered, get_si
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
 
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 def has_feat(charId: int, featId: int):
     rconResponse = runRcon(f'sql select template_id from item_inventory where owner_id = {charId} '
@@ -35,7 +37,7 @@ def has_feat(charId: int, featId: int):
 def get_feat_list(charId: int):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
-    cur.execute(f'select char_id, feat_id from featclaim where char_id = {charId}')
+    cur.execute(f'select char_id, feat_id from featclaim where char_id = {charId} and season = {CURRENT_SEASON}')
     featList = cur.fetchall()
     con.close()
 
@@ -45,7 +47,8 @@ def grant_feat(char_id, char_name, feat_id):
     try:
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur = con.cursor()
-        cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({char_id},{feat_id})')
+        cur.execute(f'insert or ignore into featclaim (season,char_id,feat_id) '
+                    f'values ({CURRENT_SEASON},{char_id},{feat_id})')
         con.commit()
         con.close()
     except Exception:

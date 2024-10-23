@@ -293,6 +293,7 @@ def place_markers():
     #settings_list = []
     response = False
 
+    print(f'marker prep')
     if int(get_bot_config(f'maintenance_flag')) == 1:
         print(f'Skipping marker loop, server in maintenance mode')
         return response
@@ -301,11 +302,12 @@ def place_markers():
     if int(markers_last_placed) > int_epoch_time() - 900:
         print(f'Skipping marker loop, placed too recently')
         return response
-
+    print(f'marker list')
     marker_list = db_query(False, f'select marker_label, x, y from warp_locations where marker_flag = \'Y\'')
 
     #marker_list = flatten_list(result_list)
 
+    print(f'marker rcon')
     for marker in marker_list:
         command = f'con 0 AddGlobalMarker {marker[0]} {marker[1]} {marker[2]} 3600'
         try:
@@ -315,6 +317,7 @@ def place_markers():
         except TimeoutError:
             response = f'Error when trying to place markers.'
 
+    print(f'marker return')
     return response
 
     # file = io.open('data/markers.dat', mode='r')
