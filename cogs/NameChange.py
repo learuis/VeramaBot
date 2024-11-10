@@ -19,10 +19,10 @@ def randomizeOrigin():
 
     query_command = f'select origin from origins where origin <> \'{current_origin}\' order by RANDOM() limit 1'
     output = db_query(False, f'{query_command}')
-    print(f'{output}')
+    # print(f'{output}')
 
     origin_output = flatten_list(output)
-    print(f'{origin_output}')
+    # print(f'{origin_output}')
 
     new_origin = origin_output[0]
 
@@ -65,11 +65,11 @@ class NameChange(commands.Cog):
 
         if update:
             commandString = f'sql update characters set char_name = \'{new_name}\' where id = {character.id}'
-            print(commandString)
+            # print(commandString)
 
             rconResponse = runRcon(f'{commandString}')
             rconResponse.output.pop(0)
-            print(rconResponse)
+            # print(rconResponse)
 
             queryString = (f'update registration set character_name = \'{new_name}\' '
                            f'where game_char_id = {character.id} and season = \'{CURRENT_SEASON}\'')

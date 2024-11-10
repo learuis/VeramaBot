@@ -5,7 +5,7 @@ import requests
 import os
 import sqlite3
 
-from functions.externalConnections import runRcon, db_query
+from functions.externalConnections import runRcon, db_query, count_online_players
 from time import strftime
 from dotenv import load_dotenv
 from datetime import datetime
@@ -61,12 +61,12 @@ def get_member_from_userid(ctx, user_id: int):
     return ctx.guild.get_member(user_id)
 
 def get_character_id(name: str):
-    response = runRcon(f'sql select id, char_name from characters where char_name = \'{name}\'')
+    response = runRcon(f'sql select id, char_name from characters where char_name = \'{name}\' order by id desc limit 1')
     response.output.pop(0)
 
     if response.output:
         for x in response.output:
-            print(x)
+            # print(x)
             match = re.findall(r'\s+\d+ | [^|]*', x)
             return match[0]
     else:
@@ -75,8 +75,8 @@ def get_character_id(name: str):
 def popup_to_player(charName: str, message: str):
     rconId = get_rcon_id(charName)
     rconResponse = runRcon(f'con {rconId} PlayerMessage \"{charName}\" \"{message}\"')
-    print(rconResponse.output)
-    print(f'PlayerMessage \"{charName}\" \"{message}\"')
+    # print(rconResponse.output)
+    # print(f'PlayerMessage \"{charName}\" \"{message}\"')
 
 def flatten_list(input_list: list):
     #print(f'{input_list}')
@@ -293,7 +293,7 @@ def place_markers():
     #settings_list = []
     response = False
 
-    print(f'marker prep')
+    # print(f'marker prep')
     if int(get_bot_config(f'maintenance_flag')) == 1:
         print(f'Skipping marker loop, server in maintenance mode')
         return response
@@ -302,12 +302,12 @@ def place_markers():
     if int(markers_last_placed) > int_epoch_time() - 900:
         print(f'Skipping marker loop, placed too recently')
         return response
-    print(f'marker list')
+    # print(f'marker list')
     marker_list = db_query(False, f'select marker_label, x, y from warp_locations where marker_flag = \'Y\'')
 
     #marker_list = flatten_list(result_list)
 
-    print(f'marker rcon')
+    # print(f'marker rcon')
     for marker in marker_list:
         command = f'con 0 AddGlobalMarker {marker[0]} {marker[1]} {marker[2]} 3600'
         try:
@@ -317,7 +317,7 @@ def place_markers():
         except TimeoutError:
             response = f'Error when trying to place markers.'
 
-    print(f'marker return')
+    # print(f'marker return')
     return response
 
     # file = io.open('data/markers.dat', mode='r')
@@ -332,6 +332,35 @@ def place_markers():
     #         response = f'Error when trying to place markers.'
     #
     # return response
+
+def fillThrallCages():
+    response = False
+    command = f'con 0 dc thrallcage spawn'
+
+    # print(f'cage prep')
+    if int(get_bot_config(f'maintenance_flag')) == 1:
+        print(f'Skipping thrall cage loop, server in maintenance mode')
+        return response
+
+    cages_last_filled = int(get_bot_config(f'cages_last_filled'))
+    cage_fill_interval = int(get_bot_config(f'cage_fill_interval'))
+    if cages_last_filled > int_epoch_time() - cage_fill_interval:
+        print(f'Skipping thrall cage loop, filled too recently')
+        return response
+
+    if int(count_online_players()):
+        try:
+            rcon_response = runRcon(command)
+            if rcon_response.error:
+                print(f'Rcon error.')
+            print(f"{rcon_response.output}")
+            # print(f'thrall cages filled!')
+            response = f'Thrall Cages filled successfully at {str(int_epoch_time())}.'
+            set_bot_config(f'cages_last_filled', str(int_epoch_time()))
+        except TimeoutError:
+            response = f'Error when trying to fill cages'
+
+    return response
 
 def get_bot_config(item: str):
     result = db_query(False, f'select value from config where item like \'%{item}%\' limit 1')

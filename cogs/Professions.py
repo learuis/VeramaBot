@@ -13,6 +13,7 @@ CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 PROFESSION_CHANNEL = int(os.getenv('PROFESSION_CHANNEL'))
 PROFESSION_MESSAGE = int(os.getenv('PROFESSION_MESSAGE'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 
 class ProfessionTier:
@@ -139,14 +140,16 @@ async def give_profession_xp(char_id, char_name, profession, tier, bot):
     db_query(True,
              f'update character_progression set current_experience = ( '
              f'select current_experience + {earned_xp} from character_progression '
-             f'where char_id = {char_id} and profession like \'%{profession}%\'), '
+             f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}), '
              f'turn_ins_this_cycle = ('
              f'select turn_ins_this_cycle + 1 from character_progression '
-             f'where char_id = {char_id} and profession like \'%{profession}%\') '
-             f'where char_id = {char_id} and profession like \'%{profession}%\'')
+             f'where char_id = {char_id} and profession like \'%{profession}%\'),'
+             f'season = {CURRENT_SEASON} '
+             f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}')
     results = db_query(False,
                        f'select current_experience from character_progression '
-                       f'where char_id = {char_id} and profession like \'%{profession}%\' limit 1')
+                       f'where char_id = {char_id} and profession like \'%{profession}%\' '
+                       f'and season = {CURRENT_SEASON} limit 1')
     results = flatten_list(results)
     xp_total = results[0]
     print(f'{char_name} has {xp_total} xp in tier {tier} {profession}')
@@ -282,22 +285,23 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
 
             outputString += f'T{tier}: `{item_name}`\n'
 
-            #print(f'{count}')
+            # print(f'{count}')
             count += 1
             if int(count) % 4 == 0:
                 outputString += f'\n'
 
-            #print(f'Updated {profession} Tier {tier}: {item_name}')
+            # print(f'Updated {profession} Tier {tier}: {item_name}')
 
     if not displayOnly:
         set_bot_config(f'last_profession_update', current_time)
         next_update = current_time + profession_update_interval
 
-    all_total = db_query(False, f'select sum(current_experience) from character_progression')
+    all_total = db_query(False, f'select sum(current_experience) from character_progression '
+                                f'where season = {CURRENT_SEASON}')
     all_total = flatten_list(all_total)
 
     totals = db_query(False, f'select profession, sum(current_experience) '
-                             f'from character_progression '
+                             f'from character_progression where season = {CURRENT_SEASON} '
                              f'group by profession order by sum(current_experience) desc')
     outputString += f'__Serverwide:__\n'
     for record in totals:
@@ -307,11 +311,14 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     outputString += (f'__Goal:__\n`{all_total[0]}` / `{profession_community_goal}` - '
                      f'{profession_community_goal_desc}\n')
 
+    # print(f'make leaderboard')
+
     for item in profession_list:
 
         profession_leaders = db_query(False, f'select char_id, current_experience from character_progression '
-                                             f'where season = {CURRENT_SEASON} and profession like \'%{item}%\''
+                                             f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' '
                                              f'order by current_experience desc limit 3')
+        # print(f'{profession_leaders}')
         if not profession_leaders:
             continue
         else:
@@ -320,11 +327,12 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
             for character in profession_leaders:
                 char_details = get_registration('', int(character[0]))
                 char_details = flatten_list(char_details)
-                #print(f'{char_details}')
+                # print(f'{char_details}')
                 char_name = char_details[1]
 
                 outputString += f'`{char_name}` - `{character[1]}` | '
 
+    # print(f'timestamps')
     if not displayOnly:
         outputString += (f'\n\nUpdated hourly.\n'
                          f'Updated at: <t:{current_time}> in your timezone'
@@ -334,7 +342,7 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
                          f'Updated at: <t:{last_profession_update}> in your timezone'
                          f'\nNext: <t:{next_update}:f> in your timezone\n')
 
-    #print(f'outputstring is {len(outputString)} characters')
+    # print(f'outputstring is {len(outputString)} characters')
 
     await message.edit(content=f'{outputString}')
 
@@ -394,7 +402,7 @@ class Professions(commands.Cog):
 
             ranking = db_query(False, f'select char_id from character_progression '
                                       f'where profession like \'%{profession_details.profession}%\' '
-                                      f'order by current_experience desc')
+                                      f'and season = {CURRENT_SEASON} order by current_experience desc')
             ranking = flatten_list(ranking)
             print(f'{ranking}')
             for index, rank in enumerate(ranking):
@@ -437,6 +445,34 @@ class Professions(commands.Cog):
                            f'`{char_name}`: {profession.capitalize()} Tier {tier} XP {xp} Deliveries {turn_ins}')
         else:
             await ctx.send(f'Error updating Profession details for {char_name}')
+        return
+
+    @commands.command(name='carryoverprofessions')
+    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    async def carryoverprofessions(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+
+        results = db_query(True,
+                           f'insert into character_progression '
+                           f'select char_id, {CURRENT_SEASON}, profession, tier, current_experience, '
+                           f'turn_ins_this_cycle from character_progression '
+                           f'where char_id = {character.id} and season = {PREVIOUS_SEASON}')
+
+        if results:
+            await ctx.send(f'Transferred Profession experience from Season {PREVIOUS_SEASON} '
+                           f'to Season {CURRENT_SEASON} for `{character.char_name}`')
+        else:
+            await ctx.send(f'Error updating Profession details for {character.char_name}')
         return
 
     @commands.command(name='refreshprofessions')

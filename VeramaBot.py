@@ -12,7 +12,7 @@ from cogs.CommunityBoons import update_boons
 from cogs.Professions import updateProfessionBoard
 from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info, treasure_broadcast
 from cogs.Roleplaying import RoleplayingButton
-from functions.common import is_docker, editStatus, place_markers
+from functions.common import is_docker, editStatus, place_markers, fillThrallCages
 from cogs.Registration import RegistrationButton
 
 load_dotenv('data/server.env')
@@ -72,6 +72,9 @@ async def on_ready():
     if not boonChecker.is_running():
         boonChecker.start()
 
+    if not fillCages.is_running():
+        fillCages.start()
+
     # if not treasure_announcer.is_running():
     #     treasure_announcer.start()
 
@@ -98,6 +101,18 @@ async def oneStepQuestChecker():
         return
     except Exception:
         print(f'oneStepQuestChecker ended with an exception')
+        return
+
+@tasks.loop(minutes=8)
+async def fillCages():
+
+    try:
+        fillThrallCages()
+    except TimeoutError:
+        print(f'fillThrallCages took too long to complete.')
+        return
+    except Exception as e:
+        print(f'fillThrallCages ended with an exception: {type(e)}')
         return
 
 @tasks.loop(minutes=1)
@@ -137,7 +152,7 @@ async def placeMarkers():
         place_markers()
         #print(f'placing markers via loop')
     except TimeoutError:
-        print(f'place_mrkers took too long to complete.')
+        print(f'place_markers took too long to complete.')
         return
     except Exception:
         print(f'place_markers ended with an exception')

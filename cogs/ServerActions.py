@@ -66,7 +66,7 @@ class ServerActions(commands.Cog):
         for x in rconResponse.output:
             match = re.findall(r'\s+\d+ | [^|]*', x)
             connected_chars.append(match)
-            print(connected_chars)
+            # print(connected_chars)
 
         if not connected_chars:
             await ctx.send('0 Players connected.')

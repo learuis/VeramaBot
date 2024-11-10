@@ -94,7 +94,7 @@ class Admin(commands.Cog):
         formattedOutput = ''
 
         for arg in args:
-            print(f'{arg}')
+            # print(f'{arg}')
             command += f'{arg} '
 
         command = re.sub(';', '\"', command)
@@ -242,7 +242,7 @@ class Admin(commands.Cog):
         -------
 
         """
-        print(0)
+        # print(0)
         outputString = ('__Members that joined before 6/29/23 that do not have Veteran Role and '
                         'registered a character:__\n')
         splitOutput = ''
@@ -278,7 +278,7 @@ class Admin(commands.Cog):
             workList = outputString.splitlines()
             for items in workList:
                 splitOutput += f'{str(items)}\n'
-                print(splitOutput)
+                # print(splitOutput)
                 if len(str(splitOutput)) > 1800:
                     await ctx.send(splitOutput)
                     splitOutput = ''

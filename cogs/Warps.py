@@ -108,26 +108,26 @@ class Warps(commands.Cog):
 
             hex_name = bytes(name, 'utf8')
             hex_name = hex_name.hex()
-            print(f'Char name in hex is {hex_name}')
+            # print(f'Char name in hex is {hex_name}')
 
             commandString = (f'sql select x,y,z from actor_position where id in '
                              f'(select object_id from properties '
                              f'where hex(value) like \'%{hex_name}%\' '
                              f'and name like \'%BP_BAC_SpawnPoints_C.SpawnOwnerName%\' limit 1)')
-            print(commandString)
+            # print(commandString)
 
             rconResponse = runRcon(f'{commandString}')
             if rconResponse.error:
                 print(f'RCON error in hex lookup')
                 return False
             rconResponse.output.pop(0)
-            print(rconResponse)
+            # print(rconResponse)
 
             for x in rconResponse.output:
                 match = re.findall(r'\s+\d+ | [^|]*', x)
                 coordinates.append(match)
 
-            print(coordinates)
+            # print(coordinates)
             if not coordinates:
                 print(f'RCON error in parsing')
                 return False

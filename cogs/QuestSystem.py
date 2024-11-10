@@ -36,7 +36,7 @@ def pull_online_character_info():
 
     charlistResponse = runRcon(f'listplayers')
     if charlistResponse.error:
-        print(f'{charlistResponse.output}')
+        # print(f'{charlistResponse.output}')
         print(f'Error in RCON listplayers command at {datetime.now()}')
         return False
 
@@ -90,7 +90,7 @@ def complete_quest(quest_id: int, char_id: int):
     #             f'where quest_id = ?', (0, None, None, None, quest_id))
     cur.execute(f'insert into quest_history (quest_id, char_id) '
                 f'values ( {quest_id}, {char_id} )')
-    print(f'Quest {quest_id} has been completed.')
+    # print(f'Quest {quest_id} has been completed.')
 
     con.commit()
     con.close()
@@ -108,7 +108,7 @@ def display_quest_text(quest_id, quest_status, alt, char_name,
     altText2 = ''
 
     if override_style and override_text1 and override_text2:
-        print(f'Using override quest text for {quest_id}')
+        # print(f'Using override quest text for {quest_id}')
         run_console_command_by_name(char_name,
                                     f'testFIFO {override_style} \"{override_text1}\" \"{override_text2}\"')
         return
@@ -119,7 +119,7 @@ def display_quest_text(quest_id, quest_status, alt, char_name,
         print(f'No text defined for {quest_id}, skipping')
         return
 
-    print(f'{questText}')
+    # print(f'{questText}')
 
     for record in questText:
         style = record[0]

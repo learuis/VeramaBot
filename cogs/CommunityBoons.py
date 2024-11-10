@@ -134,7 +134,7 @@ class CommunityBoons(commands.Cog):
             outputString = f''
 
             for x in res:
-                print(x)
+                # print(x)
                 if x[1] >= x[2]:
                     outputString += f'{x[0].casefold()} '
 
@@ -172,7 +172,7 @@ class CommunityBoons(commands.Cog):
                        f'Boon of {boon[0]}.')
 
         for record in boonlog:
-            print(f'remaining: {remainingConsumption}')
+            # print(f'remaining: {remainingConsumption}')
             if remainingConsumption == 0:
                 break
             elif record[6] <= remainingConsumption:
@@ -189,7 +189,7 @@ class CommunityBoons(commands.Cog):
 
         for toLog in updateList:
             toLog = ast.literal_eval(str(toLog))
-            print(toLog)
+            # print(toLog)
             #toLog = toLog.split(',')
             cur.execute(f'update boonlog set remaining = {toLog[6]} where record_num = {toLog[0]}')
             con.commit()
@@ -282,7 +282,7 @@ class CommunityBoons(commands.Cog):
             await ctx.send(f'No character named `{name}` registered!')
             return
         else:
-            print(characters)
+            # print(characters)
             name = characters[1]
 
         validMaterials = {'chitin', 'brimstone', 'resin', 'tar', 'twine', 'dung',
@@ -469,13 +469,13 @@ class CommunityBoons(commands.Cog):
                 outputString = f'__Boon contribution totals:__\n'
 
                 for x in res:
-                    print(x)
+                    # print(x)
                     try:
                         int(x[1])
                     except ValueError:
                         x[1] = 0
 
-                    print(f'{x[1]} >= {x[2]}')
+                    # print(f'{x[1]} >= {x[2]}')
                     if x[1] >= x[2]:
                         outputString += (f'**{x[5]} Boon of {str(x[3])} - {str(x[0]).capitalize()}**:\n'
                                          f'**Effect:** {x[6]} **Status:** {x[7]}\n*Title: {x[4]}*\n'
@@ -512,7 +512,7 @@ class CommunityBoons(commands.Cog):
                     await ctx.send(f'No character named `{command}` registered!')
                     return
                 else:
-                    print(characters)
+                    # print(characters)
                     command = characters[1]
 
                 con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))

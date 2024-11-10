@@ -17,7 +17,7 @@ class Reroll(commands.Cog):
         self.bot = bot
 
     @commands.command(name='reroll')
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     async def reroll(self, ctx):
         """
         Disassociates your current season character from your account, allowing you to create a new one.
@@ -43,15 +43,15 @@ class Reroll(commands.Cog):
                 await ctx.reply(outputString)
                 return
 
-        runRcon(f'sql delete from account as a where a.id in ( '
+        runRcon(f'sql update account set user = \'{character.char_name}\' where id in ( '
                 f'select c.playerId from characters as c where c.id = {character.id} )')
-        await ctx.reply(f'Removed association to Season {PREVIOUS_SEASON} character `{character.name}` '
+        await ctx.reply(f'Removed association to Season {PREVIOUS_SEASON} character `{character.char_name}` '
                         f'from {ctx.author.mention}. '
                         f'You must create and register your new character before transferring feats!')
 
     @commands.command(name='transferfeats')
-    @commands.has_any_role('Admin', 'Moderator')
-    async def reroll(self, ctx):
+    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    async def transferfeats(self, ctx):
         """
         Transfers learned feats from your previous season character to your current season character
 
@@ -79,10 +79,12 @@ class Reroll(commands.Cog):
                 await ctx.reply(outputString)
                 return
             else:
-                db_query(True, f'insert into featclaim select {CURRENT_SEASON}, char_id, feat_id from featclaim '
-                         f'where char_id = {prev_character.id} and season = {PREVIOUS_SEASON};')
-                await ctx.reply(f'Feats have been transferred from`{current_character.char_name}` to '
-                                f'`{prev_character.char_name}`. Use `v/featrestore` to learn them.')
+                db_query(True, f'insert into featclaim '
+                               f'select {CURRENT_SEASON}, {current_character.id}, feat_id from featclaim '
+                               f'where char_id = {prev_character.id} and season = {PREVIOUS_SEASON};')
+                await ctx.reply(f'Feats have been transferred from `{prev_character.char_name}` '
+                                f'to `{current_character.char_name}`. Log in to your new character, '
+                                f'then use `v/featrestore` to learn them.')
             return
 
 # runRcon(f'sql insert into item_inventory where (select ')

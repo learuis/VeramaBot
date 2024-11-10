@@ -69,7 +69,7 @@ def db_delete_single_record(table: str, key_field: str, record_to_delete: int):
     check_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     check_cur = check_con.cursor()
 
-    print(f'select * from {table} where {key_field} = {record_to_delete}')
+    # print(f'select * from {table} where {key_field} = {record_to_delete}')
     check_cur.execute(f'select * from {table} where {key_field} = {record_to_delete}')
     check_res = check_cur.fetchone()
     check_con.close()

@@ -15,23 +15,23 @@ def has_feat(charId: int, featId: int):
     #we should only ever get one record back.
     #error handling?
 
-    print(rconResponse.output)
+    # print(rconResponse.output)
 
     #drop first record (success statement)
     rconResponse.output.pop(0)
 
-    print(rconResponse.output)
+    # print(rconResponse.output)
 
     if not rconResponse.output:
-        print('no more records')
+        # print('no more records')
         return False
 
     for x in rconResponse.output:
         if str(featId) in x:
-            print(f'eval true')
+            # print(f'eval true')
             return True
         else:
-            print('eval false')
+            # print('eval false')
             return False
 
 def get_feat_list(charId: int):
@@ -110,7 +110,7 @@ class FeatClaim(commands.Cog):
         for record in featLookupList:
             featDict[record[0]] = record[1]
 
-        print(featDict)
+        # print(featDict)
 
         if has_feat(charId.id, 576):
             hasFeatString = f'576, '
