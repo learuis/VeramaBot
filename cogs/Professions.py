@@ -285,66 +285,66 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
 
             outputString += f'T{tier}: `{item_name}`\n'
 
-            # print(f'{count}')
+            print(f'{count}')
             count += 1
             if int(count) % 4 == 0:
                 outputString += f'\n'
 
-            # print(f'Updated {profession} Tier {tier}: {item_name}')
+            print(f'Updated {profession} Tier {tier}: {item_name}')
 
-    if not displayOnly:
-        set_bot_config(f'last_profession_update', current_time)
-        next_update = current_time + profession_update_interval
+        if not displayOnly:
+            set_bot_config(f'last_profession_update', current_time)
+            next_update = current_time + profession_update_interval
 
-    all_total = db_query(False, f'select sum(current_experience) from character_progression '
-                                f'where season = {CURRENT_SEASON}')
-    all_total = flatten_list(all_total)
+        all_total = db_query(False, f'select sum(current_experience) from character_progression '
+                                    f'where season = {CURRENT_SEASON}')
+        all_total = flatten_list(all_total)
 
-    totals = db_query(False, f'select profession, sum(current_experience) '
-                             f'from character_progression where season = {CURRENT_SEASON} '
-                             f'group by profession order by sum(current_experience) desc')
-    outputString += f'__Serverwide:__\n'
-    for record in totals:
-        outputString += f'`{record[0]}` - `{record[1]}`\n'
-    outputString += f'`Total` - `{all_total[0]}`\n\n'
+        totals = db_query(False, f'select profession, sum(current_experience) '
+                                 f'from character_progression where season = {CURRENT_SEASON} '
+                                 f'group by profession order by sum(current_experience) desc')
+        outputString += f'__Serverwide:__\n'
+        for record in totals:
+            outputString += f'`{record[0]}` - `{record[1]}`\n'
+        outputString += f'`Total` - `{all_total[0]}`\n\n'
 
-    outputString += (f'__Goal:__\n`{all_total[0]}` / `{profession_community_goal}` - '
-                     f'{profession_community_goal_desc}\n')
+        outputString += (f'__Goal:__\n`{all_total[0]}` / `{profession_community_goal}` - '
+                         f'{profession_community_goal_desc}\n')
 
-    # print(f'make leaderboard')
+        print(f'make leaderboard')
 
-    for item in profession_list:
+        for item in profession_list:
 
-        profession_leaders = db_query(False, f'select char_id, current_experience from character_progression '
-                                             f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' '
-                                             f'order by current_experience desc limit 3')
-        # print(f'{profession_leaders}')
-        if not profession_leaders:
-            continue
+            profession_leaders = db_query(False, f'select char_id, current_experience from character_progression '
+                                                 f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' '
+                                                 f'order by current_experience desc limit 3')
+            print(f'{profession_leaders}')
+            if not profession_leaders:
+                continue
+            else:
+                outputString += f'\n__{item} Leaderboard:__\n| '
+
+                for character in profession_leaders:
+                    char_details = get_registration('', int(character[0]))
+                    char_details = flatten_list(char_details)
+                    print(f'{char_details}')
+                    char_name = char_details[1]
+
+                    outputString += f'`{char_name}` - `{character[1]}` | '
+
+        print(f'timestamps')
+        if not displayOnly:
+            outputString += (f'\n\nUpdated hourly.\n'
+                             f'Updated at: <t:{current_time}> in your timezone'
+                             f'\nNext: <t:{next_update}:f> in your timezone\n')
         else:
-            outputString += f'\n__{item} Leaderboard:__\n| '
+            outputString += (f'\n\nUpdated hourly.\n'
+                             f'Updated at: <t:{last_profession_update}> in your timezone'
+                             f'\nNext: <t:{next_update}:f> in your timezone\n')
 
-            for character in profession_leaders:
-                char_details = get_registration('', int(character[0]))
-                char_details = flatten_list(char_details)
-                # print(f'{char_details}')
-                char_name = char_details[1]
+        print(f'outputstring is {len(outputString)} characters')
 
-                outputString += f'`{char_name}` - `{character[1]}` | '
-
-    # print(f'timestamps')
-    if not displayOnly:
-        outputString += (f'\n\nUpdated hourly.\n'
-                         f'Updated at: <t:{current_time}> in your timezone'
-                         f'\nNext: <t:{next_update}:f> in your timezone\n')
-    else:
-        outputString += (f'\n\nUpdated hourly.\n'
-                         f'Updated at: <t:{last_profession_update}> in your timezone'
-                         f'\nNext: <t:{next_update}:f> in your timezone\n')
-
-    # print(f'outputstring is {len(outputString)} characters')
-
-    await message.edit(content=f'{outputString}')
+        await message.edit(content=f'{outputString}')
 
 
 class Professions(commands.Cog):

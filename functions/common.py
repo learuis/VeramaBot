@@ -345,7 +345,7 @@ def fillThrallCages():
     cages_last_filled = int(get_bot_config(f'cages_last_filled'))
     cage_fill_interval = int(get_bot_config(f'cage_fill_interval'))
     if cages_last_filled > int_epoch_time() - cage_fill_interval:
-        print(f'Skipping thrall cage loop, filled too recently')
+        # print(f'Skipping thrall cage loop, filled too recently')
         return response
 
     if int(count_online_players()):
@@ -353,7 +353,7 @@ def fillThrallCages():
             rcon_response = runRcon(command)
             if rcon_response.error:
                 print(f'Rcon error.')
-            print(f"{rcon_response.output}")
+            # print(f"{rcon_response.output}")
             # print(f'thrall cages filled!')
             response = f'Thrall Cages filled successfully at {str(int_epoch_time())}.'
             set_bot_config(f'cages_last_filled', str(int_epoch_time()))

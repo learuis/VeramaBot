@@ -7,3 +7,4 @@
 /requirements.txt
 /compose.yaml
 /.dockerignore
+/unit_tests/**

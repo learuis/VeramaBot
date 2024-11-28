@@ -378,8 +378,11 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                 case 'profession':
                     if tier == 0:
                         tier = 1
-                    range_min = ((tier**2) * 8)
-                    range_max = (range_min * 1.5)
+                    profession_eldarium_min_mult = int(get_bot_config(f'profession_eldarium_min_mult'))
+                    profession_eldarium_min_tier_mult = int(get_bot_config(f'profession_eldarium_min_tier_mult'))
+                    profession_eldarium_max_mult = int(get_bot_config(f'profession_eldarium_max_mult'))
+                    range_min = ((tier**2) * profession_eldarium_min_mult) + (tier * profession_eldarium_min_tier_mult)
+                    range_max = (range_min * profession_eldarium_max_mult)
                     random_qty = random.randint(int(range_min), int(range_max))
 
                     check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {random_qty}')
