@@ -350,7 +350,8 @@ class CommunityBoons(commands.Cog):
 
         """
         outputString = f'**Boon Status as of {datetime.fromtimestamp(float(int_epoch_time()))}**\n'
-        settings_list = [['XP Rate Scale', 'PlayerXPRateMultiplier']]
+        settings_list = [['Blood (Experience Multiplier)', 'PlayerXPRateMultiplier'],
+                         ['Abundance (Harvest Amount)', 'HarvestAmountMultiplier']]
 
         #['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],
         #['Preservation (Item Spoil Rate)', 'ItemSpoilRateScale'],
@@ -549,7 +550,7 @@ class CommunityBoons(commands.Cog):
         """
         settings_list = ['ItemConvertionMultiplier', 'ItemSpoilRateScale', 'PlayerXPKillMultiplier',
                          'DurabilityMultiplier', 'HarvestAmountMultiplier', 'ResourceRespawnSpeedMultiplier',
-                         'NPCRespawnMultiplier']
+                         'NPCRespawnMultiplier', 'PlayerXPRateMultiplier']
         if boon_name in settings_list:
             set_bot_config(f'{boon_name}', str(expiration_time))
             await ctx.reply(f'Setting {boon_name} expiration time to {expiration_time}')
@@ -890,7 +891,7 @@ class CommunityBoons(commands.Cog):
             await ctx.reply(f'You have not earned any titles this season.')
             return
 
-def update_boons(boon: str = ''):
+def update_boons(indv_boon: str = ''):
     command_prep = []
     command_list = []
     currentTime = int_epoch_time()
@@ -903,7 +904,14 @@ def update_boons(boon: str = ''):
         print(f'Skipping boons loop, boons globally disabled')
         return
 
-    if boon:
+    if indv_boon:
+        boonList = [f'{indv_boon}']
+    else:
+        boonList = ['ItemConvertionMultiplier', 'ItemSpoilRateScale', 'PlayerXPKillMultiplier',
+                    'PlayerXPRateMultiplier', 'DurabilityMultiplier', 'HarvestAmountMultiplier',
+                    'ResourceRespawnSpeedMultiplier', 'NPCRespawnMultiplier']
+
+    for boon in boonList:
         if int(get_bot_config(boon)) >= currentTime:
             result = db_query(False, f'select active_value from boon_settings where setting_name = \'{boon}\'')
         else:
@@ -912,53 +920,57 @@ def update_boons(boon: str = ''):
         print(f'{setting}')
         command_prep.append([boon, setting[0]])
 
-    else:
-        if int(get_bot_config(f'ItemConvertionMultiplier')) >= currentTime:
-            command_prep.append(['ItemConvertionMultiplier', '0.7'])
-        else:
-            command_prep.append(['ItemConvertionMultiplier', '1.0'])
-
-        if int(get_bot_config(f'ItemSpoilRateScale')) >= currentTime:
-            command_prep.append(['ItemSpoilRateScale', '0.7'])
-        else:
-            command_prep.append(['ItemSpoilRateScale', '1.0'])
-
-        if int(get_bot_config(f'PlayerXPKillMultiplier')) >= currentTime:
-            command_prep.append(['PlayerXPKillMultiplier', '1.5'])
-        else:
-            command_prep.append(['PlayerXPKillMultiplier', '1.0'])
-
-        if int(get_bot_config(f'PlayerXPRateMultiplier')) >= currentTime:
-            command_prep.append(['PlayerXPRateMultiplier', '1.5'])
-        else:
-            command_prep.append(['PlayerXPRateMultiplier', '1.0'])
-
-        if int(get_bot_config(f'DurabilityMultiplier')) >= currentTime:
-            command_prep.append(['DurabilityMultiplier', '0.7'])
-        else:
-            command_prep.append(['DurabilityMultiplier', '1.0'])
-
-        if int(get_bot_config(f'HarvestAmountMultiplier')) >= currentTime:
-            command_prep.append(['HarvestAmountMultiplier', '1.5'])
-        else:
-            command_prep.append(['HarvestAmountMultiplier', '1.0'])
-
-        if int(get_bot_config(f'ResourceRespawnSpeedMultiplier')) >= currentTime:
-            command_prep.append(['ResourceRespawnSpeedMultiplier', '0.7'])
-        else:
-            command_prep.append(['ResourceRespawnSpeedMultiplier', '1.0'])
-
-        if int(get_bot_config(f'NPCRespawnMultiplier')) >= currentTime:
-            command_prep.append(['NPCRespawnMultiplier', '0.7'])
-        else:
-            command_prep.append(['NPCRespawnMultiplier', '1.0'])
-
     for command in command_prep:
         (setting, value) = command
         new_command = f'SetServerSetting {setting} {value}'
         command_list.append(new_command)
 
     multi_rcon(command_list)
+
+    #
+    # else:
+    #     if int(get_bot_config(f'ItemConvertionMultiplier')) >= currentTime:
+    #         command_prep.append(['ItemConvertionMultiplier', '0.7'])
+    #     else:
+    #         command_prep.append(['ItemConvertionMultiplier', '1.0'])
+    #
+    #     if int(get_bot_config(f'ItemSpoilRateScale')) >= currentTime:
+    #         command_prep.append(['ItemSpoilRateScale', '0.7'])
+    #     else:
+    #         command_prep.append(['ItemSpoilRateScale', '1.0'])
+    #
+    #     value = int(get_bot_config(f'PlayerXPKillMultiplier'))
+    #     print(f'{value} - {currentTime}')
+    #     if int(get_bot_config(f'PlayerXPKillMultiplier')) >= currentTime:
+    #         command_prep.append(['PlayerXPKillMultiplier', '1.5'])
+    #     else:
+    #         command_prep.append(['PlayerXPKillMultiplier', '1.0'])
+    #
+    #     if int(get_bot_config(f'PlayerXPRateMultiplier')) >= currentTime:
+    #         command_prep.append(['PlayerXPRateMultiplier', '1.5'])
+    #     else:
+    #         command_prep.append(['PlayerXPRateMultiplier', '1.0'])
+    #
+    #     if int(get_bot_config(f'DurabilityMultiplier')) >= currentTime:
+    #         command_prep.append(['DurabilityMultiplier', '0.7'])
+    #     else:
+    #         command_prep.append(['DurabilityMultiplier', '1.0'])
+    #
+    #     if int(get_bot_config(f'HarvestAmountMultiplier')) >= currentTime:
+    #         command_prep.append(['HarvestAmountMultiplier', '1.5'])
+    #     else:
+    #         command_prep.append(['HarvestAmountMultiplier', '1.0'])
+    #
+    #     if int(get_bot_config(f'ResourceRespawnSpeedMultiplier')) >= currentTime:
+    #         command_prep.append(['ResourceRespawnSpeedMultiplier', '0.7'])
+    #     else:
+    #         command_prep.append(['ResourceRespawnSpeedMultiplier', '1.0'])
+    #
+    #     if int(get_bot_config(f'NPCRespawnMultiplier')) >= currentTime:
+    #         command_prep.append(['NPCRespawnMultiplier', '0.7'])
+    #     else:
+    #         command_prep.append(['NPCRespawnMultiplier', '1.0'])
+    #
 
 
 @commands.Cog.listener()

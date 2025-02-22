@@ -225,7 +225,7 @@ async def editStatus(message, bot):
     try:
         response = requests.get(QUERY_URL).json()
     except Exception:
-        print(f'Exception occurred.')
+        print(f'Exception occurred in querying server for bot status update.')
         return
 
     ipAddress = response.get('ipAddress')

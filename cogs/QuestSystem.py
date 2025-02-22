@@ -324,7 +324,10 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                 set_bot_config(f'{reward_boon}', str(current_time + 10800))
             else:
                 set_bot_config(f'{reward_boon}', str(int(current_expiration) + 10800))
-            notify_all(7, f'-Boon-', f'{reward_boon} improvement +3 hours')
+            result = db_query(False, f'select boon_name from boon_settings '
+                                     f'where setting_name = \'{reward_boon}\'')
+            boon_name = flatten_list(result)
+            notify_all(7, f'-Boon-', f'{boon_name} +3 hours')
             update_boons(f'{reward_boon}')
             continue
         if reward_command:
@@ -397,16 +400,17 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
 
 
 def treasure_broadcast():
-    # treasure_last_announced = get_bot_config(f'treasure_last_announced')
-    # if int(treasure_last_announced) > int_epoch_time() - 3600:
-    #     print(f'Skipping treasure broadcast, executed too recently')
-    #     return
+    treasure_last_announced = get_bot_config(f'treasure_last_announced')
+    if int(treasure_last_announced) > int_epoch_time() - 3600:
+        print(f'Skipping treasure broadcast, executed too recently')
+        return
 
     location = get_bot_config(f'current_treasure_location')
     result = str(db_query(False, f'select location_name from treasure_locations where id = {location}'))
     print(f'Broadcasting treasure location: {result}')
+    set_bot_config(f'treasure_last_announced', int_epoch_time())
     location_name = re.search(r'[0-9a-zA-Z\s\-]+', result)
-    rcon_all(f'testFIFO 6 Treasure {location_name.group()}')
+    rcon_all(f'testFIFO 6 Treasure! {location_name.group()}')
 
 
 async def oneStepQuestUpdate(bot):

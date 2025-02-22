@@ -2,7 +2,7 @@ import os
 import re
 import socket
 import struct
-
+import sys
 
 from rcon import Console
 from rcon.util import remove_formatting_codes
@@ -49,6 +49,8 @@ def downloadSave():
 
 def db_query(commit_query: bool, query: str):
 
+    # print(os.getcwd())
+    # print(os.listdir())
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
     cur.execute(query)

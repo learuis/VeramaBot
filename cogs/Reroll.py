@@ -17,7 +17,7 @@ class Reroll(commands.Cog):
         self.bot = bot
 
     @commands.command(name='reroll')
-    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    @commands.has_any_role('Admin', 'Moderator')
     async def reroll(self, ctx):
         """
         Disassociates your current season character from your account, allowing you to create a new one.
@@ -63,15 +63,14 @@ class Reroll(commands.Cog):
         prev_character = last_season_char(ctx.message.author.id)
         if not prev_character:
             await ctx.reply(f'No season {PREVIOUS_SEASON} character registered to player {ctx.author.mention}! '
-                            f'To transfer feats from a previous season character, you must have first '
-                            f'rerolled your previous season character.')
+                            f'To transfer feats from a previous season character, you must have created a character '
+                            f'in the previous season.')
             return
         current_character = is_registered(ctx.message.author.id)
         if not current_character:
             await ctx.reply(f'No season {CURRENT_SEASON} character registered to player {ctx.author.mention}! '
                             f'To transfer feats from a previous season character, you must have first '
-                            f'rerolled your Season {PREVIOUS_SEASON} character and registered your '
-                            f'Season {CURRENT_SEASON} character.')
+                            f'created and registered your Season {CURRENT_SEASON} character.')
         else:
             if get_rcon_id(prev_character.char_name) or get_rcon_id(current_character.char_name):
                 outputString = (f'Both characters `{prev_character.char_name}` and `{current_character.char_name}` '

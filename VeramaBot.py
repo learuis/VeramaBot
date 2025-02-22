@@ -24,6 +24,7 @@ STATUS_MESSAGE = int(os.getenv('STATUS_MESSAGE'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 PROFESSION_CHANNEL = int(os.getenv('PROFESSION_CHANNEL'))
 PROFESSION_MESSAGE = int(os.getenv('PROFESSION_MESSAGE'))
+ADMIN_LOG_CHANNEL = int(os.getenv('ADMIN_LOG_CHANNEL'))
 
 intents = discord.Intents.all()
 intents.message_content = True
@@ -75,8 +76,8 @@ async def on_ready():
     if not fillCages.is_running():
         fillCages.start()
 
-    # if not treasure_announcer.is_running():
-    #     treasure_announcer.start()
+    if not treasure_announcer.is_running():
+        treasure_announcer.start()
 
 @tasks.loop(seconds=30)
 async def onlineCharacterInfo():
@@ -141,8 +142,8 @@ async def professionBoard():
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented profession updates.')
         return
-    except Exception:
-        print(f'professionBoard ended with an exception')
+    except Exception as e:
+        print(f'professionBoard ended with an exception {e}')
         return
 
 @tasks.loop(hours=1)
@@ -170,13 +171,27 @@ async def boonChecker():
         print(f'boonChecker ended with an exception')
         return
 
-# @tasks.loop(hours=1)
-# async def treasure_announcer():
-#
-#     try:
-#         treasure_broadcast()
-#     except TimeoutError:
-#         print(f'treasure_broadcast took too long to complete.')
+@tasks.loop(minutes=30)
+async def treasure_announcer():
+
+    try:
+        treasure_broadcast()
+    except TimeoutError:
+        print(f'treasure_broadcast took too long to complete.')
+
+@bot.event
+async def on_member_join(member):
+    channel = bot.get_channel(ADMIN_LOG_CHANNEL)
+    guild = member.guild
+    if channel is not None:
+        await channel.send(f"{member.name} - {member.mention} has joined the server!")
+
+@bot.event
+async def on_member_remove(member):
+    channel = bot.get_channel(ADMIN_LOG_CHANNEL)
+    guild = member.guild
+    if channel is not None:
+        await channel.send(f"{member.name} - {member.mention} has left the server! Join date: {member.joined_at}")
 
 @bot.event
 async def on_command_error(ctx, error):

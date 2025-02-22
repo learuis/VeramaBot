@@ -52,7 +52,7 @@ def get_current_objective(profession, tier):
     else:
         selection_tier = tier
 
-    print(f'Getting objective for {profession} / tier {tier}')
+    # print(f'Getting objective for {profession} / tier {tier}')
     current_objective = db_query(False,
                                  f'select item_id, item_name from profession_objectives '
                                  f'where profession like \'%{profession}%\' and tier = {selection_tier} limit 1')
@@ -79,7 +79,7 @@ def get_profession_tier(char_id, profession):
                  f'insert into character_progression '
                  f'(char_id, season, profession, tier, current_experience, turn_ins_this_cycle) '
                  f'values ({char_id},{CURRENT_SEASON}, \'{profession}\', 0, 0, 0)')
-        print(f'Created progression record for {char_id} / {profession}')
+        # print(f'Created progression record for {char_id} / {profession}')
         player_profession_tier.char_id = char_id
         player_profession_tier.profession = profession
         player_profession_tier.tier = 0
@@ -112,7 +112,7 @@ def get_favor(char_id, faction):
                  f'insert into factions '
                  f'(char_id, season, faction, current_favor, lifetime_favor) '
                  f'values ({char_id},{CURRENT_SEASON}, \'{faction}\', 0, 0)')
-        print(f'Created faction record for {char_id} / {faction}')
+        # print(f'Created faction record for {char_id} / {faction}')
         favor_values.char_id = char_id
         favor_values.faction = faction
         favor_values.current_favor = 0
@@ -152,7 +152,7 @@ async def give_profession_xp(char_id, char_name, profession, tier, bot):
                        f'and season = {CURRENT_SEASON} limit 1')
     results = flatten_list(results)
     xp_total = results[0]
-    print(f'{char_name} has {xp_total} xp in tier {tier} {profession}')
+    # print(f'{char_name} has {xp_total} xp in tier {tier} {profession}')
 
     await profession_tier_up(profession, tier, xp_total, char_id, char_name, bot)
 
@@ -180,11 +180,11 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
     elif tier_5_xp <= turn_in_amount:
         new_tier = 5
     else:
-        print(f'Error in calculating next tier for {char_id} - tier {tier} xp {turn_in_amount}')
+        # print(f'Error in calculating next tier for {char_id} - tier {tier} xp {turn_in_amount}')
         return
 
     if tier == new_tier:
-        print(f'No tier increase is due to {char_id} - tier {tier} xp {turn_in_amount}')
+        # print(f'No tier increase is due to {char_id} - tier {tier} xp {turn_in_amount}')
         return
 
     db_query(True,
@@ -220,7 +220,7 @@ def give_favor(char_id, faction, tier):
                  f'insert into factions '
                  f'(char_id, season, faction, current_favor, lifetime_favor) '
                  f'values ({char_id},{CURRENT_SEASON}, \'{faction}\', {tier}, {tier})')
-        print(f'Created faction record for {char_id} / {faction}')
+        # print(f'Created faction record for {char_id} / {faction}')
 
     db_query(True,
              f'update factions set current_favor = ( '
@@ -241,6 +241,11 @@ def give_favor(char_id, faction, tier):
 
 
 async def updateProfessionBoard(message, displayOnly: bool = False):
+
+    if int(get_bot_config(f'disable_professions')) == 1:
+        # print(f'Skipping profession loop, server in maintenance mode')
+        return False
+
     last_profession_update = int(get_bot_config(f'last_profession_update'))
     profession_update_interval = int(get_bot_config(f'profession_update_interval'))
     profession_community_goal = int(get_bot_config(f'profession_community_goal'))
@@ -285,66 +290,69 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
 
             outputString += f'T{tier}: `{item_name}`\n'
 
-            print(f'{count}')
+            # print(f'{count}')
             count += 1
             if int(count) % 4 == 0:
                 outputString += f'\n'
 
-            print(f'Updated {profession} Tier {tier}: {item_name}')
+            # print(f'Updated {profession} Tier {tier}: {item_name}')
 
-        if not displayOnly:
-            set_bot_config(f'last_profession_update', current_time)
-            next_update = current_time + profession_update_interval
+    if not displayOnly:
+        set_bot_config(f'last_profession_update', current_time)
+        next_update = current_time + profession_update_interval
 
-        all_total = db_query(False, f'select sum(current_experience) from character_progression '
-                                    f'where season = {CURRENT_SEASON}')
-        all_total = flatten_list(all_total)
+    all_total = db_query(False, f'select sum(current_experience) from character_progression '
+                                f'where season = {CURRENT_SEASON}')
+    all_total = flatten_list(all_total)
 
-        totals = db_query(False, f'select profession, sum(current_experience) '
-                                 f'from character_progression where season = {CURRENT_SEASON} '
-                                 f'group by profession order by sum(current_experience) desc')
-        outputString += f'__Serverwide:__\n'
-        for record in totals:
-            outputString += f'`{record[0]}` - `{record[1]}`\n'
-        outputString += f'`Total` - `{all_total[0]}`\n\n'
+    totals = db_query(False, f'select profession, sum(current_experience) '
+                             f'from character_progression where season = {CURRENT_SEASON} '
+                             f'group by profession order by sum(current_experience) desc')
+    outputString += f'__Serverwide:__\n'
+    for record in totals:
+        outputString += f'`{record[0]}` - `{record[1]}`\n'
+    outputString += f'`Total` - `{all_total[0]}`\n\n'
 
-        outputString += (f'__Goal:__\n`{all_total[0]}` / `{profession_community_goal}` - '
-                         f'{profession_community_goal_desc}\n')
+    outputString += (f'__Goal:__\n`{all_total[0]}` / `{profession_community_goal}` - '
+                     f'{profession_community_goal_desc}\n')
 
-        print(f'make leaderboard')
+    # print(f'make leaderboard')
 
-        for item in profession_list:
+    for item in profession_list:
 
-            profession_leaders = db_query(False, f'select char_id, current_experience from character_progression '
-                                                 f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' '
-                                                 f'order by current_experience desc limit 3')
-            print(f'{profession_leaders}')
-            if not profession_leaders:
-                continue
-            else:
-                outputString += f'\n__{item} Leaderboard:__\n| '
-
-                for character in profession_leaders:
-                    char_details = get_registration('', int(character[0]))
-                    char_details = flatten_list(char_details)
-                    print(f'{char_details}')
-                    char_name = char_details[1]
-
-                    outputString += f'`{char_name}` - `{character[1]}` | '
-
-        print(f'timestamps')
-        if not displayOnly:
-            outputString += (f'\n\nUpdated hourly.\n'
-                             f'Updated at: <t:{current_time}> in your timezone'
-                             f'\nNext: <t:{next_update}:f> in your timezone\n')
+        query = f'select char_id, current_experience from character_progression '\
+                f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' '\
+                f'order by current_experience desc limit 3'
+        # print(f'{query}')
+        profession_leaders = db_query(False, f'{query}')
+        # print(f'{profession_leaders}')
+        if not profession_leaders:
+            continue
         else:
-            outputString += (f'\n\nUpdated hourly.\n'
-                             f'Updated at: <t:{last_profession_update}> in your timezone'
-                             f'\nNext: <t:{next_update}:f> in your timezone\n')
+            outputString += f'\n__{item} Leaderboard:__\n| '
 
-        print(f'outputstring is {len(outputString)} characters')
+            for character in profession_leaders:
+                char_details = get_registration('', int(character[0]))
+                char_details = flatten_list(char_details)
+                # print(f'{char_details}')
+                char_name = char_details[1]
 
-        await message.edit(content=f'{outputString}')
+                outputString += f'`{char_name}` - `{character[1]}` | '
+                # print(f'outputstring is {outputString}')
+
+    # print(f'timestamps')
+    if not displayOnly:
+        outputString += (f'\n\nUpdated hourly.\n'
+                         f'Updated at: <t:{current_time}> in your timezone'
+                         f'\nNext: <t:{next_update}:f> in your timezone\n')
+    else:
+        outputString += (f'\n\nUpdated hourly.\n'
+                         f'Updated at: <t:{last_profession_update}> in your timezone'
+                         f'\nNext: <t:{next_update}:f> in your timezone\n')
+
+    # print(f'outputstring is {len(outputString)} characters')
+
+    await message.edit(content=f'{outputString}')
 
 
 class Professions(commands.Cog):
@@ -404,9 +412,9 @@ class Professions(commands.Cog):
                                       f'where profession like \'%{profession_details.profession}%\' '
                                       f'and season = {CURRENT_SEASON} order by current_experience desc')
             ranking = flatten_list(ranking)
-            print(f'{ranking}')
+            # print(f'{ranking}')
             for index, rank in enumerate(ranking):
-                print(f'{index + 1} {rank}')
+                # print(f'{index + 1} {rank}')
                 if int(rank) == character.id:
                     outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
 

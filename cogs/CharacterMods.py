@@ -1,3 +1,4 @@
+import discord
 from discord.ext import commands
 from functions.common import custom_cooldown, is_registered, get_rcon_id
 from functions.externalConnections import runRcon
@@ -9,12 +10,15 @@ class CharacterMods(commands.Cog):
     @commands.command(name='shrink', aliases=['grow'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def small(self, ctx):
+    async def small(self, ctx, discord_user: discord.Member):
         """
+        Use with v/shrink or v/grow
 
         Parameters
         ----------
         ctx
+        discord_user
+            Mention the user to change size
 
         Returns
         -------
@@ -32,7 +36,7 @@ class CharacterMods(commands.Cog):
 
         message = await ctx.reply(f'Altering height...\n')
 
-        character = is_registered(ctx.message.author.id)
+        character = is_registered(discord_user.id)
 
         if not character:
             outputString = f'No character registered to {ctx.message.author.mention}!'
@@ -56,7 +60,8 @@ class CharacterMods(commands.Cog):
         if rconResponse.error == 1:
             outputString = f'Error on {rconCommand}'
         else:
-            outputString = f'`{ctx.invoked_with}` on `{character.char_name}` has been applied.\n'
+            outputString = (f'`{ctx.invoked_with}` on `{character.char_name}` has been applied.\n'
+                            f'IMPORTANT: The character MUST log in before attempting to change size again.')
         await message.edit(content=outputString)
         return
 

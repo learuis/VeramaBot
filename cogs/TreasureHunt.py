@@ -5,7 +5,7 @@ import os
 
 from discord.ext import commands
 
-from cogs.QuestSystem import check_inventory, count_inventory_qty
+from cogs.QuestSystem import check_inventory, count_inventory_qty, treasure_broadcast
 from cogs.Reward import add_reward_record
 from functions.common import custom_cooldown, get_bot_config, is_registered, flatten_list, set_bot_config, get_rcon_id, \
     run_console_command_by_name, get_single_registration
@@ -63,10 +63,11 @@ def calculate_bonus(char_id):
         bonusMessage += f'Gravedigger Bonus: `+0%` | '
 
     count_lucky_coins = get_bot_config(f'count_lucky_coins')
+    lucky_coin_multiplier = float(get_bot_config(f'lucky_coin_multiplier'))
     if 'yes' in count_lucky_coins:
         lucky_coins = count_inventory_qty(char_id, 0, 80256)
         if lucky_coins:
-            bonus += 0.01 * lucky_coins
+            bonus += lucky_coin_multiplier * lucky_coins
             bonusMessage += f'Lucky Coin Bonus: `+{lucky_coins/10}%`'
         else:
             bonusMessage += f'Lucky Coin Bonus: `+0%`'
@@ -110,6 +111,24 @@ def grant_treasure_rewards(character, target_name, bonus):
 class TreasureHunt(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @commands.command(name='treasurebroadcast')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def treasurebroadcast(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+
+        treasure_broadcast()
+        await ctx.reply(f'Treasure location has been broadcast!')
 
     @commands.command(name='dig', aliases=['treasure'])
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts', 'Helper')
