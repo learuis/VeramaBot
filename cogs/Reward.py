@@ -94,6 +94,8 @@ class Rewards(commands.Cog):
         character = is_registered(ctx.author.id)
         insertResults = []
         splitOutput = ''
+        caches = 0
+        coins = 0
         once = True
 
         if not character:
@@ -106,35 +108,75 @@ class Rewards(commands.Cog):
             await ctx.reply(f'Character {character.char_name} must be online to claim rewards.')
             return
 
-        results = db_query(False, f'select record_num, reward_material, reward_quantity, reward_name from event_rewards '
-                           f'where character_id = {character.id} '
-                           f'and reward_date >= \'{date.today() - timedelta(days = 14)}\' '
-                           f'and claim_flag = 0')
+        results = db_query(False, f'select record_num, reward_material, reward_quantity, reward_name '
+                                  f'from event_rewards '
+                                  f'where character_id = {character.id} '
+                                  f'and reward_date >= \'{date.today() - timedelta(days = 14)}\' '
+                                  f'and claim_flag = 0')
         if results:
             outputString = f'You have rewards available to claim! Please wait...\n'
             message = await ctx.reply(f'{outputString}')
 
+            reward_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+            reward_cur = reward_con.cursor()
+
             for result in results:
+                if 'Treasure Hunt: Eldarium Cache' in result[3]:
+                    caches += 1
+                    insertResults = reward_cur.execute(f'update event_rewards set claim_flag = 1 '
+                                                       f'where record_num = {result[0]}')
+                    continue
+                elif 'Treasure Hunt: Lucky Coin' in result[3]:
+                    coins += 1
+                    insertResults = reward_cur.execute(f'update event_rewards set claim_flag = 1 '
+                                                       f'where record_num = {result[0]}')
+                    continue
+                else:
+                    target = get_rcon_id(character.char_name)
+                    if not target:
+                        await message.edit(f'Character {character.char_name} must be online to claim rewards.')
+                        return
+                    rconCommand = f'con {target} spawnitem {result[1]} {result[2]}'
+                    rconResponse = runRcon(rconCommand)
+                    if rconResponse.error == 1:
+                        await message.edit(f'Authentication error on {rconCommand}')
+                        return
+                    insertResults = reward_cur.execute(f'update event_rewards set claim_flag = 1 '
+                                                       f'where record_num = {result[0]}')
+                    outputString += (f'Granted reward - {result[3]} x {result[2]} '
+                                     f'to {character.char_name}\n')
+                    continue
+
+            if caches:
                 target = get_rcon_id(character.char_name)
                 if not target:
                     await message.edit(f'Character {character.char_name} must be online to claim rewards.')
                     return
 
-                rconCommand = f'con {target} spawnitem {result[1]} {result[2]}'
+                rconCommand = f'con {target} spawnitem 11009 {caches}'
                 rconResponse = runRcon(rconCommand)
                 if rconResponse.error == 1:
                     await message.edit(f'Authentication error on {rconCommand}')
                     return
-
-                reward_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-                reward_cur = reward_con.cursor()
-
-                insertResults = reward_cur.execute(f'update event_rewards set claim_flag = 1 '
-                                                   f'where record_num = {result[0]}')
-                outputString += (f'Granted reward: {result[1]} x {result[2]} for: {result[3]} '
+                outputString += (f'Granted reward - Treasure Hunt: Eldarium Cache x {caches} '
                                  f'to {character.char_name}\n')
-                reward_con.commit()
-                reward_con.close()
+
+            if coins:
+                target = get_rcon_id(character.char_name)
+                if not target:
+                    await message.edit(f'Character {character.char_name} must be online to claim rewards.')
+                    return
+
+                rconCommand = f'con {target} spawnitem 80256 {coins}'
+                rconResponse = runRcon(rconCommand)
+                if rconResponse.error == 1:
+                    await message.edit(f'Authentication error on {rconCommand}')
+                    return
+                outputString += (f'Granted reward - Treasure Hunt: Lucky Coin x {coins} '
+                                 f'to {character.char_name}\n')
+
+            reward_con.commit()
+            reward_con.close()
 
             if insertResults:
 

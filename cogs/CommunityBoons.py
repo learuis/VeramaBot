@@ -350,8 +350,9 @@ class CommunityBoons(commands.Cog):
 
         """
         outputString = f'**Boon Status as of {datetime.fromtimestamp(float(int_epoch_time()))}**\n'
-        settings_list = [['Blood (Experience Multiplier)', 'PlayerXPRateMultiplier'],
-                         ['Abundance (Harvest Amount)', 'HarvestAmountMultiplier']]
+        settings_list = [['Blood (Experience Multiplier)', 'PlayerXPRateMultiplier', 'Heart of a Hero'],
+                         ['Abundance (Harvest Amount)', 'HarvestAmountMultiplier', 'Tablet of Derketo'],
+                         ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier', 'Skull of Yog'],]
 
         #['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],
         #['Preservation (Item Spoil Rate)', 'ItemSpoilRateScale'],
@@ -364,7 +365,7 @@ class CommunityBoons(commands.Cog):
         #['Freedom (Thrallable Patron)', 'AddPatron Patron_Thrallable 0']]
 
         for setting in settings_list:
-            (boon_name, setting_name) = setting
+            (boon_name, setting_name, item) = setting
             value = get_bot_config(f'{setting_name}')
 
             if 'Starfall' in boon_name or 'Freedom' in boon_name:
@@ -378,9 +379,11 @@ class CommunityBoons(commands.Cog):
             if int(value) >= int_epoch_time():
                 #current_expiration = datetime.fromtimestamp(float(value))
                 #{current_expiration}
-                outputString += f'Boon of {boon_name} is active until: <t:{int(value)}> in your time zone.\n'
+                outputString += (f'Boon of {boon_name} is active until: <t:{int(value)}> in your time zone. '
+                                 f'Turn in a `{item}` at the Profession Hub to extend it.\n')
             else:
-                outputString += f'Boon of {boon_name} is not currently active.\n'
+                outputString += (f'Boon of {boon_name} is not currently active. '
+                                 f'Turn in a `{item}` at the Profession Hub to activate it.\n')
 
         await ctx.reply(f'{outputString}')
 
@@ -917,7 +920,7 @@ def update_boons(indv_boon: str = ''):
         else:
             result = db_query(False, f'select inactive_value from boon_settings where setting_name = \'{boon}\'')
         setting = flatten_list(result)
-        print(f'{setting}')
+        # print(f'{setting}')
         command_prep.append([boon, setting[0]])
 
     for command in command_prep:

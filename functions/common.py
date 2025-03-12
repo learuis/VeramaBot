@@ -32,6 +32,16 @@ def custom_cooldown(ctx):
         #everyone else
         return discord.app_commands.Cooldown(5, 60)
 
+def one_per_min(ctx):
+    whitelist = {'Admin'}
+    roles = {role.name for role in ctx.author.roles}
+    if not whitelist.isdisjoint(roles):
+        # if we're a special role, no cooldown assigned
+        return None
+    else:
+        # everyone else
+        return discord.app_commands.Cooldown(1, 60)
+
 def isInt(intToCheck):
     try:
         int(intToCheck)
@@ -223,7 +233,10 @@ async def editStatus(message, bot):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
 
     try:
-        response = requests.get(QUERY_URL).json()
+        response = requests.get(QUERY_URL, timeout=5).json()
+    except requests.exceptions.Timeout:
+        print("Livestatus Request timed out")
+        raise requests.exceptions.Timeout
     except Exception:
         print(f'Exception occurred in querying server for bot status update.')
         return
@@ -383,3 +396,88 @@ def int_epoch_time():
     epoch_time = int(round(current_time.timestamp()))
 
     return epoch_time
+
+def consume_from_inventory(char_id, char_name, template_id):
+    results = runRcon(f'sql select item_id from item_inventory '
+                      f'where owner_id = {char_id} and inv_type = 0 '
+                      f'and template_id = {template_id} order by item_id asc limit 1')
+    if results.error:
+        print(f'RCON error received in consume_from_inventory')
+        return False
+
+    if results.output:
+        results.output.pop(0)
+        if not results.output:
+            print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
+            return False
+        else:
+            for result in results.output:
+                match = re.search(r'\s+\d+ | [^|]*', result)
+                item_slot = int(match[0])
+                run_console_command_by_name(char_name, f'setinventoryitemintstat {item_slot} 1 0 0')
+                print(f'Deleted {template_id} from {char_id} {char_name} in slot {item_slot}')
+                return True
+    print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
+    return True
+
+
+def check_inventory(owner_id, inv_type, template_id):
+    value = 0
+
+    results = runRcon(f'sql select template_id from item_inventory '
+                      f'where owner_id = {owner_id} and inv_type = {inv_type} '
+                      f'and template_id = {template_id} limit 1')
+    if results.error:
+        print(f'RCON error received in check_inventory')
+        return False
+
+    if results.output:
+        results.output.pop(0)
+        if not results.output:
+            print(f'The required item {template_id} is missing from the inventory of {owner_id}.')
+            return False
+    else:
+        print(f'Should this ever happen?')
+
+    for result in results.output:
+        match = re.search(r'\s+\d+ | [^|]*', result)
+        # print(f'{match}')
+        value = match[0]
+
+    if int(value) == template_id:
+        print(f'The required item {template_id} is present in the inventory of {owner_id}.')
+        return True
+
+    return False
+
+def count_inventory_qty(owner_id, inv_type, template_id):
+    value = 0
+
+    results = runRcon(f'sql select trim(substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 4,2) || '
+                      f'substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 6,2)) as qty_hex '
+                      f'from item_inventory '
+                      f'where owner_id = {owner_id} and inv_type = {inv_type} and template_id = {template_id} '
+                      f'order by item_id asc limit 1')
+    if results.error:
+        print(f'RCON error received in check_inventory_qty')
+        return False
+
+    if results.output:
+        results.output.pop(0)
+        if not results.output:
+            print(f'The required item {template_id} is missing from the inventory of {owner_id}.')
+            return False
+    else:
+        print(f'Should this ever happen?')
+
+    for result in results.output:
+        match = re.search(r'\s+\d+ | [^|]*', result)
+        # print(f'{match}')
+        value = match[0]
+        value.strip()
+        value = int(value, 16)
+
+        print(f'The required item {template_id} x {value} is present in the inventory of {owner_id}.')
+        return value
+
+    return False

@@ -2,9 +2,10 @@ import os
 
 from discord.ext import commands
 
+from cogs.EldariumBank import get_balance, eld_transaction
 from cogs.FeatClaim import grant_feat
 from functions.common import int_epoch_time, get_bot_config, set_bot_config, is_registered, get_single_registration, \
-    flatten_list, get_registration, get_rcon_id
+    flatten_list, get_registration, get_rcon_id, run_console_command_by_name
 from functions.externalConnections import db_query, runRcon
 from dotenv import load_dotenv
 
@@ -153,6 +154,13 @@ async def give_profession_xp(char_id, char_name, profession, tier, bot):
     results = flatten_list(results)
     xp_total = results[0]
     # print(f'{char_name} has {xp_total} xp in tier {tier} {profession}')
+
+    # grant feats on every XP increase
+    feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
+                                     f'where turn_in_amount <= {xp_total} and profession like \'%{profession}%\' '
+                                     f'order by turn_in_amount desc')
+    for feat in feats_to_grant:
+        grant_feat(char_id, char_name, feat[0])
 
     await profession_tier_up(profession, tier, xp_total, char_id, char_name, bot)
 
@@ -456,7 +464,7 @@ class Professions(commands.Cog):
         return
 
     @commands.command(name='carryoverprofessions')
-    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    @commands.has_any_role('Admin', 'Moderator')
     async def carryoverprofessions(self, ctx):
         """
 
@@ -573,6 +581,55 @@ class Professions(commands.Cog):
 
         await ctx.send(content=message.content)
 
+    @commands.command(name='repair', aliases=['fix'])
+    @commands.has_any_role('Admin', 'Moderator')
+    async def repair(self, ctx, confirm: str = ''):
+        """ Fully repairs the item in hotbar slot 1
+
+        Parameters
+        ----------
+        ctx
+        confirm
+            Type confirm to perform the repair
+
+        Returns
+        -------
+
+        """
+        repair_cost = int(get_bot_config(f'profession_repair_cost'))
+
+        character = is_registered(ctx.author.id)
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        blacksmith = get_profession_tier(character.id, f'Blacksmith')
+        armorer = get_profession_tier(character.id, f'Armorer')
+        if not (blacksmith.tier == 5 or armorer.tier == 5):
+            await ctx.reply(f'Only Blacksmiths and Armorers who have achieved Tier 5 can repair items. \n'
+                            f'Current Blacksmith Tier: {blacksmith.tier} \n'
+                            f'Current Armorer Tier: {armorer.tier}')
+            return
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(f'This command will fully repair the item in your hotbar slot 1. '
+                            f'`{repair_cost}` Decaying Eldarium will be consumed. \nDo not move items in your '
+                            f'inventory while this command is processing, or it may fail. \nNo refunds will be '
+                            f'given for user error! \n\nIf you are sure you want to proceed, use `v/repair confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= repair_cost:
+            message = await ctx.reply(f'Repairing item in hotbar slot 1, please wait...')
+            eld_transaction(character, f'Item Repair Cost', repair_cost)
+            run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat 0 8 20000 2')
+            await message.edit(content=f'`{character.char_name}` Repaired the item in hotbar slot 1. '
+                                       f'Consumed `{balance}` Decaying Eldarium')
+            return
+        else:
+            await ctx.reply(f'Not enough materials to repair! Available decaying eldarium: {balance}, '
+                            f'Needed: {repair_cost}')
+            return
 
 @commands.Cog.listener()
 async def setup(bot):

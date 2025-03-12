@@ -1,18 +1,20 @@
 import datetime
-import re
-import sqlite3
 import random
 
 from discord.ext import commands
-from datetime import datetime
 
 from cogs.CommunityBoons import update_boons
+from cogs.EldariumBank import eld_transaction
 from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp, give_favor, get_favor
 from cogs.Reward import add_reward_record
-from functions.common import (custom_cooldown, run_console_command_by_name, int_epoch_time,
-                              flatten_list, get_bot_config, set_bot_config, get_single_registration)
+from functions.common import *
 from functions.externalConnections import runRcon, db_query, notify_all, rcon_all
 
+
+class Registration:
+    def __init__(self):
+        self.id = 0
+        self.char_name = ''
 
 def pull_online_character_info():
     # print(f'start char info query {int_epoch_time()}')
@@ -136,92 +138,6 @@ def display_quest_text(quest_id, quest_status, alt, char_name,
 
     return
 
-
-def consume_from_inventory(char_id, char_name, template_id):
-    results = runRcon(f'sql select item_id from item_inventory '
-                      f'where owner_id = {char_id} and inv_type = 0 '
-                      f'and template_id = {template_id} limit 1')
-    if results.error:
-        print(f'RCON error received in consume_from_inventory')
-        return False
-
-    if results.output:
-        results.output.pop(0)
-        if not results.output:
-            print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
-            return False
-        else:
-            for result in results.output:
-                match = re.search(r'\s+\d+ | [^|]*', result)
-                item_slot = int(match[0])
-                run_console_command_by_name(char_name, f'setinventoryitemintstat {item_slot} 1 0 0')
-                print(f'Deleted {template_id} from {char_id} {char_name} in slot {item_slot}')
-                return True
-    print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
-    return True
-
-
-def check_inventory(owner_id, inv_type, template_id):
-    value = 0
-
-    results = runRcon(f'sql select template_id from item_inventory '
-                      f'where owner_id = {owner_id} and inv_type = {inv_type} '
-                      f'and template_id = {template_id} limit 1')
-    if results.error:
-        print(f'RCON error received in check_inventory')
-        return False
-
-    if results.output:
-        results.output.pop(0)
-        if not results.output:
-            print(f'The required item {template_id} is missing from the inventory of {owner_id}.')
-            return False
-    else:
-        print(f'Should this ever happen?')
-
-    for result in results.output:
-        match = re.search(r'\s+\d+ | [^|]*', result)
-        # print(f'{match}')
-        value = match[0]
-
-    if int(value) == template_id:
-        print(f'The required item {template_id} is present in the inventory of {owner_id}.')
-        return True
-
-    return False
-
-def count_inventory_qty(owner_id, inv_type, template_id):
-    value = 0
-
-    results = runRcon(f'sql select trim(substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 4,2) || '
-                      f'substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 6,2)) as qty_hex '
-                      f'from item_inventory '
-                      f'where owner_id = {owner_id} and inv_type = {inv_type} and template_id = {template_id} limit 1')
-    if results.error:
-        print(f'RCON error received in check_inventory_qty')
-        return False
-
-    if results.output:
-        results.output.pop(0)
-        if not results.output:
-            print(f'The required item {template_id} is missing from the inventory of {owner_id}.')
-            return False
-    else:
-        print(f'Should this ever happen?')
-
-    for result in results.output:
-        match = re.search(r'\s+\d+ | [^|]*', result)
-        # print(f'{match}')
-        value = match[0]
-        value.strip()
-        value = int(value, 16)
-
-        print(f'The required item {template_id} x {value} is present in the inventory of {owner_id}.')
-        return value
-
-    return False
-
-
 def character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius):
     nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
     sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
@@ -281,6 +197,10 @@ def add_cooldown(char_id, quest_id, cooldown: int):
 
 
 def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
+    character = Registration()
+    character.id = char_id
+    character.char_name = char_name
+
     reward_list = db_query(False, f'select reward_template_id, reward_qty, reward_feat_id, '
                                   f'reward_thrall_name, reward_emote_name, reward_boon, reward_command, range_min, range_max '
                                   f'from quest_rewards where quest_id = {quest_id}')
@@ -326,7 +246,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                 set_bot_config(f'{reward_boon}', str(int(current_expiration) + 10800))
             result = db_query(False, f'select boon_name from boon_settings '
                                      f'where setting_name = \'{reward_boon}\'')
-            boon_name = flatten_list(result)
+            boon_name = flatten_list(result)[0]
             notify_all(7, f'-Boon-', f'{boon_name} +3 hours')
             update_boons(f'{reward_boon}')
             continue
@@ -384,26 +304,36 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                     profession_eldarium_min_mult = int(get_bot_config(f'profession_eldarium_min_mult'))
                     profession_eldarium_min_tier_mult = int(get_bot_config(f'profession_eldarium_min_tier_mult'))
                     profession_eldarium_max_mult = int(get_bot_config(f'profession_eldarium_max_mult'))
-                    range_min = ((tier**2) * profession_eldarium_min_mult) + (tier * profession_eldarium_min_tier_mult)
+                    range_min = (((tier**2) * profession_eldarium_min_mult) +
+                                 (tier * profession_eldarium_min_tier_mult) +
+                                 ((5 - tier) * profession_eldarium_min_tier_mult))
                     range_max = (range_min * profession_eldarium_max_mult)
                     random_qty = random.randint(int(range_min), int(range_max))
+                    # print(f'reward quantity for tier {tier}: {range_min} to {range_max}')
 
-                    check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {random_qty}')
-                    if not check:
-                        error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
-                        add_reward_record(int(char_id), int(reward_template_id), int(random_qty),
-                                          f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
+                    if int(get_bot_config(f'use_bank')) == 1:
+                        eld_transaction(character, f'Profession Payout', random_qty)
+                        run_console_command_by_name(char_name, f'testFIFO 6 Reward Deposited {random_qty} '
+                                                               f'Decaying Eldarium ')
+                    else:
+                        check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {random_qty}')
+                        if not check:
+                            error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
+                            add_reward_record(int(char_id), int(reward_template_id), int(random_qty),
+                                              f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
 
         continue
 
     return
 
 
-def treasure_broadcast():
-    treasure_last_announced = get_bot_config(f'treasure_last_announced')
-    if int(treasure_last_announced) > int_epoch_time() - 3600:
-        print(f'Skipping treasure broadcast, executed too recently')
-        return
+def treasure_broadcast(override=False):
+
+    if not override:
+        treasure_last_announced = get_bot_config(f'treasure_last_announced')
+        if int(treasure_last_announced) > int_epoch_time() - 3600:
+            print(f'Skipping treasure broadcast, executed too recently')
+            return
 
     location = get_bot_config(f'current_treasure_location')
     result = str(db_query(False, f'select location_name from treasure_locations where id = {location}'))
@@ -531,17 +461,26 @@ async def oneStepQuestUpdate(bot):
                     grant_reward(char_id, char_name, quest_id, repeatable, player_tier.tier)
                     give_favor(player_tier.char_id, 'VoidforgedExiles', player_tier.tier)
                     print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                    continue
 
                 else:
                     display_quest_text(quest_id, 0, True, char_name)
                     print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
                           f'does not have the required item {objective.item_id} / {objective.item_name}')
                     continue
+            case 'Ymir' | 'Zath' | 'Mitra' | 'Set' | 'Derketo' | 'Yog' | 'Jhebbal Sag':
+                # religion tiers will always be 0
+                player_tier = get_profession_tier(char_id, requirement_type)
+                if player_tier.turn_ins_this_cycle >= int(get_bot_config(f'profession_cycle_limit')):
+                    print(f'Skipping quest {quest_id}, id {char_id} {char_name}, at cycle limit')
+                    display_quest_text(quest_id, 0, True, char_name,
+                                       2, f'Exceeded', f'Limit for this cycle')
+                    continue
 
+                get_favor(char_id, requirement_type)
                 continue
 
     bot.quest_running = False
-
 
 class QuestSystem(commands.Cog):
     def __init__(self, bot: commands.Bot):

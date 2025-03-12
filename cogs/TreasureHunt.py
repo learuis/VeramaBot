@@ -8,7 +8,7 @@ from discord.ext import commands
 from cogs.QuestSystem import check_inventory, count_inventory_qty, treasure_broadcast
 from cogs.Reward import add_reward_record
 from functions.common import custom_cooldown, get_bot_config, is_registered, flatten_list, set_bot_config, get_rcon_id, \
-    run_console_command_by_name, get_single_registration
+    run_console_command_by_name, get_single_registration, int_epoch_time
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -17,10 +17,18 @@ load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 
+treasure_location_count = int(get_bot_config('treasure_location_count'))
+
 def choose_new_treasure_location():
-    location = random.randint(int(1), int(254))
+    location = random.randint(int(1), treasure_location_count)
     set_bot_config(f'current_treasure_location', f'{location}')
     return location
+
+def update_daily_eligibility(character):
+    db_query(True, f'insert or replace into daily_treasure (char_id, next_eligible) '
+                   f'values ({character.id}, {int_epoch_time()+64800})')
+    return
+
 
 def get_character_expertise(char_id):
     bonus = 0
@@ -49,18 +57,21 @@ def get_character_expertise(char_id):
 
     return bonus, expertise_points
 
-def calculate_bonus(char_id):
+def calculate_bonus(char_id, daily=False):
     bonus = 0
     bonusMessage = ''
+    bonus_coin = f'\nYou received a bonus `Lucky Coin` for claiming your daily treasure!'
 
-    bonus, expertise_points = get_character_expertise(char_id)
-    bonusMessage += f'Expertise Bonus: `+{expertise_points*10}%` | '
+    if not daily:
+        bonus_coin = f''
+        bonus, expertise_points = get_character_expertise(char_id)
+        bonusMessage += f'Expertise Bonus: `+{expertise_points*10}%` | '
 
-    if check_inventory(char_id, 2, 4196):
-        bonus += 10
-        bonusMessage += f'Gravedigger Bonus: `+100%` | '
-    else:
-        bonusMessage += f'Gravedigger Bonus: `+0%` | '
+        if check_inventory(char_id, 2, 4196):
+            bonus += 10
+            bonusMessage += f'Gravedigger Bonus: `+100%` | '
+        else:
+            bonusMessage += f'Gravedigger Bonus: `+0%` | '
 
     count_lucky_coins = get_bot_config(f'count_lucky_coins')
     lucky_coin_multiplier = float(get_bot_config(f'lucky_coin_multiplier'))
@@ -68,18 +79,30 @@ def calculate_bonus(char_id):
         lucky_coins = count_inventory_qty(char_id, 0, 80256)
         if lucky_coins:
             bonus += lucky_coin_multiplier * lucky_coins
-            bonusMessage += f'Lucky Coin Bonus: `+{lucky_coins/10}%`'
+            bonusMessage += f'Lucky Coin Bonus: `+{lucky_coins}%`'
         else:
             bonusMessage += f'Lucky Coin Bonus: `+0%`'
 
-    bonusMessage += f'\nChance to find Treasure is increased by `{bonus*10}%`!'
+    bonusMessage += f'\nChance to find Treasure is increased by `{bonus*10}%!`{bonus_coin}'
 
     return bonus, bonusMessage
 
+def get_daily_eligiblity(character):
+    result = db_query(False, f'select next_eligible from daily_treasure '
+                             f'where char_id = {character.id} limit 1')
+    if not result:
+        return True, 0
+    for record in result:
+        value = record[0]
+        if int(value) <= int_epoch_time():
+            return True, 0
+        else:
+            return False, int(value)
 
-def grant_treasure_rewards(character, target_name, bonus):
+def grant_treasure_rewards(character, target_name, bonus, daily=False):
     reward_list = []
     default_reward = (11009, 'Eldarium Cache')
+    alternate_reward = (80256, 'Lucky Coin')
     print(f'{character.id}')
     print(f'{character}')
 
@@ -96,7 +119,13 @@ def grant_treasure_rewards(character, target_name, bonus):
             to_add = flatten_list(results)
             reward_list.append(to_add)
         else:
-            reward_list.append(default_reward)
+            lucky_coin_chance = random.randint(int(1), int(100))
+            if lucky_coin_chance <= int(get_bot_config('lucky_coin_chance')):
+                reward_list.append(alternate_reward)
+            else:
+                reward_list.append(default_reward)
+    if daily:
+        reward_list.append(alternate_reward)
 
     outputMessage = f'__Treasure Found__: (claim with `v/claim`)\n| '
 
@@ -127,11 +156,11 @@ class TreasureHunt(commands.Cog):
 
         """
 
-        treasure_broadcast()
+        treasure_broadcast(True)
         await ctx.reply(f'Treasure location has been broadcast!')
 
     @commands.command(name='dig', aliases=['treasure'])
-    @commands.has_any_role('Admin', 'Moderator', 'Outcasts', 'Helper')
+    @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def dig(self, ctx):
         """- Dig for treasure at your current location
@@ -148,6 +177,7 @@ class TreasureHunt(commands.Cog):
         character = is_registered(ctx.author.id)
         bonus = 0
         outputMessage = ''
+        daily = False
 
         if not character:
             reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
@@ -184,7 +214,8 @@ class TreasureHunt(commands.Cog):
         if nwPoint[0] <= digger_x <= sePoint[0] and nwPoint[1] <= digger_y <= sePoint[1]:
 
             choose_new_treasure_location()
-            bonus, bonusMessage = calculate_bonus(character.id)
+
+            bonus, bonusMessage = calculate_bonus(character.id, daily)
             reward_list = grant_treasure_rewards(character, target_name, bonus)
             run_console_command_by_name(character.char_name, f'testFIFO 7 Treasure! Use v/claim to get rewards')
 
@@ -201,6 +232,96 @@ class TreasureHunt(commands.Cog):
         else:
             outputMessage += (f'{character.char_name} tried to dig up hidden treasure, but didn\'t find anything. '
                               f'Wait 1 minute and make sure you\'re in the correct location before trying again!\n')
+
+            print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
+                  f'TeleportPlayer {target_x} {target_y} 0\n'
+                  f'Character Coordinates: ({digger_x}, {digger_y})\n'
+                  f'{character.char_name} is not within the bounds of location {target_name} ({target})')
+
+        await ctx.reply(f'{outputMessage}')
+
+        return
+
+    @commands.command(name='daily', aliases=['dailydig', 'dailytrasure'])
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def daily(self, ctx):
+        """- Collect daily treasure
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+
+        character = is_registered(ctx.author.id)
+        bonus = 0
+        outputMessage = ''
+        daily = True
+
+        if not character:
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}. '
+                            f'Visit {reg_channel.mention}!')
+            return
+
+        eligible, time = get_daily_eligiblity(character)
+        if not eligible:
+            outputMessage += f'{character.char_name} cannot claim another daily treasure until <t:{time}>\n'
+            await ctx.reply(f'{outputMessage}')
+            return
+
+        rconCharId = get_rcon_id(character.char_name)
+        if not rconCharId:
+            await ctx.reply(f'Character {character.char_name} must be online to dig for treasure!')
+            return
+
+        target = int(get_bot_config(f'daily_treasure_location'))
+
+        locs = db_query(False, f'select location_name, x, y, radius '
+                        f'from treasure_locations '
+                        f'where id = {target} limit 1')
+
+        (target_name, target_x, target_y, target_radius) = flatten_list(locs)
+
+        nwPoint = [target_x - target_radius, target_y - target_radius]
+        sePoint = [target_x + target_radius, target_y + target_radius]
+
+        online_chars = db_query(False, f'select x, y '
+                                f'from online_character_info as online '
+                                f'where char_id = {character.id}')
+
+        if not online_chars:
+            await ctx.reply(f'Character {character.char_name} must be online to dig for treasure!')
+            return
+
+        (digger_x, digger_y) = flatten_list(online_chars)
+
+        if nwPoint[0] <= digger_x <= sePoint[0] and nwPoint[1] <= digger_y <= sePoint[1]:
+
+            update_daily_eligibility(character)
+
+            bonus, bonusMessage = calculate_bonus(character.id, daily)
+            reward_list = grant_treasure_rewards(character, target_name, bonus, daily)
+
+            run_console_command_by_name(character.char_name, f'testFIFO 7 Treasure! Use v/claim to get rewards')
+
+            outputMessage += f'`{character.char_name}` has claimed their daily treasure at `{target_name}`!\n'
+            outputMessage += f'{bonusMessage}\n\n'
+            outputMessage += f'{reward_list}'
+
+            print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
+                  f'TeleportPlayer {target_x} {target_y} 0\n'
+                  f'Character Coordinates: ({digger_x}, {digger_y})\n'
+                  f'{character.char_name} is within the bounds of location {target_name} ({target})\n'
+                  f'Rewards: {reward_list}')
+
+        else:
+            outputMessage += (f'{character.char_name} tried to claim their daily treasure, but wasn\'t '
+                              f'at {target_name}. Wait 1 minute and make sure you\'re '
+                              f'at {target_name} before trying again!\n')
 
             print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
                   f'TeleportPlayer {target_x} {target_y} 0\n'
