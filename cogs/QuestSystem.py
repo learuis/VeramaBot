@@ -138,16 +138,20 @@ def display_quest_text(quest_id, quest_status, alt, char_name,
 
     return
 
-def character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius):
+def character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius, query_id: int = 0):
     nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
     sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
+    id_query = ''
 
     # connected_chars = []
     # print(f'{nwPoint} {sePoint}')
+    if query_id:
+        id_query = f'and char_id = {query_id} '
+
     results = db_query(False, f'select char_id, char_name from online_character_info '
                               f'where x >= {nwPoint[0]} and y >= {nwPoint[1]} '
                               f'and x <= {sePoint[0]} and y <= {sePoint[1]} '
-                              f'and z >= {trigger_z - 100} and z <= {trigger_z + 100} limit 1')
+                              f'and z >= {trigger_z - 100} {id_query}and z <= {trigger_z + 100} limit 1')
     if results:
         char_info = flatten_list(results)
     else:
@@ -315,6 +319,8 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                         eld_transaction(character, f'Profession Payout', random_qty)
                         run_console_command_by_name(char_name, f'testFIFO 6 Reward Deposited {random_qty} '
                                                                f'Decaying Eldarium ')
+                        if tier >= 4:
+                            run_console_command_by_name(char_name, f'setstat HealthBarStyle 4')
                     else:
                         check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {random_qty}')
                         if not check:

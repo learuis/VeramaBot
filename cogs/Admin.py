@@ -615,7 +615,7 @@ class Admin(commands.Cog):
         outputString = ''
         last_time_online = ''
 
-        response = runRcon(f'sql select lastTimeOnline from characters where char_name = \'{char_name}\' limit 1')
+        response = runRcon(f'sql select lastTimeOnline from characters where char_name like \'{char_name}\' limit 1')
         if response.output:
             response.output.pop(0)
 

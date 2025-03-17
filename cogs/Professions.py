@@ -1,4 +1,5 @@
 import os
+import math
 
 from discord.ext import commands
 
@@ -203,6 +204,9 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
     outputString += f'<@{registration[2]}>:\n`{char_name}` - `{profession}` tier has increased to `T{new_tier}`!\n'
     outputString += f'Your remaining deliveries for this cycle have been reset to `{cycle_limit}`.\n'
     outputString += f'You have unlocked the following {profession} recipes (claim with with `v/featrestore`)\n'
+    if new_tier == 5:
+        outputString += (f'You have gained the ability to repair all items with `v/repair`. '
+                         f'Use `v/help repair` for an explanation.\n')
 
     feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
                                      f'where turn_in_amount <= {turn_in_amount} and profession like \'%{profession}%\' '
@@ -582,13 +586,14 @@ class Professions(commands.Cog):
         await ctx.send(content=message.content)
 
     @commands.command(name='repair', aliases=['fix'])
-    @commands.has_any_role('Admin', 'Moderator')
-    async def repair(self, ctx, confirm: str = ''):
-        """ Fully repairs the item in hotbar slot 1
+    async def repair(self, ctx, repair_amount: str, confirm: str = ''):
+        """ Modifies current and max durability for eldarium
 
         Parameters
         ----------
         ctx
+        repair_amount
+            How much durability to restore
         confirm
             Type confirm to perform the repair
 
@@ -596,39 +601,55 @@ class Professions(commands.Cog):
         -------
 
         """
-        repair_cost = int(get_bot_config(f'profession_repair_cost'))
-
+        eldarium_per_durability = float(get_bot_config(f'eldarium_per_durability'))
         character = is_registered(ctx.author.id)
+
+        try:
+            repair_amount = int(repair_amount)
+        except ValueError:
+            await ctx.reply(f'You can only repair in whole number amounts greater than 1.')
+            return
+
+        repair_cost = math.floor(int(repair_amount) * eldarium_per_durability)
+
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         blacksmith = get_profession_tier(character.id, f'Blacksmith')
-        armorer = get_profession_tier(character.id, f'Armorer')
-        if not (blacksmith.tier == 5 or armorer.tier == 5):
-            await ctx.reply(f'Only Blacksmiths and Armorers who have achieved Tier 5 can repair items. \n'
-                            f'Current Blacksmith Tier: {blacksmith.tier} \n'
-                            f'Current Armorer Tier: {armorer.tier}')
+        if not (blacksmith.tier == 5):
+            await ctx.reply(f'Only Blacksmiths who have achieved Tier 5 can repair items. \n'
+                            f'Current Blacksmith Tier: `T{blacksmith.tier}`')
+            return
+
+        if repair_cost < 1:
+            await ctx.reply(f'You can only repair in whole number amounts greater than 1.')
             return
 
         if 'confirm' not in confirm.lower():
-            await ctx.reply(f'This command will fully repair the item in your hotbar slot 1. '
-                            f'`{repair_cost}` Decaying Eldarium will be consumed. \nDo not move items in your '
+            await ctx.reply(f'This command will repair the item in hotbar slot 1 to exactly `{repair_amount}/{repair_amount}`'
+                            f' durability. '
+                            f'\nThe item will be considered fully repaired for the purposes of applying kits.'
+                            f'\n`{int(repair_cost)} Decaying Eldarium` will be consumed. \nDo not move items in your '
                             f'inventory while this command is processing, or it may fail. \nNo refunds will be '
-                            f'given for user error! \n\nIf you are sure you want to proceed, use `v/repair confirm`')
+                            f'given for user error! \n\nIf you are sure you want to proceed, '
+                            f'use `v/repair {repair_amount} confirm`')
             return
 
         balance = get_balance(character)
         if balance >= repair_cost:
-            message = await ctx.reply(f'Repairing item in hotbar slot 1, please wait...')
-            eld_transaction(character, f'Item Repair Cost', repair_cost)
-            run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat 0 8 20000 2')
-            await message.edit(content=f'`{character.char_name}` Repaired the item in hotbar slot 1. '
-                                       f'Consumed `{balance}` Decaying Eldarium')
+            message = await ctx.reply(f'Repairing item in hotbar slot 1, please wait... '
+                                      f'Do not move the item until the process is complete!')
+            eld_transaction(character, f'Item Repair Cost', -repair_cost)
+            run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat 0 7 {repair_amount} 2')
+            run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat 0 8 {repair_amount} 2')
+            await message.edit(content=f'`{character.char_name}` repaired the item in hotbar slot 1 to '
+                                       f'`{repair_amount}/{repair_amount}` durability.'
+                                       f'\nConsumed `{repair_cost}` Decaying Eldarium')
             return
         else:
-            await ctx.reply(f'Not enough materials to repair! Available decaying eldarium: {balance}, '
-                            f'Needed: {repair_cost}')
+            await ctx.reply(f'Not enough materials to repair! Available decaying eldarium: `{balance}`, '
+                            f'Needed: `{repair_cost}`')
             return
 
 @commands.Cog.listener()

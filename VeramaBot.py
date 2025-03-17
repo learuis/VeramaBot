@@ -25,6 +25,7 @@ OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 PROFESSION_CHANNEL = int(os.getenv('PROFESSION_CHANNEL'))
 PROFESSION_MESSAGE = int(os.getenv('PROFESSION_MESSAGE'))
 ADMIN_LOG_CHANNEL = int(os.getenv('ADMIN_LOG_CHANNEL'))
+LOBBY_CHANNEL = int(os.getenv('LOBBY_CHANNEL'))
 
 intents = discord.Intents.all()
 intents.message_content = True
@@ -46,11 +47,6 @@ async def on_ready():
             await bot.load_extension(f'cogs.{f[:-3]}')
     loadtime = strftime('%m/%d/%y at %H:%M:%S', localtime(time.time()))
     channel = bot.get_channel(BOT_CHANNEL)
-
-    if is_docker():
-        await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')
-    else:
-        await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
 
     bot.add_view(RegistrationButton())
     bot.add_view(RoleplayingButton())
@@ -78,6 +74,11 @@ async def on_ready():
 
     if not treasure_announcer.is_running():
         treasure_announcer.start()
+
+    if is_docker():
+        await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')
+    else:
+        await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
 
 @tasks.loop(seconds=30)
 async def onlineCharacterInfo():
@@ -185,6 +186,10 @@ async def on_member_join(member):
     guild = member.guild
     if channel is not None:
         await channel.send(f"{member.name} - {member.mention} has joined the server!")
+    channel2 = bot.get_channel(LOBBY_CHANNEL)
+    if channel2 is not None:
+        await channel2.send(f"Hello {member.name} - {member.mention}! Welcome to **Band of Outcasts**! "
+                            f"Please follow the server onboarding process and accept the rules here <id:customize>")
 
 @bot.event
 async def on_member_remove(member):

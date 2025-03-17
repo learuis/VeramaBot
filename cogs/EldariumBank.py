@@ -19,19 +19,28 @@ def get_balance(character):
         balance = int(flatten_list(results)[0])
     return balance
 
-def sufficient_funds(character, debit_amount: int = 0):
+def sufficient_funds(character, debit_amount: int = 0, eld_type: str = 'raw'):
 
     balance = int(get_balance(character))
+
+    if eld_type == 'bars':
+        debit_amount = debit_amount * 2
 
     if balance >= debit_amount:
         return True
     else:
         return False
 
-def eld_transaction(character, reason: str, amount: int = 0):
+def eld_transaction(character, reason: str, amount: int = 0, eld_type: str = 'raw'):
 
-    db_query(True, f'insert into bank_transactions (season, char_id, amount, reason) '
-                   f'values ({CURRENT_SEASON}, {character.id}, {amount}, \'{reason}\')')
+    if eld_type == 'bars':
+        amount = amount * 2
+        reason += f' as Bars'
+    else:
+        reason += f' as Decaying Eldarium'
+
+    db_query(True, f'insert into bank_transactions (season, char_id, amount, reason, timestamp) '
+                   f'values ({CURRENT_SEASON}, {character.id}, {amount}, \'{reason}\', \'{int_epoch_time()}\')')
     db_query(True, f'insert or replace into bank (season, char_id, balance) '
                    f'values ({CURRENT_SEASON}, {character.id}, '
                    f'( select sum(amount) from bank_transactions '
@@ -126,7 +135,7 @@ class EldariumBank(commands.Cog):
 
     @commands.command(name='withdraw', aliases=['atm'])
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
-    async def withdraw(self, ctx, amount: int = 0):
+    async def withdraw(self, ctx, amount: int = 0, eld_type: str = 'raw'):
         """
         Eldarium bank transaction
 
@@ -134,6 +143,8 @@ class EldariumBank(commands.Cog):
         ----------
         ctx
         amount
+        eld_type
+            raw or bars
 
         Returns
         -------
@@ -141,6 +152,11 @@ class EldariumBank(commands.Cog):
         """
         character = is_registered(ctx.author.id)
         balance = 0
+        amount_string = ''
+
+        if 'raw' not in eld_type and 'bars' not in eld_type:
+            await ctx.reply(f'Error. Must specify `raw` or `bars`.')
+            return
 
         if not character:
             reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
@@ -148,17 +164,23 @@ class EldariumBank(commands.Cog):
             return
 
         if amount <= 0:
-            await ctx.reply(f'Must withdraw decaying eldarium in whole number amounts > 0!')
+            await ctx.reply(f'Must withdraw eldarium in whole number amounts > 0!')
             return
         else:
-            check_balance = sufficient_funds(character, abs(amount))
+            check_balance = sufficient_funds(character, abs(amount), eld_type)
             if check_balance:
-                new_balance = eld_transaction(character, f'Withdrawal', -amount)
-                add_reward_record(character.id, 11499, amount, f'Bank Withdrawal')
+                new_balance = eld_transaction(character, f'Withdrawal', -amount, eld_type)
+                if 'bars' in eld_type:
+                    add_reward_record(character.id, 11498, amount, f'Bank Withdrawal: Bars')
+                    amount_string = f'{amount} Eldarium Bars'
+                else:
+                    add_reward_record(character.id, 11499, amount, f'Bank Withdrawal: Raw')
+                    amount_string = f'{amount} Decaying Eldarium'
+
                 await ctx.reply(
-                    f'Transaction complete: Withdrew {amount} decaying eldarium from {character.char_name}\'s account\n'
-                    f'New Balance: {new_balance}\n'
-                    f'Use `v/claim` to collect your {amount} decaying eldarium.')
+                    f'Transaction complete: Withdrew {amount_string} from {character.char_name}\'s account\n'
+                    f'New Balance: {new_balance} Decaying Eldarium\n'
+                    f'Use `v/claim` to collect your {amount} currency.')
                 return
             else:
                 balance = int(get_balance(character))
@@ -217,6 +239,44 @@ class EldariumBank(commands.Cog):
                            f'New Balance: {int(get_balance(character))}\n')
 
         return
+
+    @commands.command(name='transactiondetail', aliases=['txd'])
+    @commands.has_any_role('Admin', 'Moderator')
+    async def transactiondetail(self, ctx, name: str):
+        """ Shows the 10 most recent transactions
+
+        Parameters
+        ----------
+        ctx
+        name
+            Character name
+
+        Returns
+        -------
+
+        """
+        message = ''
+        registration_record = get_single_registration(name)
+        (char_id, char_name, discord_id) = registration_record
+
+        character = is_registered(int(discord_id))
+
+        if not character:
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            return
+
+        results = db_query(False, f'select * from bank_transactions where char_id = {character.id} '
+                                  'order by timestamp desc limit 10')
+
+        if results:
+            for result in results:
+                message += f'{result}\n'
+            await ctx.send(f'{message}')
+            return
+        else:
+            await ctx.send(f'No results returned.')
+            return
 
 @commands.Cog.listener()
 async def setup(bot):

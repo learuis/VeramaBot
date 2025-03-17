@@ -1,11 +1,17 @@
 import sqlite3
 import re
+import os
 
 from discord.ext import commands
+from dotenv import load_dotenv
 
-from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id
+from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id, \
+    flatten_list
 
 from functions.externalConnections import db_query, runRcon
+
+load_dotenv('data/server.env')
+REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 
 
 async def split_message(outputString, author):
@@ -32,6 +38,8 @@ async def split_message(outputString, author):
                     continue
         else:
             await author.send(str(outputString))
+
+
 class Utilities(commands.Cog):
     """Cog class containing commands related to server status."""
 
@@ -226,7 +234,7 @@ class Utilities(commands.Cog):
                         outputString += f'No results.'
                 else:
                     output = db_query(False, f'select enemy_name, character_name, max(kills) from kill_counter '
-                                      f'where kills >= 10 group by enemy_name order by kills desc , enemy_name desc;')
+                                             f'where kills >= 10 group by enemy_name order by kills desc , enemy_name desc;')
                     if output:
                         outputString += f'**Most Kills of All Enemy Types**:\n'
                     else:
@@ -241,15 +249,15 @@ class Utilities(commands.Cog):
                 if not char_info:
                     await ctx.send(f'Your character must be registered in order to see your full Outcast Overview!')
                 output = db_query(False, f'select enemy_name, character_name, count(character_name) from wrapped '
-                                  f'where character_name = \'{char_info.char_name}\' '
-                                  f'group by enemy_name order by count(character_name) desc;')
+                                         f'where character_name = \'{char_info.char_name}\' '
+                                         f'group by enemy_name order by count(character_name) desc;')
                 if output:
                     count = db_query(False, f'select count(character_name) from wrapped '
-                                     f'where character_name = \'{char_info.char_name}\'')
+                                            f'where character_name = \'{char_info.char_name}\'')
                     count = sum(count, ())
 
                     ranking = db_query(False, f'select character_name, count(character_name) '
-                                       f'from wrapped group by character_name order by count(character_name) desc;')
+                                              f'from wrapped group by character_name order by count(character_name) desc;')
 
                     for index, line in enumerate(ranking):
                         if char_info.char_name in line:
@@ -270,18 +278,18 @@ class Utilities(commands.Cog):
 
             case 'top':
                 output = db_query(False, f'select character_name, count(character_name) '
-                                  f'from wrapped group by character_name order by count(character_name) desc limit 25;')
+                                         f'from wrapped group by character_name order by count(character_name) desc limit 25;')
                 if output:
                     outputString += f'**Outcast Overview: Top 25 Most Kills**\n\n'
                     for index, record in enumerate(output):
                         (character_name, kills) = record
-                        outputString += f'{index+1} - {character_name} - {kills}\n'
+                        outputString += f'{index + 1} - {character_name} - {kills}\n'
 
             case 'character':
                 if name:
                     output = db_query(False, f'select enemy_name, character_name, count(character_name) from wrapped '
-                                      f'where character_name like \'%{name}%\' '
-                                      f'group by enemy_name order by count(character_name) desc limit 25;')
+                                             f'where character_name like \'%{name}%\' '
+                                             f'group by enemy_name order by count(character_name) desc limit 25;')
                     if output:
                         outputString += (f'**Outcast Overview: Top 25 Enemies Killed by '
                                          f'character names matching `{name}`:**\n\n')
@@ -317,6 +325,39 @@ class Utilities(commands.Cog):
             else:
                 await ctx.send(str(outputString))
 
+        return
+
+    @commands.command(name='where', aliases=['location', 'loc', 'whereami'])
+    async def where(self, ctx):
+        """ - Checks where the bot thinks you're located
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+
+        if not character:
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            return
+
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+
+        cur.execute(f'select x, y, z from online_character_info '
+                    f'where char_id = {character.id} limit 1')
+        results = cur.fetchone()
+
+        con.commit()
+        con.close()
+
+        await ctx.reply(f'The bot sees your location as: '
+                        f'`TeleportPlayer {results[0]} {results[1]} {results[2]}`')
         return
 
     @commands.command(name='journey', aliases=['fixjourney'])
@@ -357,6 +398,7 @@ class Utilities(commands.Cog):
             return
         else:
             await message.edit(content=f'Stuck Journey step for `{char_name}` has been completed.')
+
 
 @commands.Cog.listener()
 async def setup(bot):

@@ -22,6 +22,13 @@ SERVER_PORT = int(os.getenv('SERVER_PORT'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
+
+class Registration:
+    def __init__(self):
+        self.id = 0
+        self.char_name = ''
+        self.discord_id = ''
+
 def custom_cooldown(ctx):
     whitelist = {'Admin', 'Moderator'}
     roles = {role.name for role in ctx.author.roles}
@@ -114,6 +121,27 @@ def get_rcon_id(name: str):
         if name.casefold() in x[1].casefold():
             return x[0].strip()
 
+def get_clan(character):
+    match = []
+
+    rconResponse = runRcon(f'sql select c.guild, g.name from characters as c '
+                           f'left join guilds as g on c.guild = g.guildId '
+                           f'where c.id = {character.id} limit 1')
+    if rconResponse.error:
+        print(f'RCON error in get_clan')
+        return False
+    rconResponse.output.pop(0)
+
+    match = re.findall(r'.*^#\d*\s+(\d*)\s\|\s+(.*) \|', rconResponse.output[0])
+    match = flatten_list(match)
+    print(match)
+    if not match:
+        return False, False
+
+    (clan_id, clan_name) = match
+
+    return int(clan_id), clan_name
+
 def update_registered_name(input_user, name):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
@@ -123,18 +151,20 @@ def update_registered_name(input_user, name):
     con.commit()
     con.close()
 
-def is_registered(discord_id: int):
-    class Registration:
-        def __init__(self):
-            self.id = 0
-            self.char_name = ''
+def is_registered(discord_id: int, last_season: bool = False):
 
     returnValue = Registration()
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
-    cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
-                f'and season = \'{CURRENT_SEASON}\'')
+    if last_season:
+        query = (f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
+                 f'and season = {PREVIOUS_SEASON} order by id desc limit 1')
+    else:
+        query = (f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
+                 f'and season = \'{CURRENT_SEASON}\'')
+
+    cur.execute(query)
     result = cur.fetchone()
 
     con.close()
@@ -155,10 +185,6 @@ async def is_message_deleted(channel: discord.TextChannel, message_id):
         return True
 
 def last_season_char(discord_id: int):
-    class Registration:
-        def __init__(self):
-            self.id = 0
-            self.char_name = ''
 
     returnValue = Registration()
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -177,7 +203,7 @@ def last_season_char(discord_id: int):
     else:
         return False
 
-def get_registration(char_name: str, char_id: int = 0):
+def get_registration(char_name, char_id: int = 0):
     returnList = []
     char_name = str(char_name).casefold()
 
@@ -202,6 +228,30 @@ def get_registration(char_name: str, char_id: int = 0):
         return returnList
     else:
         return False
+
+def get_single_registration_new(char_name: str = '', char_id: int = 0):
+    character = Registration()
+
+    if char_id:
+        query_string = (f'select game_char_id, character_name, discord_user from registration '
+                        f'where game_char_id = {char_id} and season = {CURRENT_SEASON} limit 1')
+    else:
+        query_string = (f'select game_char_id, character_name, discord_user from registration '
+                        f'where character_name like \'%{char_name}%\' and season = {CURRENT_SEASON} limit 1')
+
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'{query_string}')
+    results = cur.fetchone()
+
+    con.close()
+
+    if results:
+        character.id = results[0]
+        character.char_name = results[1]
+
+    return character
 
 def get_single_registration(char_name):
 
@@ -292,6 +342,7 @@ async def editStatus(message, bot):
                                    f'-- {statusSymbol} MAINTENANCE {statusSymbol} --\n'
                                    f'We\'ll be back soon!')
     else:
+        restart_string = get_bot_config('restart_string')
         await message.edit(content=f'**Server Status**\n'
                                    f'__{currentTime}__\n'
                                    f'- Server Name: `{SERVER_NAME}`\n'
@@ -299,7 +350,7 @@ async def editStatus(message, bot):
                                    f'- Password: `{SERVER_PASSWORD}`\n'
                                    f'- Server Online: `{onlineStatus}` {statusSymbol}\n'
                                    f'- Players Connected: `{currentPlayers}` / `{maxPlayers}` {onlineSymbol}\n'
-                                   f'Server restarts are at 12pm, 10pm and 4am Eastern.')
+                                   f'Server restarts are at {restart_string} Eastern.')
     return
 
 def place_markers():

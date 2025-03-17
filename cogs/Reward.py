@@ -15,6 +15,8 @@ ANNIVERSARY_ROLE = int(os.getenv('ANNIVERSARY_ROLE'))
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 
 def add_reward_record(char_id: int, itemId: int, quantity: int, reasonString: str):
+    if quantity == 0:
+        return
     query = (f'insert into event_rewards (reward_date, character_id, reward_material, reward_quantity, '
              f'claim_flag, reward_name) values (\'{date.today()}\', {char_id}, \'{itemId}\', {quantity}, 0, '
              f'\'{reasonString}\')')

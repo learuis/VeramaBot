@@ -201,7 +201,7 @@ class TreasureHunt(commands.Cog):
         nwPoint = [target_x - target_radius, target_y - target_radius]
         sePoint = [target_x + target_radius, target_y + target_radius]
 
-        online_chars = db_query(False, f'select x, y '
+        online_chars = db_query(False, f'select x, y, z '
                                 f'from online_character_info as online '
                                 f'where char_id = {character.id}')
 
@@ -209,7 +209,7 @@ class TreasureHunt(commands.Cog):
             await ctx.reply(f'Character {character.char_name} must be online to dig for treasure!')
             return
 
-        (digger_x, digger_y) = flatten_list(online_chars)
+        (digger_x, digger_y, digger_z) = flatten_list(online_chars)
 
         if nwPoint[0] <= digger_x <= sePoint[0] and nwPoint[1] <= digger_y <= sePoint[1]:
 
@@ -231,7 +231,8 @@ class TreasureHunt(commands.Cog):
 
         else:
             outputMessage += (f'{character.char_name} tried to dig up hidden treasure, but didn\'t find anything. '
-                              f'Wait 1 minute and make sure you\'re in the correct location before trying again!\n')
+                              f'Wait 1 minute and make sure you\'re in the correct location before trying again!\n'
+                              f'The bot sees your location as: `TeleportPlayer {digger_x} {digger_y} {digger_z}`')
 
             print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
                   f'TeleportPlayer {target_x} {target_y} 0\n'
@@ -275,7 +276,8 @@ class TreasureHunt(commands.Cog):
 
         rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:
-            await ctx.reply(f'Character {character.char_name} must be online to dig for treasure!')
+            await ctx.reply(f'Daily treasure is ready to claim, but character '
+                            f'{character.char_name} must be online to dig for treasure!')
             return
 
         target = int(get_bot_config(f'daily_treasure_location'))
@@ -289,7 +291,7 @@ class TreasureHunt(commands.Cog):
         nwPoint = [target_x - target_radius, target_y - target_radius]
         sePoint = [target_x + target_radius, target_y + target_radius]
 
-        online_chars = db_query(False, f'select x, y '
+        online_chars = db_query(False, f'select x, y, z '
                                 f'from online_character_info as online '
                                 f'where char_id = {character.id}')
 
@@ -297,7 +299,7 @@ class TreasureHunt(commands.Cog):
             await ctx.reply(f'Character {character.char_name} must be online to dig for treasure!')
             return
 
-        (digger_x, digger_y) = flatten_list(online_chars)
+        (digger_x, digger_y, digger_z) = flatten_list(online_chars)
 
         if nwPoint[0] <= digger_x <= sePoint[0] and nwPoint[1] <= digger_y <= sePoint[1]:
 
@@ -321,7 +323,8 @@ class TreasureHunt(commands.Cog):
         else:
             outputMessage += (f'{character.char_name} tried to claim their daily treasure, but wasn\'t '
                               f'at {target_name}. Wait 1 minute and make sure you\'re '
-                              f'at {target_name} before trying again!\n')
+                              f'at {target_name} before trying again!\n'
+                              f'The bot sees your location as: `TeleportPlayer {digger_x} {digger_y} {digger_z}`')
 
             print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
                   f'TeleportPlayer {target_x} {target_y} 0\n'

@@ -329,7 +329,7 @@ class Registration(commands.Cog):
             255: 'a Member'
         }
 
-        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name from characters as c '
+        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name, g.guildId from characters as c '
                                f'inner join guilds as g on g.guildId = c.guild '
                                f'where g.name like \'%{searchTerm}%\' '
                                f'order by guild')
@@ -340,7 +340,7 @@ class Registration(commands.Cog):
                 match = [line.strip() for line in match]
                 clanList.append(match)
 
-        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name from characters as c '
+        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name, g.guildId from characters as c '
                                f'inner join guilds as g on g.guildId = c.guild '
                                f'where c.char_name like \'%{searchTerm}%\' '
                                f'order by guild')
@@ -355,12 +355,12 @@ class Registration(commands.Cog):
         if playerList:
             outputString += f'__Player name matches:__\n'
             for player in playerList:
-                outputString += f'`{player[0]}` is {rankLookup.get(int(player[1]))} of `{player[2]}`\n'
+                outputString += f'`{player[0]}` is {rankLookup.get(int(player[1]))} of `{player[2]} (`{player[3]}`)\n'
 
         if clanList:
             outputString += f'__Clan name matches:__\n'
             for clan in clanList:
-                outputString += f'`{clan[0]}` is {rankLookup.get(int(clan[1]))} of `{clan[2]}`\n'
+                outputString += f'`{clan[0]}` is {rankLookup.get(int(clan[1]))} of `{clan[2]} (`{clan[3]}`)\n'
 
         if outputString:
             await ctx.send(f'{outputString}')
