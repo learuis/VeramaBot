@@ -5,6 +5,7 @@ from discord.ext import commands
 
 from cogs.CommunityBoons import update_boons
 from cogs.EldariumBank import eld_transaction
+from cogs.Hunter import get_slayer_target, set_slayer_target, killed_target, clear_slayer_target
 from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp, give_favor, get_favor
 from cogs.Reward import add_reward_record
 from functions.common import *
@@ -15,6 +16,9 @@ class Registration:
     def __init__(self):
         self.id = 0
         self.char_name = ''
+
+    def reset(self):
+        self.__init__()
 
 def pull_online_character_info():
     # print(f'start char info query {int_epoch_time()}')
@@ -110,7 +114,7 @@ def display_quest_text(quest_id, quest_status, alt, char_name,
     altText2 = ''
 
     if override_style and override_text1 and override_text2:
-        # print(f'Using override quest text for {quest_id}')
+        print(f'Using override quest text for {quest_id}')
         run_console_command_by_name(char_name,
                                     f'testFIFO {override_style} \"{override_text1}\" \"{override_text2}\"')
         return
@@ -198,7 +202,6 @@ def add_cooldown(char_id, quest_id, cooldown: int):
 
     con.commit()
     con.close()
-
 
 def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
     character = Registration()
@@ -327,6 +330,11 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                             error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
                             add_reward_record(int(char_id), int(reward_template_id), int(random_qty),
                                               f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
+                case 'slayer':
+                    quantity = int(get_bot_config(f'beast_slayer_reward'))
+                    eld_transaction(character, f'Beast Slayer Reward', quantity)
+                    run_console_command_by_name(char_name, f'testFIFO 6 Reward Deposited {quantity} '
+                                                           f'Decaying Eldarium ')
 
         continue
 
@@ -342,14 +350,18 @@ def treasure_broadcast(override=False):
             return
 
     location = get_bot_config(f'current_treasure_location')
-    result = str(db_query(False, f'select location_name from treasure_locations where id = {location}'))
-    print(f'Broadcasting treasure location: {result}')
+    result = db_query(False, f'select location_name from treasure_locations where id = {location}')
+    result = flatten_list(result)
+    location_name = result[0]
+    print(f'Broadcasting treasure location: {location_name}')
     set_bot_config(f'treasure_last_announced', int_epoch_time())
-    location_name = re.search(r'[0-9a-zA-Z\s\-]+', result)
-    rcon_all(f'testFIFO 6 Treasure! {location_name.group()}')
+    # location_name = re.search(r'[0-9a-zA-Z\s\-]+', result)
+    rcon_all(f'testFIFO 6 Treasure! {location_name}')
 
 
 async def oneStepQuestUpdate(bot):
+    character = Registration()
+
     if int(get_bot_config(f'maintenance_flag')) == 1:
         print(f'Skipping quest loop, server in maintenance mode')
         bot.quest_running = False
@@ -369,6 +381,7 @@ async def oneStepQuestUpdate(bot):
                                  f'from one_step_quests')
 
     for quest in quest_list:
+        character.reset()
         (quest_id, quest_name, active_flag, requirement_type, repeatable,
          trigger_x, trigger_y, trigger_z, trigger_radius, target_x, target_y, target_z) = quest
 
@@ -377,6 +390,9 @@ async def oneStepQuestUpdate(bot):
         if not char_id:
             # print(f'Skipping quest {quest_id}, no one in the box')
             continue
+
+        character.id = char_id
+        character.char_name = char_name
 
         if active_flag == 0:
             display_quest_text(999999, 0, False, char_name)
@@ -455,7 +471,7 @@ async def oneStepQuestUpdate(bot):
                                        2, f'Exceeded', f'Limit for this cycle')
                     continue
 
-                get_favor(char_id, 'VoidforgedExiles')
+                # get_favor(char_id, 'VoidforgedExiles')
                 objective = get_current_objective(requirement_type, player_tier.tier)
 
                 inventoryHasItem = check_inventory(char_id, 0, objective.item_id)
@@ -465,7 +481,7 @@ async def oneStepQuestUpdate(bot):
                     await give_profession_xp(
                         player_tier.char_id, char_name, player_tier.profession, player_tier.tier, bot)
                     grant_reward(char_id, char_name, quest_id, repeatable, player_tier.tier)
-                    give_favor(player_tier.char_id, 'VoidforgedExiles', player_tier.tier)
+                    #give_favor(player_tier.char_id, 'VoidforgedExiles', player_tier.tier)
                     print(f'Quest {quest_id} completed by id {char_id} {char_name}')
                     continue
 
@@ -474,8 +490,30 @@ async def oneStepQuestUpdate(bot):
                     print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
                           f'does not have the required item {objective.item_id} / {objective.item_name}')
                     continue
-            case 'Ymir' | 'Zath' | 'Mitra' | 'Set' | 'Derketo' | 'Yog' | 'Jhebbal Sag':
-                # religion tiers will always be 0
+            case 'Slayer':
+                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                current_target = get_slayer_target(character)
+                if not current_target.char_id:
+                    print(f'character has no quarry, assigning one')
+                    # no current target, set one
+                    current_target = set_slayer_target(character)
+                    display_quest_text(0, 0, False, char_name, 6,
+                                       f'Quarry:', f'{current_target.display_name}')
+                else:
+                    # has a current target, check if killed
+                    if killed_target(current_target):
+                        print(f'the quarry has been killed')
+                        clear_slayer_target(character)
+                        display_quest_text(0, 0, False, char_name, 7,
+                                           f'Slain', f'{current_target.display_name}')
+                        grant_reward(char_id, char_name, quest_id, repeatable)
+                    else:
+                        print(f'displaying existing quarry')
+                        display_quest_text(0, 0, False, char_name, 6,
+                                           f'Quarry:', f'{current_target.display_name}')
+                continue
+            case 'Provisioner' | 'Ymir' | 'Zath' | 'Mitra' | 'Set' | 'Derketo' | 'Yog' | 'Jhebbal Sag':
+                # favor-based profession tiers will always be 0
                 player_tier = get_profession_tier(char_id, requirement_type)
                 if player_tier.turn_ins_this_cycle >= int(get_bot_config(f'profession_cycle_limit')):
                     print(f'Skipping quest {quest_id}, id {char_id} {char_name}, at cycle limit')

@@ -35,9 +35,9 @@ def eld_transaction(character, reason: str, amount: int = 0, eld_type: str = 'ra
 
     if eld_type == 'bars':
         amount = amount * 2
-        reason += f' as Bars'
+        reason += f' (Bars)'
     else:
-        reason += f' as Decaying Eldarium'
+        reason += f' (DE)'
 
     db_query(True, f'insert into bank_transactions (season, char_id, amount, reason, timestamp) '
                    f'values ({CURRENT_SEASON}, {character.id}, {amount}, \'{reason}\', \'{int_epoch_time()}\')')
@@ -241,9 +241,8 @@ class EldariumBank(commands.Cog):
         return
 
     @commands.command(name='transactiondetail', aliases=['txd'])
-    @commands.has_any_role('Admin', 'Moderator')
     async def transactiondetail(self, ctx, name: str):
-        """ Shows the 10 most recent transactions
+        """ Shows the 10 most recent transactions for the named player
 
         Parameters
         ----------

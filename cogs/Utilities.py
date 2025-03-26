@@ -388,7 +388,7 @@ class Utilities(commands.Cog):
 
         rconCharId = get_rcon_id(char_name)
         if not rconCharId:
-            await message.edit(f'Character {char_name} must be online to fix a journey step.')
+            await message.edit(content=f'Character {char_name} must be online to fix a journey step.')
             return
 
         rconCommand = f'con {rconCharId} JourneyCompleteStepForCurrent'

@@ -250,6 +250,7 @@ def get_single_registration_new(char_name: str = '', char_id: int = 0):
     if results:
         character.id = results[0]
         character.char_name = results[1]
+        character.discord_id = results[2]
 
     return character
 
@@ -504,13 +505,23 @@ def check_inventory(owner_id, inv_type, template_id):
 def count_inventory_qty(owner_id, inv_type, template_id):
     value = 0
 
-    results = runRcon(f'sql select trim(substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 4,2) || '
-                      f'substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 6,2)) as qty_hex '
-                      f'from item_inventory '
+    hex_template_id = template_id.to_bytes(4, 'little').hex() + '0300'
+
+    results = runRcon(f'sql select '
+                      f'substr(hex(item_inventory.data),instr(hex(item_inventory.data),\'{hex_template_id}\')+12,8) '
+                      f'as field_id, '
+                      f'substr(hex(item_inventory.data),instr(hex(item_inventory.data),'
+                      f'\'{hex_template_id}\')+24,4) as stacksize from item_inventory '
                       f'where owner_id = {owner_id} and inv_type = {inv_type} and template_id = {template_id} '
                       f'order by item_id asc limit 1')
+
+    # results = runRcon(f'sql select trim(substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 4,2) || '
+    #                   f'substr(hex(data),instr(hex(item_inventory.data),\'001600\') - 6,2)) as qty_hex '
+    #                   f'from item_inventory '
+    #                   f'where owner_id = {owner_id} and inv_type = {inv_type} and template_id = {template_id} '
+    #                   f'order by item_id asc limit 1')
     if results.error:
-        print(f'RCON error received in check_inventory_qty')
+        print(f'RCON error received in count_inventory_qty')
         return False
 
     if results.output:
@@ -522,13 +533,29 @@ def count_inventory_qty(owner_id, inv_type, template_id):
         print(f'Should this ever happen?')
 
     for result in results.output:
-        match = re.search(r'\s+\d+ | [^|]*', result)
-        # print(f'{match}')
-        value = match[0]
-        value.strip()
-        value = int(value, 16)
+        # match = re.search(r'\s+\d+ | [^|]*', result)
+        match = re.search(r'#0\s+([A-Z\d]+)\s+[|]\s+([A-Z\d]+)', result)
+        if match:
+            if match.group(1) == '00000100':
+                value_string = match.group(2)
+                print(value_string)
+                value_bytes = bytes.fromhex(value_string)
+                value_int = int.from_bytes(value_bytes, 'little')
+                print(value_int)
+                value = value_int
 
-        print(f'The required item {template_id} x {value} is present in the inventory of {owner_id}.')
-        return value
+                print(f'The required item {template_id} x {value} is present in the inventory of {owner_id}.')
+                return value
+            else:
+                print(f'There must only be one coin in this stack')
+                value = 1
+                return value
+        else:
+            print(f'no matches, something is wrong.')
+            return False
+        # print(f'{match}')
+        # value = match[0]
+        # value.strip()
+        # value = int(value, 16)
 
     return False

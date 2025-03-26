@@ -8,7 +8,7 @@ class CharacterMods(commands.Cog):
         self.bot = bot
 
     @commands.command(name='shrink', aliases=['grow'])
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def small(self, ctx, discord_user: discord.Member):
         """

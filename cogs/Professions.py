@@ -1,12 +1,15 @@
 import os
 import math
+import random
 
 from discord.ext import commands
 
 from cogs.EldariumBank import get_balance, eld_transaction
 from cogs.FeatClaim import grant_feat
+from cogs.Hunter import get_slayer_target
+from cogs.Reward import add_reward_record
 from functions.common import int_epoch_time, get_bot_config, set_bot_config, is_registered, get_single_registration, \
-    flatten_list, get_registration, get_rcon_id, run_console_command_by_name
+    flatten_list, get_registration, get_rcon_id, run_console_command_by_name, get_clan, get_single_registration_new
 from functions.externalConnections import db_query, runRcon
 from dotenv import load_dotenv
 
@@ -253,7 +256,6 @@ def give_favor(char_id, faction, tier):
 
 
 async def updateProfessionBoard(message, displayOnly: bool = False):
-
     if int(get_bot_config(f'disable_professions')) == 1:
         # print(f'Skipping profession loop, server in maintenance mode')
         return False
@@ -332,8 +334,8 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
 
     for item in profession_list:
 
-        query = f'select char_id, current_experience from character_progression '\
-                f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' '\
+        query = f'select char_id, current_experience from character_progression ' \
+                f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' ' \
                 f'order by current_experience desc limit 3'
         # print(f'{query}')
         profession_leaders = db_query(False, f'{query}')
@@ -429,6 +431,12 @@ class Professions(commands.Cog):
                 # print(f'{index + 1} {rank}')
                 if int(rank) == character.id:
                     outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
+
+        current_target = get_slayer_target(character)
+        if current_target.char_id:
+            outputString += f'`Beast Slayer` - Current Quarry: `{current_target.display_name}`\n\n'
+        else:
+            outputString += f'`Beast Slayer` - Current Quarry: `None`\n\n'
 
         await ctx.reply(f'Profession Details for `{character.char_name}`:\n'
                         f'{outputString}')
@@ -586,7 +594,7 @@ class Professions(commands.Cog):
         await ctx.send(content=message.content)
 
     @commands.command(name='repair', aliases=['fix'])
-    async def repair(self, ctx, repair_amount: str, confirm: str = ''):
+    async def repair(self, ctx, repair_amount: int = 0, confirm: str = ''):
         """ Modifies current and max durability for eldarium
 
         Parameters
@@ -611,6 +619,7 @@ class Professions(commands.Cog):
             return
 
         repair_cost = math.floor(int(repair_amount) * eldarium_per_durability)
+        repair_amount = math.floor(int(repair_amount))
 
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
@@ -627,13 +636,14 @@ class Professions(commands.Cog):
             return
 
         if 'confirm' not in confirm.lower():
-            await ctx.reply(f'This command will repair the item in hotbar slot 1 to exactly `{repair_amount}/{repair_amount}`'
-                            f' durability. '
-                            f'\nThe item will be considered fully repaired for the purposes of applying kits.'
-                            f'\n`{int(repair_cost)} Decaying Eldarium` will be consumed. \nDo not move items in your '
-                            f'inventory while this command is processing, or it may fail. \nNo refunds will be '
-                            f'given for user error! \n\nIf you are sure you want to proceed, '
-                            f'use `v/repair {repair_amount} confirm`')
+            await ctx.reply(
+                f'This command will repair the item in hotbar slot 1 to exactly `{repair_amount}/{repair_amount}`'
+                f' durability. '
+                f'\nThe item will be considered fully repaired for the purposes of applying kits.'
+                f'\n`{int(repair_cost)} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                f'inventory while this command is processing, or it may fail. \nNo refunds will be '
+                f'given for user error! \n\nIf you are sure you want to proceed, '
+                f'use `v/repair {repair_amount} confirm`')
             return
 
         balance = get_balance(character)
@@ -651,6 +661,582 @@ class Professions(commands.Cog):
             await ctx.reply(f'Not enough materials to repair! Available decaying eldarium: `{balance}`, '
                             f'Needed: `{repair_cost}`')
             return
+
+    @commands.command(name='reforge')
+    async def reforge(self, ctx, attribute: str = '', confirm: str = ''):
+        """ - Changes the attribute that scales weapon damage for hotbar slot 1
+
+        Parameters
+        ----------
+        ctx
+        attribute
+            strength | agility | vitality | grit | authority | expertise
+        confirm
+            Type confirm to perform the reforging
+
+        Returns
+        -------
+
+        """
+        valid_attributes = ['strength', 'agility', 'vitality', 'grit', 'authority', 'expertise',
+                            'str', 'agi', 'vit', 'auth', 'exp']
+        attribute_mapping = {'strength': 17, 'str': 17,
+                             'agility': 19, 'agi': 19,
+                             'vitality': 14, 'vit': 14,
+                             'grit': 15,
+                             'authority': 27, 'auth': 27,
+                             'expertise': 16, 'exp': 16}
+
+        character = is_registered(ctx.author.id)
+        reforge_cost = int(get_bot_config('reforge_cost'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        blacksmith = get_profession_tier(character.id, f'Blacksmith')
+        if not (blacksmith.tier >= 4):
+            await ctx.reply(f'Only Blacksmiths who have achieved Tier 4 can reforge weapons. \n'
+                            f'Current Blacksmith Tier: `T{blacksmith.tier}`')
+            return
+
+        if attribute not in valid_attributes:
+            await ctx.reply(f'You must specify a valid attribute to reforge a weapon! Use `strength`, `agility`, '
+                            f'`vitality`, `grit`, `authority`, `expertise`')
+            return
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will change the attribute scaling of the item in hotbar slot 1 to `{attribute}`'
+                f'\nIf you choose anything other than Strength or Agility, "Balanced Weapon" '
+                f'will be shown on the modified item.'
+                f'\n`{reforge_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                f'inventory while this command is processing, or it may fail. \nNo refunds will be '
+                f'given for user error! \n\nIf you are sure you want to proceed, '
+                f'use `v/reforge {attribute} confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= reforge_cost:
+            message = await ctx.reply(f'Reforging item in hotbar slot 1, please wait... '
+                                      f'Do not move the item until the process is complete!')
+            eld_transaction(character, f'Weapon Reforge Cost', -reforge_cost)
+            attribute_value = attribute_mapping[attribute]
+            run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 71 {attribute_value} 2')
+
+            await message.edit(content=f'`{character.char_name}` refogred the weapon in hotbar slot 1 to '
+                                       f'scale using `{attribute}`.\n'
+                                       f'\nConsumed `{reforge_cost}` Decaying Eldarium')
+            return
+        else:
+            await ctx.reply(f'Not enough materials to reforge! Available decaying eldarium: `{balance}`, '
+                            f'Needed: `{reforge_cost}`')
+            return
+
+    @commands.command(name='fortify')
+    async def fortify(self, ctx, slot: str = '', amount: int = 0, confirm: str = ''):
+        """ - Increases the armor value of equipped armor to a fixed amount
+        
+        Parameters
+        ----------
+        ctx
+        slot
+            head | chest | hands | legs | feet
+        amount
+            How much armor to grant to the item
+        confirm
+            Type confirm to fortify an armor piece
+    
+        Returns
+        -------
+    
+        """
+        valid_slots = ['head', 'chest', 'hands', 'legs', 'feet']
+        slot_mapping = {"head": 3, 'chest': 4, 'hands': 5, 'legs': 6, 'feet': 7}
+        # armor_mapping = {"head": 360, 'chest': 630, 'hands': 180, 'legs': 450, 'feet': 180}
+
+        character = is_registered(ctx.author.id)
+        eldarium_per_armor = int(get_bot_config('eldarium_per_armor'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        armorer = get_profession_tier(character.id, f'Armorer')
+        if not (armorer.tier == 5):
+            await ctx.reply(f'Only Armorers who have achieved Tier 5 can fortify armor. \n'
+                            f'Current Armorer Tier: `T{armorer.tier}`')
+            return
+
+        if slot not in valid_slots:
+            await ctx.reply(f'You must specify a valid equipment slot to fortify armor! Use `head`, `chest`, '
+                            f'`hands`, `legs`, `feet`')
+            return
+
+        slot_value = slot_mapping[slot]
+        # armor_value = armor_mapping[slot]
+
+        final_cost = amount * eldarium_per_armor
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will set the armor value of the armor equipped in your `{slot}` '
+                f'slot to `{amount}` Armor'
+                f'\n`{final_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                f'inventory while this command is processing, or it may fail. \nNo refunds will be '
+                f'given for user error! \n\nIf you are sure you want to proceed, '
+                f'use `v/fortify {slot} confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= final_cost:
+            message = await ctx.reply(f'Fortifying armor in equipment slot `{slot}`, please wait... '
+                                      f'Do not move the item until the process is complete!')
+            eld_transaction(character, f'Armor Fortification Cost', -final_cost)
+            run_console_command_by_name(character.char_name,
+                                        f'setinventoryitemfloatstat {slot_value} 4 {amount} 1')
+
+            await message.edit(content=f'`{character.char_name}` fortified the armor in '
+                                       f'equipment slot `{slot}` to `{amount}` Armor!\n'
+                                       f'You must re-equip the armor for it to take effect.\n'
+                                       f'\nConsumed `{final_cost}` Decaying Eldarium')
+            return
+        else:
+            await ctx.reply(f'Not enough materials to fortify! Available decaying eldarium: `{balance}`, '
+                            f'Needed: `{final_cost}`')
+            return
+
+    @commands.command(name='trim')
+    async def trim(self, ctx, slot: str = '', confirm: str = ''):
+        """ - Reduces the weight of equipped armor to 0
+
+        Parameters
+        ----------
+        ctx
+        slot
+            head | chest | hands | legs | feet
+        confirm
+            Type confirm to trim an armor piece
+
+        Returns
+        -------
+
+        """
+        valid_slots = ['head', 'chest', 'hands', 'legs', 'feet']
+        slot_mapping = {"head": 3, 'chest': 4, 'hands': 5, 'legs': 6, 'feet': 7}
+
+        character = is_registered(ctx.author.id)
+        trim_cost = int(get_bot_config('trim_cost'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        armorer = get_profession_tier(character.id, f'Armorer')
+        if not (armorer.tier >= 4):
+            await ctx.reply(f'Only Armorers who have achieved Tier 4 can trim armor. \n'
+                            f'Current Armorer Tier: `T{armorer.tier}`')
+            return
+
+        if slot not in valid_slots:
+            await ctx.reply(f'You must specify a valid equipment slot to trim armor! Use `head`, `chest`, '
+                            f'`hands`, `legs`, `feet`')
+            return
+
+        slot_value = slot_mapping[slot]
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will reduce the weight value of the armor equipped in your `{slot}` '
+                f'slot to `0` weight.'
+                f'\n`{trim_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                f'inventory while this command is processing, or it may fail. \nNo refunds will be '
+                f'given for user error! \n\nIf you are sure you want to proceed, '
+                f'use `v/trim {slot} confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= trim_cost:
+            message = await ctx.reply(f'Trimming weight from armor in equipment slot {slot}, please wait... '
+                                      f'Do not move the item until the process is complete!')
+            eld_transaction(character, f'Armor Trimming Cost', -trim_cost)
+            run_console_command_by_name(character.char_name,
+                                        f'setinventoryitemfloatstat {slot_value} 5 0 1')
+
+            await message.edit(content=f'`{character.char_name}` trimmed weight from the armor in '
+                                       f'equipment slot `{slot}` to `0`!\n'
+                                       f'You must re-equip the armor for it to take effect.\n'
+                                       f'\nConsumed `{trim_cost}` Decaying Eldarium')
+        else:
+            await ctx.reply(f'Not enough materials to trim armor! Available decaying eldarium: `{balance}`, '
+                            f'Needed: `{trim_cost}`')
+            return
+
+    @commands.command(name='enchant')
+    async def enchant(self, ctx, enchant: str = '', confirm: str = ''):
+        """ - Enchants a weapon with a long-lasting effect (1000 charges)
+
+        Parameters
+        ----------
+        ctx
+        enchant
+            scorpion | queen | specter
+        confirm
+            Type confirm to enchant a weapon
+
+        Returns
+        -------
+
+        """
+        enchant = enchant.lower()
+        valid_enchants = ['reaper', 'queen', 'specter']
+        enchant_names = {'reaper': 'Reaper Poison', 'queen': 'Scorpion Queen Poison', 'specter': 'Specter Coating'}
+        id_mapping = {'reaper': 53201, 'queen': 53203, 'specter': 92127}
+
+        character = is_registered(ctx.author.id)
+        enchant_cost = int(get_bot_config('enchant_cost'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        archivist = get_profession_tier(character.id, f'Archivist')
+        if not (archivist.tier >= 4):
+            await ctx.reply(f'Only Archivists who have achieved Tier 4 can enchant weapons. \n'
+                            f'Current Archivist Tier: `T{archivist.tier}`')
+            return
+
+        if enchant not in valid_enchants:
+            await ctx.reply(f'You must specify a valid enchant to apply! Use `reaper`, `queen`, `specter`')
+            return
+
+        id_value = id_mapping[enchant]
+        enchant_value = enchant_names[enchant]
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will apply `1000 charges of {enchant_value}` to the weapon in hotbar slot 1.'
+                f'\n`{enchant_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                f'inventory while this command is processing, or it may fail. \nNo refunds will be '
+                f'given for user error! \n\nIf you are sure you want to proceed, '
+                f'use `v/enchant {enchant} confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= enchant_cost:
+            message = await ctx.reply(f'Enchanting weapon in hotbar slot 1, please wait... '
+                                      f'Do not move the item until the process is complete!')
+            eld_transaction(character, f'Weapon Enchant Cost', -enchant_cost)
+            run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 51 1000 2')
+            run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 52 1000 2')
+            run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 50 {id_value} 2')
+
+            await message.edit(content=f'`{character.char_name}` enchanted the weapon in hotbar slot 1 '
+                                       f'with `1000 charges of {enchant_value}`!\n'
+                                       f'\nConsumed `{enchant_cost}` Decaying Eldarium')
+        else:
+            await ctx.reply(f'Not enough materials to enchant a weapon! Available decaying eldarium: `{balance}`, '
+                            f'Needed: `{enchant_cost}`')
+            return
+
+    @commands.command(name='research')
+    async def research(self, ctx, sigil: str = '', amount: int = 0, confirm: str = ''):
+        """ - Researches a specified sigil for 100 Decaying Eldarium
+
+        Parameters
+        ----------
+        ctx
+        sigil
+            bat | demon | outsider | jhil | fiend | drowned | twice-drowned | goblin |
+            gremlin | harpy | serpent | snakemen | wolf-brother | wolfmen
+        amount
+            How many sigils to produce
+        confirm
+            Type confirm to enchant a weapon
+
+        Returns
+        -------
+
+        """
+        sigil = sigil.lower()
+        valid_sigils = ['bat', 'demon', 'outsider', 'jhil', 'fiend', 'drowned', 'twice-drowned', 'goblin',
+                        'gremlin', 'harpy', 'serpent', 'snakemen', 'wolf-brother', 'wolfmen']
+        sigil_names = {'bat': 'Sigil of the Bat',
+                       'demon': 'Sigil of the Demon',
+                       'outsider': 'Sigil of the Outsider',
+                       'jhil': 'Sigil of Jhils Brood',
+                       'fiend': 'Sigil of the Fiend',
+                       'drowned': 'Sigil of the Drowned',
+                       'twice-drowned': 'Sigil of the Twice-Drowned',
+                       'goblin': 'Sigil of the Goblin',
+                       'gremlin': 'Sigil of the Gremlin',
+                       'harpy': 'Sigil of the Harpy',
+                       'serpent': 'Sigil of the Serpent',
+                       'snakemen': 'Sigil of the Snakemen',
+                       'wolf-brother': 'Sigil of the Wolf-Brothers',
+                       'wolfmen': 'Sigil of the Wolfmen'}
+        id_mapping = {'bat': 100006,
+                      'demon': 100007,
+                      'outsider': 100014,
+                      'jhil': 100003,
+                      'fiend': 100008,
+                      'drowned': 100005,
+                      'twice-drowned': 100011,
+                      'goblin': 100001,
+                      'gremlin': 100010,
+                      'harpy': 100009,
+                      'serpent': 100013,
+                      'snakemen': 100002,
+                      'wolf-brother': 100004,
+                      'wolfmen': 100012}
+
+        character = is_registered(ctx.author.id)
+        research_cost = int(get_bot_config('research_cost'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        archivist = get_profession_tier(character.id, f'Archivist')
+        if not (archivist.tier == 5):
+            await ctx.reply(f'Only Archivists who have achieved Tier 5 can research sigils. \n'
+                            f'Current Archivist Tier: `T{archivist.tier}`')
+            return
+
+        if sigil not in valid_sigils:
+            await ctx.reply(f'You must specify a valid sigil to research! Use `bat`, `demon`, `outsider`, `jhil`, '
+                            f'`fiend`, `drowned`, `twice-drowned`, `goblin`, `gremlin`, `harpy`, `serpent`, '
+                            f'`snakemen`, `wolf-brother`, `wolfmen`')
+            return
+
+        if amount == 0:
+            await ctx.reply(f'You must research at least one sigil at a time! Use `v/research {sigil} amount`')
+            return
+
+        try:
+            int(amount)
+        except ValueError:
+            await ctx.reply(f'You can only research sigils in whole numbers greater than zero!')
+            return
+
+        id_value = id_mapping[sigil]
+        sigil_value = sigil_names[sigil]
+
+        final_cost = amount * research_cost
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will generate `{amount}x {sigil_value}` and place them in your claim list.'
+                f'\n`{final_cost} Decaying Eldarium` will be consumed.\nIf you are sure you want to proceed, '
+                f'use `v/research {sigil} {amount} confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= final_cost:
+            message = await ctx.reply(f'Researching sigils... please wait!')
+            eld_transaction(character, f'Sigil Research Cost: {sigil_value}', -final_cost)
+            add_reward_record(character.id, id_value, amount, f'Archivist - Research {sigil_value}')
+
+            await message.edit(content=f'`{character.char_name}` has researched `{amount}x {sigil_value}`! '
+                                       f'Use `v/claim` to receive them.'
+                                       f'\nConsumed `{final_cost}` Decaying Eldarium')
+        else:
+            await ctx.reply(f'Not enough materials to research that many sigils! '
+                            f'Available decaying eldarium: `{balance}`, '
+                            f'Needed: `{final_cost}`')
+            return
+
+    @commands.command(name='offspring')
+    async def offspring(self, ctx, pet: str = '', amount: int = 0, confirm: str = ''):
+        """ - Directs your animals to produce offspring, resulting in rare siptah baby animals using decaying eldarium
+
+        Parameters
+        ----------
+        ctx
+        pet
+            feraldog | lynx | lacerta | aardwolf | jungleclaw | siptah pelican |
+            mountain lion | turtle | tuskbeast | elephant | pup
+        amount
+            How many baby animals to produce
+        confirm
+            Type confirm to direct animals to produce offspring
+
+        Returns
+        -------
+
+        """
+        pet = pet.lower()
+        valid_pets = ['feraldog', 'lynx', 'lacerta', 'aardwolf', 'jungleclaw', 'pelican',
+                      'mountainlion', 'turtle', 'tuskbeast', 'elephant', 'pup']
+        pet_names = {'feraldog': 'Feral Dog Pup',
+                     'lynx': 'Island Lynx Cub',
+                     'lacerta': 'Crested Lacerta Hatchling',
+                     'aardwolf': 'Aardwolf Cub',
+                     'jungleclaw': 'Jungleclaw Cub',
+                     'pelican': 'Siptah Pelican Chick',
+                     'mountainlion': 'Mountain Lion Cub',
+                     'turtle': 'Turtle Hatchling',
+                     'tuskbeast': 'Siptah Rhinoceros Calf',
+                     'elephant': 'Antediluvian Elephant Calf',
+                     'pup': 'Playful Pup'}
+
+        pup_randomizer = random.randint(19223, 19229)
+        tuskbeast_randomizer = random.randint(19046, 19047)
+
+        id_mapping = {'feraldog': 19038,
+                      'lynx': 19039,
+                      'lacerta': 19040,
+                      'aardwolf': 19042,
+                      'jungleclaw': 19041,
+                      'pelican': 19043,
+                      'mountainlion': 19044,
+                      'turtle': 18262,
+                      'tuskbeast': int(tuskbeast_randomizer),
+                      'elephant': 19045,
+                      'pup': int(pup_randomizer)}
+
+        character = is_registered(ctx.author.id)
+        offspring_cost = int(get_bot_config('offspring_cost'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        tamer = get_profession_tier(character.id, f'Tamer')
+        if not (tamer.tier >= 4):
+            await ctx.reply(f'Only Tamers who have achieved Tier 4 can direct their animals to produce offspring. \n'
+                            f'Current Tamer Tier: `T{tamer.tier}`')
+            return
+
+        if pet not in valid_pets:
+            await ctx.reply(f'You must specify a valid pet to breed! Use `feraldog`, `lynx`, `lacerta`, `aardwolf`, '
+                            f'`jungleclaw`, `pelican`, `mountainlion`, `turtle`, `tuskbeast`, `elephant`, `pup`')
+            return
+
+        if amount == 0:
+            await ctx.reply(f'Your animals must produce at least one offspring at a time! '
+                            f'Use `v/offspring {pet} amount`')
+            return
+
+        try:
+            int(amount)
+        except ValueError:
+            await ctx.reply(f'Your anaimls can only produce offspring in whole numbers greater than zero!')
+            return
+
+        id_value = id_mapping[pet]
+        pet_value = pet_names[pet]
+
+        final_cost = amount * offspring_cost
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will generate `{amount}x {pet_value}` and place them in your claim list.'
+                f'\n`{final_cost} Decaying Eldarium` will be consumed.\nIf you are sure you want to proceed, '
+                f'use `v/offspring {pet} {amount} confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= final_cost:
+            message = await ctx.reply(f'Breeding animals... please wait!')
+            eld_transaction(character, f'Produce Offpsring Cost: {pet_value}', -final_cost)
+            add_reward_record(character.id, id_value, amount, f'Tamer - Produce {pet_value}')
+
+            await message.edit(content=f'`{character.char_name}`- `{amount}x{pet_value}` was born! '
+                                       f'Use `v/claim` to receive them.'
+                                       f'\nConsumed `{final_cost}` Decaying Eldarium')
+        else:
+            await ctx.reply(f'Not enough materials to produce that many offspring! '
+                            f'Available decaying eldarium: `{balance}`, '
+                            f'Needed: `{final_cost}`')
+            return
+
+    @commands.command(name='animalbond')
+    async def animalbond(self, ctx, confirm: str = ''):
+        """ - Increases the damage modifier of a pet to 3.0
+
+        Parameters
+        ----------
+        ctx
+        confirm
+            Type confirm to perform the ritual of bonding
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        bond_cost = int(get_bot_config('bond_cost'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        tamer = get_profession_tier(character.id, f'Tamer')
+        if not (tamer.tier == 5):
+            await ctx.reply(f'Only Tamers who have achieved Tier 5 perform an animal bonding ritual. \n'
+                            f'Current Tamer Tier: `T{tamer.tier}`')
+            return
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will set the Damage Modifier of your current pet on follow mode to `3.0`. '
+                f'Do not use this command with human followers, or you will be thrown into the volcano.\nIf you have '
+                f'War Party, you can bond with both following pets at once.\n'
+                f'\n`{bond_cost} Decaying Eldarium` will be consumed. \n\n'
+                f'If you are sure you want to proceed, '
+                f'use `v/animalbond confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= bond_cost:
+            message = await ctx.reply(f'Performing ritual of bonding with your pet, please wait... ')
+            eld_transaction(character, f'Animal Bond Cost', -bond_cost)
+            run_console_command_by_name(character.char_name,
+                                        f'setfollowerstat damagemodifiermelee 3')
+            run_console_command_by_name(character.char_name,
+                                        f'setfollowerstat damagemodifierranged 3')
+
+            await message.edit(content=f'`{character.char_name}` has performed a ritual of bonding with their pet, '
+                                       f'increasing their damage modifiers to `3.0`!'
+                                       f'\nConsumed `{bond_cost}` Decaying Eldarium')
+        else:
+            await ctx.reply(f'Not enough materials to perform a ritual of bonding! '
+                            f'Available decaying eldarium: `{balance}`, Needed: `{bond_cost}`')
+            return
+
+    @commands.command(name='crafterlist', aliases=['professionlist', 'whocrafter'])
+    async def crafterlist(self, ctx):
+        """ - Lists profession crafters of T4 or higher
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        professioner = ProfessionTier()
+        character = is_registered(ctx.author.id)
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        outputString = '__List of T4+ Profession Crafters__\n'
+        message = await ctx.reply(f'{outputString}')
+        results = db_query(False, f'select char_id, profession, tier from character_progression where '
+                                  f'season = {CURRENT_SEASON} and tier >= 4 order by profession asc, tier asc')
+
+        for result in results:
+            (professioner.char_id, professioner.profession, professioner.tier) = result
+            character = get_single_registration_new(char_id=professioner.char_id)
+            outputString += f'<@{character.discord_id}> - {professioner.profession} T{professioner.tier}\n'
+
+        await message.edit(content=f'{outputString}')
+
+        return
+
 
 @commands.Cog.listener()
 async def setup(bot):
