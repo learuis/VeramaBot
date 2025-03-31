@@ -87,7 +87,8 @@ def pull_online_character_info():
     for char in connected_chars:
         char_name = char[1].strip()
         # print(char_name)
-        registration = get_single_registration(char_name)
+        # registration = get_single_registration(char_name)
+        registration = get_single_registration_temp(char_name)
         if not registration:
             continue
         char_id = registration[0]

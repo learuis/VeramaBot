@@ -270,6 +270,25 @@ def get_single_registration(char_name):
         return results
     else:
         return False
+def get_single_registration_temp(char_name):
+
+    # char_name = str(char_name).casefold()
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    query = (f'select game_char_id, character_name, discord_user from registration where character_name = '
+             f'\'{char_name}\' and season = {CURRENT_SEASON} limit 1')
+
+    # print(f'{query}')
+    cur.execute(f'{query}')
+    results = cur.fetchone()
+
+    con.close()
+
+    if results:
+        return results
+    else:
+        return False
 
 def get_multiple_registration(namelist):
 
