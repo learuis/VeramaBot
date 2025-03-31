@@ -77,7 +77,7 @@ def get_checkin_details(character):
     results = db_query(False, f'select checkins.char_id, checkins.inn_id, checkins.valid_until '
                               f'from inn_checkins as checkins '
                               f'left join inn_locations as locs on checkins.inn_id = locs.inn_id '
-                              f'where checkins.char_id = {character.id}')
+                              f'where checkins.char_id = {character.id} order by checkins.valid_until desc limit 1')
     if not results:
         return checkin
     results = flatten_list(results)
@@ -299,11 +299,6 @@ class InnSystem(commands.Cog):
         if not character:
             reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
             await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
-            return
-
-        rconCharId = get_rcon_id(character.char_name)
-        if not rconCharId:
-            await ctx.reply(f'Character `{character.char_name}` must be online to teleport to an inn!')
             return
 
         checkin = get_checkin_details(character)

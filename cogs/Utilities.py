@@ -5,6 +5,7 @@ import os
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from cogs.QuestSystem import pull_online_character_info_new
 from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id, \
     flatten_list
 
@@ -399,6 +400,21 @@ class Utilities(commands.Cog):
         else:
             await message.edit(content=f'Stuck Journey step for `{char_name}` has been completed.')
 
+    @commands.command(name='test1')
+    @commands.has_any_role('Admin', 'Moderator')
+    async def test1(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        pull_online_character_info_new()
+        return
 
 @commands.Cog.listener()
 async def setup(bot):

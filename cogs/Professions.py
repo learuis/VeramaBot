@@ -111,6 +111,7 @@ def get_favor(char_id, faction):
                      f'and faction = \'{faction}\' '
                      f'and season = {CURRENT_SEASON} '
                      f'limit 1')
+    print(f'{query}')
 
     if not query:
         db_query(True,
@@ -133,6 +134,17 @@ def get_favor(char_id, faction):
 
     return favor_values
 
+def provisioner_thrall():
+    thrall_to_give = ''
+    count = int(get_bot_config(f'provisioner_thrall_count'))
+    record_id = random.randint(int(1), count)
+    results = db_query(False, f'select thrall_name from provisioner_rewards '
+                              f'where record_id = {record_id} limit 1')
+
+    for result in results:
+        thrall_to_give = str(result[0])
+
+    return thrall_to_give
 
 async def give_profession_xp(char_id, char_name, profession, tier, bot):
     profession_xp_mult = int(get_bot_config(f'{profession.casefold()}_xp_multiplier'))
@@ -223,7 +235,7 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
     return
 
 
-def give_favor(char_id, faction, tier):
+def modify_favor(char_id, faction, amount):
     query = db_query(False,
                      f'select char_id, faction, current_favor, lifetime_favor from factions '
                      f'where char_id = {char_id} '
@@ -234,19 +246,22 @@ def give_favor(char_id, faction, tier):
         db_query(True,
                  f'insert into factions '
                  f'(char_id, season, faction, current_favor, lifetime_favor) '
-                 f'values ({char_id},{CURRENT_SEASON}, \'{faction}\', {tier}, {tier})')
+                 f'values ({char_id},{CURRENT_SEASON}, \'{faction}\', {amount}, {amount})')
         # print(f'Created faction record for {char_id} / {faction}')
+
+    if amount >= 0:
+        db_query(True,
+                 f'update factions set lifetime_favor = ( '
+                 f'select lifetime_favor + {amount} from factions '
+                 f'where char_id = {char_id} and faction = \'{faction}\') '
+                 f'where char_id = {char_id} and faction = \'{faction}\'')
 
     db_query(True,
              f'update factions set current_favor = ( '
-             f'select current_favor + {tier} from factions '
+             f'select current_favor + {amount} from factions '
              f'where char_id = {char_id} and faction = \'{faction}\') '
              f'where char_id = {char_id} and faction = \'{faction}\'')
-    db_query(True,
-             f'update factions set lifetime_favor = ( '
-             f'select lifetime_favor + {tier} from factions '
-             f'where char_id = {char_id} and faction = \'{faction}\') '
-             f'where char_id = {char_id} and faction = \'{faction}\'')
+
     results = db_query(False,
                        f'select current_favor from factions '
                        f'where char_id = {char_id} and faction = \'{faction}\' limit 1')

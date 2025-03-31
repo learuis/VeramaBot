@@ -6,7 +6,8 @@ from discord.ext import commands
 from cogs.CommunityBoons import update_boons
 from cogs.EldariumBank import eld_transaction
 from cogs.Hunter import get_slayer_target, set_slayer_target, killed_target, clear_slayer_target
-from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp, give_favor, get_favor
+from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp, modify_favor, get_favor, \
+    provisioner_thrall
 from cogs.Reward import add_reward_record
 from functions.common import *
 from functions.externalConnections import runRcon, db_query, notify_all, rcon_all
@@ -19,6 +20,38 @@ class Registration:
 
     def reset(self):
         self.__init__()
+
+class CharLocation:
+    def __init__(self):
+        self.id = 0
+        self.x = 0
+        self.y = 0
+        self.z = 0
+
+def pull_online_character_info_new():
+    matches = []
+    worklist = []
+    character_location = CharLocation()
+    responses = runRcon(f'sql select c.id, ap.x, ap.y, ap.z from characters c '
+                        f'left join account a on c.playerId = a.id '
+                        f'left join actor_position ap on c.id = ap.id '
+                        f'where a.online = 1 '
+                        f'and c.lastTimeOnline >= ( select max(lastTimeOnline)-60 from characters ) '
+                        f'order by c.lastTimeOnline desc limit 40')
+    responses.output.pop(0)
+
+    for response in responses.output:
+        matches = re.findall(r'#\d+\s+(\d+)\s[|]\s+([-\d+.]+)\s[|]\s+([-\d+.]+)\s[|]\s+([-\d+.]+)', response)
+
+        for match in matches:
+            print(match)
+            (character_location.id, character_location.x, character_location.y, character_location.z) = match
+            worklist.append(character_location)
+
+    for item in worklist:
+        character = get_single_registration_new(f'', item.id)
+        print(character.char_name)
+
 
 def pull_online_character_info():
     # print(f'start char info query {int_epoch_time()}')
@@ -142,6 +175,7 @@ def display_quest_text(quest_id, quest_status, alt, char_name,
 
     return
 
+
 def character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius, query_id: int = 0):
     nwPoint = [trigger_x - trigger_radius, trigger_y - trigger_radius]
     sePoint = [trigger_x + trigger_radius, trigger_y + trigger_radius]
@@ -202,6 +236,7 @@ def add_cooldown(char_id, quest_id, cooldown: int):
 
     con.commit()
     con.close()
+
 
 def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
     character = Registration()
@@ -311,7 +346,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                     profession_eldarium_min_mult = int(get_bot_config(f'profession_eldarium_min_mult'))
                     profession_eldarium_min_tier_mult = int(get_bot_config(f'profession_eldarium_min_tier_mult'))
                     profession_eldarium_max_mult = int(get_bot_config(f'profession_eldarium_max_mult'))
-                    range_min = (((tier**2) * profession_eldarium_min_mult) +
+                    range_min = (((tier ** 2) * profession_eldarium_min_mult) +
                                  (tier * profession_eldarium_min_tier_mult) +
                                  ((5 - tier) * profession_eldarium_min_tier_mult))
                     range_max = (range_min * profession_eldarium_max_mult)
@@ -330,6 +365,21 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                             error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
                             add_reward_record(int(char_id), int(reward_template_id), int(random_qty),
                                               f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
+                case 'provisioner':
+                    current_favor = get_favor(char_id, reward_command)
+                    threshhold = int(get_bot_config(f'{reward_command}_reward_threshhold'))
+                    print(f'{reward_command} threshold: {threshhold} current_favor = {current_favor.current_favor}')
+
+                    if int(current_favor.current_favor) >= threshhold:
+                        modify_favor(char_id, reward_command, -threshhold)
+                        thrall_to_give = provisioner_thrall()
+                        run_console_command_by_name(char_name, f'dc spawn thrall {thrall_to_give}')
+                        display_quest_text(quest_id, 0, False, char_name,
+                                           6, f'Joined!',
+                                           f'A new follower has pledged loyalty to you!')
+                    else:
+                        continue
+
                 case 'slayer':
                     quantity = int(get_bot_config(f'beast_slayer_reward'))
                     eld_transaction(character, f'Beast Slayer Reward', quantity)
@@ -342,7 +392,6 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
 
 
 def treasure_broadcast(override=False):
-
     if not override:
         treasure_last_announced = get_bot_config(f'treasure_last_announced')
         if int(treasure_last_announced) > int_epoch_time() - 3600:
@@ -513,18 +562,32 @@ async def oneStepQuestUpdate(bot):
                                            f'Quarry:', f'{current_target.display_name}')
                 continue
             case 'Provisioner' | 'Ymir' | 'Zath' | 'Mitra' | 'Set' | 'Derketo' | 'Yog' | 'Jhebbal Sag':
-                # favor-based profession tiers will always be 0
-                player_tier = get_profession_tier(char_id, requirement_type)
-                if player_tier.turn_ins_this_cycle >= int(get_bot_config(f'profession_cycle_limit')):
-                    print(f'Skipping quest {quest_id}, id {char_id} {char_name}, at cycle limit')
-                    display_quest_text(quest_id, 0, True, char_name,
-                                       2, f'Exceeded', f'Limit for this cycle')
-                    continue
+                # item_qty here is used for how many points will be awarded for the item
+                missingitem = 0
+                item_qty = 0
 
-                get_favor(char_id, requirement_type)
-                continue
+                req_list = db_query(False, f'select template_id, item_qty '
+                                           f'from quest_requirements where quest_id = {quest_id}')
+                for requirement in req_list:
+                    (template_id, item_qty) = requirement
+                    inventoryHasItem = check_inventory(char_id, 0, template_id)
+                    if inventoryHasItem:
+                        consume_from_inventory(char_id, char_name, template_id)
+                    else:
+                        missingitem += 1
+                        print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
+                              f'does not have the required item {template_id}')
+                        continue
+                if missingitem == 0:
+                    display_quest_text(quest_id, 0, False, char_name)
+                    print(f'{item_qty}')
+                    modify_favor(char_id, 'provisioner', item_qty)
+                    print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                    add_cooldown(char_id, quest_id, repeatable)
+                    grant_reward(char_id, char_name, quest_id, repeatable)
 
     bot.quest_running = False
+
 
 class QuestSystem(commands.Cog):
     def __init__(self, bot: commands.Bot):

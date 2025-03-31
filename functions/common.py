@@ -21,7 +21,7 @@ SERVER_NAME = str(os.getenv('SERVER_NAME'))
 SERVER_PORT = int(os.getenv('SERVER_PORT'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
-
+SERVER_IP = str(os.getenv('SERVER_IP'))
 
 class Registration:
     def __init__(self):
@@ -271,6 +271,26 @@ def get_single_registration(char_name):
     else:
         return False
 
+def get_multiple_registration(namelist):
+
+    for name in namelist:
+        name = str(name.casefold())
+
+    char_name = str(char_name).casefold()
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
+                f'\'%{char_name}%\' and season = {CURRENT_SEASON}')
+    results = cur.fetchone()
+
+    con.close()
+
+    if results:
+        return results
+    else:
+        return False
+
 def run_console_command_by_name(char_name: str, command: str):
     rcon_id = get_rcon_id(f'{char_name}')
     if not rcon_id:
@@ -283,6 +303,10 @@ def run_console_command_by_name(char_name: str, command: str):
 async def editStatus(message, bot):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
 
+    # currentPlayers = count_online_players()
+    # maxPlayers = 40
+    # onlineStatus = f'<indicator disabled>'
+
     try:
         response = requests.get(QUERY_URL, timeout=5).json()
     except requests.exceptions.Timeout:
@@ -292,7 +316,7 @@ async def editStatus(message, bot):
         print(f'Exception occurred in querying server for bot status update.')
         return
 
-    ipAddress = response.get('ipAddress')
+    # ipAddress = response.get('ipAddress')
     onlineStatus = response.get('online')
     currentPlayers = response.get('currentPlayers')
     maxPlayers = response.get('maxPlayers')
@@ -338,7 +362,7 @@ async def editStatus(message, bot):
         await message.edit(content=f'**Server Status**\n'
                                    f'__{currentTime}__\n'
                                    f'- Server Name: `{SERVER_NAME}`\n'
-                                   f'- IP Address:Port: `{ipAddress}:{SERVER_PORT}`\n'
+                                   f'- IP Address:Port: `{SERVER_IP}:{SERVER_PORT}`\n'
                                    f'- Password: `{SERVER_PASSWORD}`\n'
                                    f'-- {statusSymbol} MAINTENANCE {statusSymbol} --\n'
                                    f'We\'ll be back soon!')
@@ -347,7 +371,7 @@ async def editStatus(message, bot):
         await message.edit(content=f'**Server Status**\n'
                                    f'__{currentTime}__\n'
                                    f'- Server Name: `{SERVER_NAME}`\n'
-                                   f'- IP Address:Port: `{ipAddress}:{SERVER_PORT}`\n'
+                                   f'- IP Address:Port: `{SERVER_IP}:{SERVER_PORT}`\n'
                                    f'- Password: `{SERVER_PASSWORD}`\n'
                                    f'- Server Online: `{onlineStatus}` {statusSymbol}\n'
                                    f'- Players Connected: `{currentPlayers}` / `{maxPlayers}` {onlineSymbol}\n'

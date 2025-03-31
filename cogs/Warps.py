@@ -106,14 +106,23 @@ class Warps(commands.Cog):
                 await ctx.reply(f'This command can only be used during an event!')
                 return
 
-            hex_name = bytes(name, 'utf8')
-            hex_name = hex_name.hex()
+            # hex_name = bytes(name, 'utf8')
+            # hex_name = hex_name.hex()
             # print(f'Char name in hex is {hex_name}')
 
-            commandString = (f'sql select x,y,z from actor_position where id in '
-                             f'(select object_id from properties '
-                             f'where hex(value) like \'%{hex_name}%\' '
-                             f'and name like \'%BP_BAC_SpawnPoints_C.SpawnOwnerName%\' limit 1)')
+            commandString = (f'sql select ap.x,ap.y,ap.z from actor_position ap '
+                             f'left join properties p on ap.id = p.object_id '
+                             f'where hex(p.value) like '
+                             f'( select \'%\' || hex(a.platformId) || \'%\' from account a '
+                             f'left join characters c on a.id = c.playerId '
+                             f'left join properties p2 on a.id = p2.object_id '
+                             f'where c.id = {character.id} ) '
+                             f'order by p.object_id desc limit 1;')
+
+            # commandString = (f'sql select x,y,z from actor_position where id in '
+            #                  f'(select object_id from properties '
+            #                  f'where hex(value) like \'%{hex_name}%\' '
+            #                  f'and name like \'%BP_BAC_SpawnPoints_C.SpawnOwnerName%\' limit 1)')
             # print(commandString)
 
             rconResponse = runRcon(f'{commandString}')
