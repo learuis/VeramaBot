@@ -270,6 +270,7 @@ def get_single_registration(char_name):
         return results
     else:
         return False
+
 def get_single_registration_temp(char_name):
 
     # char_name = str(char_name).casefold()
