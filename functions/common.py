@@ -323,23 +323,27 @@ def run_console_command_by_name(char_name: str, command: str):
 async def editStatus(message, bot):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
 
-    # currentPlayers = count_online_players()
-    # maxPlayers = 40
-    # onlineStatus = f'<indicator disabled>'
+    currentPlayers = count_online_players()
+    maxPlayers = 40
+    onlineStatus = f'<indicator disabled>'
 
     try:
-        response = requests.get(QUERY_URL, timeout=5).json()
+        response = requests.get(QUERY_URL, timeout=5) #.json()
     except requests.exceptions.Timeout:
         print("Livestatus Request timed out")
         raise requests.exceptions.Timeout
     except Exception:
         print(f'Exception occurred in querying server for bot status update.')
         return
+    matches = re.findall(r'.*<li>&lt;span class=\'label\'&gt;(.*):&lt;\/span&gt; (.*)', response.text)
 
-    # ipAddress = response.get('ipAddress')
-    onlineStatus = response.get('online')
-    currentPlayers = response.get('currentPlayers')
-    maxPlayers = response.get('maxPlayers')
+    for match in matches:
+        continue
+
+    # # ipAddress = response.get('ipAddress')
+    # onlineStatus = response.get('online')
+    # currentPlayers = response.get('currentPlayers')
+    # maxPlayers = response.get('maxPlayers')
 
     if int(get_bot_config(f'maintenance_flag')) == 1:
         statusSymbol = '🔧'
@@ -493,36 +497,44 @@ def int_epoch_time():
 
     return epoch_time
 
-def consume_from_inventory(char_id, char_name, template_id):
-    results = runRcon(f'sql select item_id from item_inventory '
-                      f'where owner_id = {char_id} and inv_type = 0 '
-                      f'and template_id = {template_id} order by item_id asc limit 1')
-    if results.error:
-        print(f'RCON error received in consume_from_inventory')
-        return False
+def consume_from_inventory(char_id, char_name, template_id, item_slot=-1):
+    if item_slot >= 0:
+        run_console_command_by_name(char_name, f'setinventoryitemintstat {item_slot} 1 0 0')
+        print(f'Deleted {template_id} from {char_id} {char_name} in slot {item_slot}')
+        return True
 
-    if results.output:
-        results.output.pop(0)
-        if not results.output:
-            print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
+    elif item_slot == -1:
+        print(f'item_slot ({item_slot}) not specified, searching inventory for {template_id}')
+        results = runRcon(f'sql select item_id from item_inventory '
+                          f'where owner_id = {char_id} and inv_type = 0 '
+                          f'and template_id = {template_id} order by item_id asc limit 1')
+        if results.error:
+            print(f'RCON error received in consume_from_inventory')
             return False
-        else:
-            for result in results.output:
-                match = re.search(r'\s+\d+ | [^|]*', result)
-                item_slot = int(match[0])
-                run_console_command_by_name(char_name, f'setinventoryitemintstat {item_slot} 1 0 0')
-                print(f'Deleted {template_id} from {char_id} {char_name} in slot {item_slot}')
-                return True
-    print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
-    return True
+
+        if results.output:
+            results.output.pop(0)
+            if not results.output:
+                print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
+                return False
+            else:
+                for result in results.output:
+                    match = re.search(r'\s+\d+ | [^|]*', result)
+                    item_slot = int(match[0])
+                    run_console_command_by_name(char_name, f'setinventoryitemintstat {item_slot} 1 0 0')
+                    print(f'Deleted {template_id} from {char_id} {char_name} in slot {item_slot}')
+                    return True
+        print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
+        return False
 
 
 def check_inventory(owner_id, inv_type, template_id):
-    value = 0
+    matched_template_id = 0
+    slot = -1
 
-    results = runRcon(f'sql select template_id from item_inventory '
+    results = runRcon(f'sql select item_id, template_id from item_inventory '
                       f'where owner_id = {owner_id} and inv_type = {inv_type} '
-                      f'and template_id = {template_id} limit 1')
+                      f'and template_id in ({template_id}) limit 1')
     if results.error:
         print(f'RCON error received in check_inventory')
         return False
@@ -531,20 +543,26 @@ def check_inventory(owner_id, inv_type, template_id):
         results.output.pop(0)
         if not results.output:
             print(f'The required item {template_id} is missing from the inventory of {owner_id}.')
-            return False
+            return slot
     else:
         print(f'Should this ever happen?')
 
     for result in results.output:
         match = re.search(r'\s+\d+ | [^|]*', result)
         # print(f'{match}')
-        value = match[0]
+        slot = match[0]
+        matched_template_id = match[1]
+        try:
+            slot = int(slot)
+            matched_template_id = int(matched_template_id)
+            if matched_template_id == template_id:
+                print(f'The required item {template_id} is present in the inventory of {owner_id} in slot {slot}.')
+                return slot
+        except ValueError:
+            print(f'ValueError in converting slot ({slot}) or template_id ({template_id}) to int.')
+            return slot
 
-    if int(value) == template_id:
-        print(f'The required item {template_id} is present in the inventory of {owner_id}.')
-        return True
-
-    return False
+    return slot
 
 def count_inventory_qty(owner_id, inv_type, template_id):
     value = 0

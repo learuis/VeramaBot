@@ -453,6 +453,11 @@ class Professions(commands.Cog):
         else:
             outputString += f'`Beast Slayer` - Current Quarry: `None`\n\n'
 
+        favor = get_favor(character.id, f'provisioner')
+        if current_target.char_id:
+            outputString += (f'`Provisioner` - Current Favor: `{favor.current_favor} / 50` | '
+                             f'Lifetime Favor: `{favor.lifetime_favor}`\n\n')
+
         await ctx.reply(f'Profession Details for `{character.char_name}`:\n'
                         f'{outputString}')
 
@@ -589,6 +594,28 @@ class Professions(commands.Cog):
                                    f'for `{objective.profession}` Tier `{objective.tier}`')
             else:
                 await ctx.send(f'Invalid profession specified. Must use Blacksmith, Armorer, Tamer, Archivist')
+
+    @commands.command(name='renameitem')
+    @commands.has_any_role('Admin')
+    async def renameitem(self, ctx, item_id: int, item_name: str):
+        """
+
+        Parameters
+        ----------
+        ctx
+        item_id
+        item_name
+
+        Returns
+        -------
+
+        """
+        db_query(True, f'update profession_item_list '
+                       f'set item_name = \'{item_name}\' where item_id = {item_id}')
+        response = db_query(False, f'select * from profession_item_list where item_id = \'{item_id}\'')
+        print(response)
+
+        await ctx.reply(response)
 
     @commands.command(name='professiondetails')
     @commands.has_any_role('Admin', 'Moderator')

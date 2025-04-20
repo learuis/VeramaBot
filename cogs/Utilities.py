@@ -400,6 +400,37 @@ class Utilities(commands.Cog):
         else:
             await message.edit(content=f'Stuck Journey step for `{char_name}` has been completed.')
 
+    @commands.command(name='thralldeath')
+    @commands.has_any_role('Admin', 'Moderator')
+    async def thralldeath(self, ctx, owner: str):
+        """
+
+        Parameters
+        ----------
+        ctx
+        owner
+            Partial clan name or solo player name
+
+        Returns
+        -------
+
+        """
+        outputString = ''
+
+        response = runRcon(f'sql select distinct datetime(worldTime,\'unixepoch\'), '
+                           f'\'TeleportPlayer \' || x || \' \' || y || \' \' || z as Coordinates, objectName, objectId, '
+                           f'ownerId, ownerName, ownerGuildId, ownerGuildName from game_events where '
+                           f'worldTime >= 1729166400 and eventType = 86 and objectId <> 0 '
+                           f'and length(argsMap) = 4 and ( z > 1000000000 or z < -500000 )'
+                           f'and ownerGuildName like \'%{owner}%\' group by objectId order by worldTime desc;')
+        response.output.pop(0)
+        if response.output:
+            for record in response.output:
+                outputString += f'{record}\n'
+            await ctx.reply(f'{outputString}')
+        else:
+            await ctx.reply(f'No under-mesh thrall deaths found matching `{owner}`')
+
     @commands.command(name='test1')
     @commands.has_any_role('Admin', 'Moderator')
     async def test1(self, ctx):

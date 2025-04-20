@@ -67,7 +67,7 @@ def calculate_bonus(char_id, daily=False):
         bonus, expertise_points = get_character_expertise(char_id)
         bonusMessage += f'Expertise Bonus: `+{expertise_points*10}%` | '
 
-        if check_inventory(char_id, 2, 4196):
+        if check_inventory(char_id, 2, 4196) >= 0:
             bonus += 10
             bonusMessage += f'Gravedigger Bonus: `+100%` | '
         else:

@@ -153,6 +153,18 @@ def count_online_players():
 
     return len(connected_chars)
 
+async def async_count_online_players():
+    connected_chars = []
+
+    rconResponse = await async_runRcon('listplayers')
+    rconResponse.output.pop(0)
+
+    for x in rconResponse.output:
+        match = re.findall(r'\s+\d+ | [^|]*', x)
+        connected_chars.append(match)
+
+    return len(connected_chars)
+
 def notify_all(style: int, text1: str, text2: str):
     failures = 0
     command_list = []

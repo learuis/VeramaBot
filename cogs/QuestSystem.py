@@ -369,7 +369,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                 case 'provisioner':
                     current_favor = get_favor(char_id, reward_command)
                     threshhold = int(get_bot_config(f'{reward_command}_reward_threshhold'))
-                    print(f'{reward_command} threshold: {threshhold} current_favor = {current_favor.current_favor}')
+                    print(f'{reward_command} threshhold: {threshhold} current_favor = {current_favor.current_favor}')
 
                     if int(current_favor.current_favor) >= threshhold:
                         modify_favor(char_id, reward_command, -threshhold)
@@ -499,8 +499,8 @@ async def oneStepQuestUpdate(bot):
                 for requirement in req_list:
                     (template_id, item_qty) = requirement
                     inventoryHasItem = check_inventory(char_id, 0, template_id)
-                    if inventoryHasItem:
-                        consume_from_inventory(char_id, char_name, template_id)
+                    if inventoryHasItem >= 0:
+                        consume_from_inventory(char_id, char_name, template_id, inventoryHasItem)
                     else:
                         missingitem += 1
                         print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
@@ -525,7 +525,7 @@ async def oneStepQuestUpdate(bot):
                 objective = get_current_objective(requirement_type, player_tier.tier)
 
                 inventoryHasItem = check_inventory(char_id, 0, objective.item_id)
-                if inventoryHasItem:
+                if inventoryHasItem >= 0:
                     consume_from_inventory(char_id, char_name, objective.item_id)
                     display_quest_text(quest_id, 0, False, char_name)
                     await give_profession_xp(
@@ -572,7 +572,7 @@ async def oneStepQuestUpdate(bot):
                 for requirement in req_list:
                     (template_id, item_qty) = requirement
                     inventoryHasItem = check_inventory(char_id, 0, template_id)
-                    if inventoryHasItem:
+                    if inventoryHasItem >= 0:
                         consume_from_inventory(char_id, char_name, template_id)
                     else:
                         missingitem += 1

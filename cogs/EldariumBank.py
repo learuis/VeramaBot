@@ -1,3 +1,5 @@
+import math
+
 from discord.ext import commands
 
 from cogs.Reward import add_reward_record
@@ -133,9 +135,11 @@ class EldariumBank(commands.Cog):
                             f'New Balance: {new_balance}')
             return
 
+
+
     @commands.command(name='withdraw', aliases=['atm'])
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
-    async def withdraw(self, ctx, amount: int = 0, eld_type: str = 'raw'):
+    async def withdraw(self, ctx, amount: str = '0', eld_type: str = 'raw'):
         """
         Eldarium bank transaction
 
@@ -162,6 +166,22 @@ class EldariumBank(commands.Cog):
             reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
             await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
+
+        try:
+            amount = int(amount)
+        except ValueError:
+            if amount == 'all':
+                if eld_type == 'raw':
+                    amount = get_balance(character)
+                elif eld_type == 'bars':
+                    amount = math.floor(get_balance(character) / 2)
+                if amount == 0:
+                    await ctx.reply(f'You do not have enough decaying eldarium in your account to withdraw that much!')
+                    return
+                if amount > 1000:
+                    await ctx.reply(f'Withdrawals are limited to 1,000 units of currency. '
+                                    f'Your withdrawal has been adjusted.')
+                    amount = 1000
 
         if amount <= 0:
             await ctx.reply(f'Must withdraw eldarium in whole number amounts > 0!')

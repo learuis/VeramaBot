@@ -93,7 +93,7 @@ async def onlineCharacterInfo():
         return
 
 
-@tasks.loop(seconds=30)
+@tasks.loop(seconds=45)
 async def oneStepQuestChecker():
 
     try:

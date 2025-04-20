@@ -355,12 +355,12 @@ class Registration(commands.Cog):
         if playerList:
             outputString += f'__Player name matches:__\n'
             for player in playerList:
-                outputString += f'`{player[0]}` is {rankLookup.get(int(player[1]))} of `{player[2]} (`{player[3]}`)\n'
+                outputString += f'`{player[0]}` is {rankLookup.get(int(player[1]))} of `{player[2]}` (`{player[3]}`)\n'
 
         if clanList:
             outputString += f'__Clan name matches:__\n'
             for clan in clanList:
-                outputString += f'`{clan[0]}` is {rankLookup.get(int(clan[1]))} of `{clan[2]} (`{clan[3]}`)\n'
+                outputString += f'`{clan[0]}` is {rankLookup.get(int(clan[1]))} of `{clan[2]}` (`{clan[3]}`)\n'
 
         if outputString:
             await ctx.send(f'{outputString}')
