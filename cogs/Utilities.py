@@ -361,35 +361,90 @@ class Utilities(commands.Cog):
                         f'`TeleportPlayer {results[0]} {results[1]} {results[2]}`')
         return
 
-    @commands.command(name='journey', aliases=['fixjourney'])
-    @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def journey(self, ctx, name: str):
-        """- Fix a stuck journey step. Verify that they have completed the requirement before using.
+    @commands.command(name='clearmyquests', aliases=['questclear', 'questfix'])
+    async def clearmyquests(self, ctx, confirm: str = 'False'):
+        """- Erases your Liu Fei and Freya quest progress.
 
         Parameters
         ----------
         ctx
-        name
-            Provide the full character name, using quotes if there are spaces.
+        confirm
+            Type confirm to execute the command
 
         Returns
         -------
 
         """
-        message = await ctx.reply(f'Fixing current journey step for `{name}`...')
-
-        character = get_single_registration(name)
+        character = is_registered(ctx.author.id)
 
         if not character:
-            await message.edit(content=f'No character named `{name}` registered!')
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            return
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will completely erase your quest progress for BOTH Liu Fei and Freya. '
+                f'It cannot be restored by any means (even by Verama!) after being erased.'
+                f'\n\nIf you are sure you want to proceed, use `v/clearmyquests confirm`')
+            return
+
+        message = await ctx.reply(f'Erasing Liu Fei and Freya quest progress for `{character.char_name}`...')
+
+        if get_rcon_id(character.char_name):
+            await message.edit(content=f'Character {character.char_name} must be offline to erase quest progress.')
+            return
+
+        rconCommand = (f'sql delete from properties '
+                       f'where name like \'%BP_AC_PlayerQuestState_C.m_ActiveQuests%\' '
+                       f'and object_id = {character.id}')
+
+        rconResponse = runRcon(rconCommand)
+        if rconResponse.error == 1:
+            await message.edit(f'Authentication error on {rconCommand}')
             return
         else:
-            (char_id, char_name, discord_id) = character
+            await message.edit(content=f'Erased all Liu Fei and Freya quest progress for `{character.char_name}`')
+            return
 
-        rconCharId = get_rcon_id(char_name)
+    @commands.command(name='journey', aliases=['fixjourney'])
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def journey(self, ctx, confirm: str = 'False'):
+        """- Fix your stuck journey step. Please do not abuse this command!
+
+        Parameters
+        ----------
+        ctx
+        confirm
+            Type confirm to execute the command
+
+        Returns
+        -------
+
+        """
+
+        character = is_registered(ctx.author.id)
+        # character = get_single_registration(name)
+
+        if not character:
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            return
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will complete your current active journey step. Only use this command if you '
+                f'have completed a journey step but the game did not recognize it. Common reasons for this '
+                f'are group dungeon runs and thrall placement. Abuse of this command will result in '
+                f'a trip to the volcano and loss of permission to use the command.'
+                f'\n\nIf you are sure you want to proceed, use `v/journey confirm`')
+            return
+
+        message = await ctx.reply(f'Fixing current journey step for `{character.char_name}`...')
+
+        rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:
-            await message.edit(content=f'Character {char_name} must be online to fix a journey step.')
+            await message.edit(content=f'Character {character.char_name} must be online to fix a journey step.')
             return
 
         rconCommand = f'con {rconCharId} JourneyCompleteStepForCurrent'
@@ -398,7 +453,8 @@ class Utilities(commands.Cog):
             await message.edit(f'Authentication error on {rconCommand}')
             return
         else:
-            await message.edit(content=f'Stuck Journey step for `{char_name}` has been completed.')
+            await message.edit(content=f'Stuck Journey step for `{character.char_name}` has been completed.')
+            return
 
     @commands.command(name='thralldeath')
     @commands.has_any_role('Admin', 'Moderator')

@@ -135,7 +135,71 @@ class EldariumBank(commands.Cog):
                             f'New Balance: {new_balance}')
             return
 
+    @commands.command(name='pay', aliases=['transfer', 'sendmoney'])
+    async def pay(self, ctx, payee: discord.Member, amount: str = 0, confirm: str = ''):
+        """ - Transfers decaying eldarium to another registered player.
 
+        v/pay @someone 200 bars
+
+        Parameters
+        ----------
+        ctx
+        payee
+            Discord @ tag the user you want to transfer to
+        amount
+            Specify the amount to be transferred
+        confirm
+            Type confirm to execute the transfer
+
+        Returns
+        -------
+
+        """
+        eld_type = f'raw'
+
+        payor = is_registered(ctx.author.id)
+        if not payor:
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            return
+
+        payee = is_registered(payee.id)
+        if not payee:
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            return
+
+        try:
+            amount = int(amount)
+            print(amount)
+        except ValueError:
+            await ctx.reply(f'Must transfer eldarium in whole number amounts > 0!')
+            return
+
+        if amount <= 0:
+            await ctx.reply(f'Must transfer eldarium in whole number amounts > 0!')
+            return
+
+        amount_string = f'{amount} Decaying Eldarium'
+
+        check_balance = sufficient_funds(payor, abs(amount), eld_type)
+        if check_balance:
+            if 'confirm' not in confirm:
+                await ctx.reply(f'This command will transfer `{amount_string}` to `{payee.char_name}`. '
+                                f'If this is correct, add `confirm` to the end of the command to execute the transfer.')
+                return
+            new_balance = eld_transaction(payor, f'Transfer to {payee.char_name}', -amount, eld_type)
+            payee_balance = eld_transaction(payee, f'Transfer from {payor.char_name}', amount, eld_type)
+
+            await ctx.reply(
+                f'Transaction complete: Transferred {amount_string} to {payee.char_name}\'s account\n'
+                f'`{payor.char_name}\'s` New Balance: {new_balance} Decaying Eldarium\n'
+                f'`{payee.char_name}\'s` New Balance: {payee_balance} Decaying Eldarium\n')
+            return
+        else:
+            balance = int(get_balance(payor))
+            await ctx.reply(f'Insufficient funds! Available decaying eldarium: {balance}')
+            return
 
     @commands.command(name='withdraw', aliases=['atm'])
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
@@ -261,7 +325,7 @@ class EldariumBank(commands.Cog):
         return
 
     @commands.command(name='transactiondetail', aliases=['txd'])
-    async def transactiondetail(self, ctx, name: str):
+    async def transactiondetail(self, ctx, name: str, transaction_count: int):
         """ Shows the 10 most recent transactions for the named player
 
         Parameters
@@ -269,6 +333,7 @@ class EldariumBank(commands.Cog):
         ctx
         name
             Character name
+        transaction_count
 
         Returns
         -------
@@ -285,12 +350,12 @@ class EldariumBank(commands.Cog):
             await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
-        results = db_query(False, f'select * from bank_transactions where char_id = {character.id} '
-                                  'order by timestamp desc limit 10')
+        results = db_query(False, f'select * from bank_transactions where char_id = {character.id}'
+                                  f' order by timestamp desc limit {transaction_count}')
 
         if results:
             for result in results:
-                message += f'{result}\n'
+                message += f'{result} | <t:{result[4]}>\n'
             await ctx.send(f'{message}')
             return
         else:

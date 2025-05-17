@@ -33,6 +33,14 @@ class Admin(commands.Cog):
     class RconFlags(commands.FlagConverter):
         command: str
 
+    @commands.command(name='command_sync')
+    @commands.has_any_role('Admin')
+    async def command_sync(self, ctx):
+        await self.bot.tree.sync()
+        await ctx.reply(f'Command sync completed.')
+        return
+
+
     @commands.command(name='restart')
     @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
@@ -187,6 +195,33 @@ class Admin(commands.Cog):
                 await ctx.send(str(splitOutput))
             else:
                 await ctx.send(str(outputString))
+
+    @commands.command(name='welcome')
+    @commands.has_any_role('Moderator', 'Helper', 'Admin')
+    async def welcome(self, ctx, char_name: str):
+        """ - Sends a welcome message to a new player
+
+        Parameters
+        ----------
+        ctx
+        char_name
+            Character name. Use double quotes if there are spaces
+
+        Returns
+        -------
+
+        """
+        rconCharId = get_rcon_id(char_name)
+        if rconCharId:
+            runRcon(f'con {rconCharId} testfifo 7 Welcome Rules and Gear at G3/G4')
+            await ctx.send(f'Sent a welcome message to `{char_name}`!')
+            return
+        else:
+            await ctx.send(f'No character named {char_name} is online!')
+            return
+
+
+
 
     @commands.command(name='veteran2')
     @commands.has_any_role('Admin')

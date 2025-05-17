@@ -1,0 +1,9 @@
+services:
+  veramabot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - data/server.env
+    volumes:
+      - /veramabot:/app/data

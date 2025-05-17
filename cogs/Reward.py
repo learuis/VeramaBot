@@ -66,8 +66,11 @@ class Rewards(commands.Cog):
 
         result = db_query(False, f'select name from cust_item_xref where template_id = {itemId} limit 1')
 
-        for x in result:
-            itemName = x[0]
+        if result:
+            for x in result:
+                itemName = x[0]
+        else:
+            itemName = 'Item'
 
         for word in reason:
             reasonString += f'{word} '

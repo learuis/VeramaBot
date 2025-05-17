@@ -6,7 +6,7 @@ from discord.ext import commands
 
 from cogs.EldariumBank import get_balance, eld_transaction
 from cogs.FeatClaim import grant_feat
-from cogs.Hunter import get_slayer_target
+from cogs.Hunter import get_slayer_target, get_notoriety
 from cogs.Reward import add_reward_record
 from functions.common import int_epoch_time, get_bot_config, set_bot_config, is_registered, get_single_registration, \
     flatten_list, get_registration, get_rcon_id, run_console_command_by_name, get_clan, get_single_registration_new
@@ -137,9 +137,9 @@ def get_favor(char_id, faction):
 def provisioner_thrall():
     thrall_to_give = ''
     count = int(get_bot_config(f'provisioner_thrall_count'))
-    record_id = random.randint(int(1), count)
+    # record_id = random.randint(int(1), count)
     results = db_query(False, f'select thrall_name from provisioner_rewards '
-                              f'where record_id = {record_id} limit 1')
+                              f'order by random() limit 1')
 
     for result in results:
         thrall_to_give = str(result[0])
@@ -281,6 +281,7 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     profession_community_goal_desc = str(get_bot_config(f'profession_community_goal_desc'))
     next_update = last_profession_update + profession_update_interval
     profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist']
+    faction_list = ['Provisioner', 'Slayer']
     count = 0
 
     current_time = int_epoch_time()
@@ -326,10 +327,6 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
 
             # print(f'Updated {profession} Tier {tier}: {item_name}')
 
-    if not displayOnly:
-        set_bot_config(f'last_profession_update', current_time)
-        next_update = current_time + profession_update_interval
-
     all_total = db_query(False, f'select sum(current_experience) from character_progression '
                                 f'where season = {CURRENT_SEASON}')
     all_total = flatten_list(all_total)
@@ -337,13 +334,13 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     totals = db_query(False, f'select profession, sum(current_experience) '
                              f'from character_progression where season = {CURRENT_SEASON} '
                              f'group by profession order by sum(current_experience) desc')
-    outputString += f'__Serverwide:__\n'
-    for record in totals:
-        outputString += f'`{record[0]}` - `{record[1]}`\n'
-    outputString += f'`Total` - `{all_total[0]}`\n\n'
+    # outputString += f'__Serverwide:__\n'
+    # for record in totals:
+    #     outputString += f'`{record[0]}` - `{record[1]}`\n'
+    # outputString += f'`Total` - `{all_total[0]}`\n'
 
-    outputString += (f'__Goal:__\n`{all_total[0]}` / `{profession_community_goal}` - '
-                     f'{profession_community_goal_desc}\n')
+    # outputString += (f'__Goal:__\n`{all_total[0]}` / `{profession_community_goal}` - '
+    #                  f'{profession_community_goal_desc}\n')
 
     # print(f'make leaderboard')
 
@@ -369,8 +366,37 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
                 outputString += f'`{char_name}` - `{character[1]}` | '
                 # print(f'outputstring is {outputString}')
 
+    # print(f'{faction_list}')
+    for faction in faction_list:
+        # print(f'{faction}')
+
+        query = (f'select char_id, lifetime_favor from factions where season = {CURRENT_SEASON} '
+                 f'and faction like \'%{faction.lower()}%\' group by char_id order by lifetime_favor desc limit 3')
+        faction_leaders = db_query(False, f'{query}')
+        # print(f'{faction_leaders}')
+
+        if not faction_leaders:
+            continue
+        else:
+            outputString += f'\n__{faction} Leaderboard:__\n| '
+
+            for character in faction_leaders:
+                char_details = get_registration('', int(character[0]))
+                # print(char_details)
+                char_details = flatten_list(char_details)
+                # print(f'{char_details[1]}')
+                char_name = char_details[1]
+                # print(f'{char_name}')
+
+                outputString += f'`{char_name}` - `{character[1]}` | '
+                # print(f'outputstring is {len(outputString)} characters')
+
+            # print(f'end of loop')
+
     # print(f'timestamps')
     if not displayOnly:
+        set_bot_config(f'last_profession_update', current_time)
+        next_update = current_time + profession_update_interval
         outputString += (f'\n\nUpdated hourly.\n'
                          f'Updated at: <t:{current_time}> in your timezone'
                          f'\nNext: <t:{next_update}:f> in your timezone\n')
@@ -382,6 +408,7 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     # print(f'outputstring is {len(outputString)} characters')
 
     await message.edit(content=f'{outputString}')
+    return True
 
 
 class Professions(commands.Cog):
@@ -447,16 +474,47 @@ class Professions(commands.Cog):
                 if int(rank) == character.id:
                     outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
 
+
         current_target = get_slayer_target(character)
+        slayer_favor = get_favor(character.id, f'slayer')
+
+        outputString += f'`Beast Slayer` - Renown: `{slayer_favor.lifetime_favor}`\n'
+
         if current_target.char_id:
-            outputString += f'`Beast Slayer` - Current Quarry: `{current_target.display_name}`\n\n'
+            outputString += f'Current Quarry: `{current_target.display_name}`'
+            notorious_target, notorious_multiplier = get_notoriety(current_target)
+            if notorious_multiplier > 0:
+                outputString += f' **Notorious +{notorious_multiplier}!**'
         else:
-            outputString += f'`Beast Slayer` - Current Quarry: `None`\n\n'
+            outputString += f'`Beast Slayer` - Current Quarry: `None`'
+
+
+        slayer_ranking = db_query(False, f'select char_id from factions '
+                                  f'where faction like \'%slayer%\' '
+                                  f'and season = {CURRENT_SEASON} order by lifetime_favor desc')
+        slayer_ranking = flatten_list(slayer_ranking)
+        for index, rank in enumerate(slayer_ranking):
+            # print(f'{index + 1} {rank}')
+            if int(rank) == character.id:
+                outputString += f'\nServer-wide Ranking: `{index + 1}`\n\n'
 
         favor = get_favor(character.id, f'provisioner')
-        if current_target.char_id:
-            outputString += (f'`Provisioner` - Current Favor: `{favor.current_favor} / 50` | '
-                             f'Lifetime Favor: `{favor.lifetime_favor}`\n\n')
+        outputString += (f'`Provisioner` - Current Favor: `{favor.current_favor} / 50` | '
+                         f'Lifetime Favor: `{favor.lifetime_favor}`\n')
+
+        provisioner_ranking = db_query(False, f'select char_id from factions '
+                                  f'where faction like \'%provisioner%\' '
+                                  f'and season = {CURRENT_SEASON} order by lifetime_favor desc')
+        provisioner_ranking = flatten_list(provisioner_ranking)
+        for index, rank in enumerate(provisioner_ranking):
+            if int(rank) == character.id:
+                outputString += f'Server-wide Ranking: `{index + 1}`'
+
+        last_profession_update = int(get_bot_config(f'last_profession_update'))
+        profession_update_interval = int(get_bot_config(f'profession_update_interval'))
+        next_update = last_profession_update + profession_update_interval
+        outputString += (f'\n\nProfession Targets Updated at: <t:{last_profession_update}> in your timezone'
+                         f'\nNext: <t:{next_update}:f> in your timezone\n')
 
         await ctx.reply(f'Profession Details for `{character.char_name}`:\n'
                         f'{outputString}')
@@ -636,12 +694,14 @@ class Professions(commands.Cog):
         await ctx.send(content=message.content)
 
     @commands.command(name='repair', aliases=['fix'])
-    async def repair(self, ctx, repair_amount: int = 0, confirm: str = ''):
+    async def repair(self, ctx, slot: str = 'hotbar', repair_amount: int = 0, confirm: str = ''):
         """ Modifies current and max durability for eldarium
 
         Parameters
         ----------
         ctx
+        slot
+            Which slot contains the item you want to repair
         repair_amount
             How much durability to restore
         confirm
@@ -652,7 +712,20 @@ class Professions(commands.Cog):
 
         """
         eldarium_per_durability = float(get_bot_config(f'eldarium_per_durability'))
+        valid_slots = ['hotbar', 'head', 'chest', 'hands', 'legs', 'feet']
+        slot_mapping = {'hotbar': 0, 'head': 3, 'chest': 4, 'hands': 5, 'legs': 6, 'feet': 7}
+        slot_text = ''
+
         character = is_registered(ctx.author.id)
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        if slot.lower() not in valid_slots:
+            await ctx.reply(f'You must specify a valid equipment slot to repair! Use `hotbar`, `head`, `chest`, '
+                            f'`hands`, `legs`, `feet`')
+            return
 
         try:
             repair_amount = int(repair_amount)
@@ -663,23 +736,31 @@ class Professions(commands.Cog):
         repair_cost = math.floor(int(repair_amount) * eldarium_per_durability)
         repair_amount = math.floor(int(repair_amount))
 
-        if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
-            return
-
-        blacksmith = get_profession_tier(character.id, f'Blacksmith')
-        if not (blacksmith.tier == 5):
-            await ctx.reply(f'Only Blacksmiths who have achieved Tier 5 can repair items. \n'
-                            f'Current Blacksmith Tier: `T{blacksmith.tier}`')
-            return
+        if slot == 'hotbar':
+            slot_text = ' `1`'
+            inv_type = 2
+            blacksmith = get_profession_tier(character.id, f'Blacksmith')
+            if not (blacksmith.tier == 5):
+                await ctx.reply(f'Only Blacksmiths who have achieved Tier 5 can repair items on the hotbar. \n'
+                                f'Current Blacksmith Tier: `T{blacksmith.tier}`')
+                return
+        else:
+            inv_type = 1
+            armorer = get_profession_tier(character.id, f'Armorer')
+            if not (armorer.tier == 5):
+                await ctx.reply(f'Only Armorers who have achieved Tier 5 can repair equipped armor. \n'
+                                f'Current Armorer Tier: `T{armorer.tier}`')
+                return
 
         if repair_cost < 1:
             await ctx.reply(f'You can only repair in whole number amounts greater than 1.')
             return
 
+        slot_value = slot_mapping[slot]
+
         if 'confirm' not in confirm.lower():
             await ctx.reply(
-                f'This command will repair the item in hotbar slot 1 to exactly `{repair_amount}/{repair_amount}`'
+                f'This command will repair the item in your `{slot}` slot{slot_text} to exactly `{repair_amount}/{repair_amount}`'
                 f' durability. '
                 f'\nThe item will be considered fully repaired for the purposes of applying kits.'
                 f'\n`{int(repair_cost)} Decaying Eldarium` will be consumed. \nDo not move items in your '
@@ -690,11 +771,11 @@ class Professions(commands.Cog):
 
         balance = get_balance(character)
         if balance >= repair_cost:
-            message = await ctx.reply(f'Repairing item in hotbar slot 1, please wait... '
+            message = await ctx.reply(f'Repairing item in `{slot}` slot{slot_text}, please wait... '
                                       f'Do not move the item until the process is complete!')
             eld_transaction(character, f'Item Repair Cost', -repair_cost)
-            run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat 0 7 {repair_amount} 2')
-            run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat 0 8 {repair_amount} 2')
+            run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat {slot_value} 7 {repair_amount} {inv_type}')
+            run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat {slot_value} 8 {repair_amount} {inv_type}')
             await message.edit(content=f'`{character.char_name}` repaired the item in hotbar slot 1 to '
                                        f'`{repair_amount}/{repair_amount}` durability.'
                                        f'\nConsumed `{repair_cost}` Decaying Eldarium')
@@ -765,6 +846,7 @@ class Professions(commands.Cog):
             eld_transaction(character, f'Weapon Reforge Cost', -reforge_cost)
             attribute_value = attribute_mapping[attribute]
             run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 71 {attribute_value} 2')
+            run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 72 {attribute_value} 2')
 
             await message.edit(content=f'`{character.char_name}` refogred the weapon in hotbar slot 1 to '
                                        f'scale using `{attribute}`.\n'

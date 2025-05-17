@@ -314,7 +314,7 @@ def get_multiple_registration(namelist):
 def run_console_command_by_name(char_name: str, command: str):
     rcon_id = get_rcon_id(f'{char_name}')
     if not rcon_id:
-        print(f'No RCON ID returned by get_rcon_id')
+        print(f'No RCON ID returned by get_rcon_id, looking for {char_name}')
         return False
     else:
         runRcon(f'con {rcon_id} {command}')
@@ -323,22 +323,25 @@ def run_console_command_by_name(char_name: str, command: str):
 async def editStatus(message, bot):
     currentTime = strftime('%A %m/%d/%y at %I:%M %p', time.localtime())
 
-    currentPlayers = count_online_players()
-    maxPlayers = 40
     onlineStatus = f'<indicator disabled>'
 
-    try:
-        response = requests.get(QUERY_URL, timeout=5) #.json()
-    except requests.exceptions.Timeout:
-        print("Livestatus Request timed out")
-        raise requests.exceptions.Timeout
-    except Exception:
-        print(f'Exception occurred in querying server for bot status update.')
-        return
-    matches = re.findall(r'.*<li>&lt;span class=\'label\'&gt;(.*):&lt;\/span&gt; (.*)', response.text)
+    currentPlayers = count_online_players()
+    if currentPlayers is False:
+        onlineStatus = f'False'
+    maxPlayers = 40
 
-    for match in matches:
-        continue
+    # try:
+    #     response = requests.get(QUERY_URL, timeout=5) #.json()
+    # except requests.exceptions.Timeout:
+    #     print("Livestatus Request timed out")
+    #     raise requests.exceptions.Timeout
+    # except Exception:
+    #     print(f'Exception occurred in querying server for bot status update.')
+    #     return
+    # matches = re.findall(r'.*<li>&lt;span class=\'label\'&gt;(.*):&lt;\/span&gt; (.*)', response.text)
+
+    # for match in matches:
+    #     continue
 
     # # ipAddress = response.get('ipAddress')
     # onlineStatus = response.get('online')
@@ -397,7 +400,8 @@ async def editStatus(message, bot):
                                    f'- Server Name: `{SERVER_NAME}`\n'
                                    f'- IP Address:Port: `{SERVER_IP}:{SERVER_PORT}`\n'
                                    f'- Password: `{SERVER_PASSWORD}`\n'
-                                   f'- Server Online: `{onlineStatus}` {statusSymbol}\n'
+                                   f'- Direct Connect: ```directconnect {SERVER_IP} {SERVER_PORT}```\n'
+                                   # f'- Server Online: `{onlineStatus}` {statusSymbol}\n'
                                    f'- Players Connected: `{currentPlayers}` / `{maxPlayers}` {onlineSymbol}\n'
                                    f'Server restarts are at {restart_string} Eastern.')
     return
@@ -526,11 +530,13 @@ def consume_from_inventory(char_id, char_name, template_id, item_slot=-1):
                     return True
         print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
         return False
+    return None
 
 
 def check_inventory(owner_id, inv_type, template_id):
     matched_template_id = 0
     slot = -1
+    print(f'we are checking inventory of {owner_id} {inv_type} {template_id}')
 
     results = runRcon(f'sql select item_id, template_id from item_inventory '
                       f'where owner_id = {owner_id} and inv_type = {inv_type} '
@@ -548,12 +554,14 @@ def check_inventory(owner_id, inv_type, template_id):
         print(f'Should this ever happen?')
 
     for result in results.output:
-        match = re.search(r'\s+\d+ | [^|]*', result)
-        # print(f'{match}')
+        match = re.findall(r'\s+\d+ | [^|]*', result)
+        print(f'{match}')
         slot = match[0]
         matched_template_id = match[1]
         try:
+            print(f'checking slot {slot}')
             slot = int(slot)
+            print(f'checking template id {matched_template_id}')
             matched_template_id = int(matched_template_id)
             if matched_template_id == template_id:
                 print(f'The required item {template_id} is present in the inventory of {owner_id} in slot {slot}.')

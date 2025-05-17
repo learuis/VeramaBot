@@ -2,6 +2,7 @@
 import discord
 import time
 import os
+import traceback
 from time import localtime, strftime
 from discord.ext import commands
 from discord.ext.commands import Bot
@@ -101,8 +102,9 @@ async def oneStepQuestChecker():
     except TimeoutError:
         print(f'oneStepQuestUpdate took too long to complete.')
         return
-    except Exception:
-        print(f'oneStepQuestChecker ended with an exception')
+    except Exception as e:
+        print(f'oneStepQuestChecker ended with an exception {type(e)}')
+        traceback.format_exc()
         return
 
 @tasks.loop(minutes=8)

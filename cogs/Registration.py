@@ -320,6 +320,7 @@ class Registration(commands.Cog):
         """
         playerList = []
         clanList = []
+        emptyClanList = []
         outputString = ''
         rankLookup = {
             3: 'the Leader',
@@ -365,7 +366,27 @@ class Registration(commands.Cog):
         if outputString:
             await ctx.send(f'{outputString}')
         else:
-            await ctx.send(f'There are no characters in a clan that match your search term `{searchTerm}`.')
+            rconResponse = runRcon(f'sql select g.name, g.guildId from guilds as g '
+                                   f'where g.name like \'%{searchTerm}%\' order by g.name')
+            if rconResponse.output:
+                rconResponse.output.pop(0)
+
+                print(rconResponse.output)
+                for record in rconResponse.output:
+                    match = re.findall(r'\s+\d+ | [^|]*', record)
+                    match = [line.strip() for line in match]
+                    emptyClanList.append(match)
+
+                if emptyClanList:
+                    outputString += f'__Empty Clan Name matches:__\n'
+                for emptyClan in emptyClanList:
+                    outputString += f'`{emptyClan[0]}` (`{emptyClan[1]}`)\n'
+
+            if outputString:
+                await ctx.send(f'{outputString}')
+            else:
+                await ctx.send(f'There are no clans, characters in clans, or empty clans that match '
+                               f'your search term `{searchTerm}`.')
 
 
 @commands.Cog.listener()

@@ -103,6 +103,7 @@ def runRcon(command: str):
 
     while connection_failures < 6:
         try:
+            # print(f'{RCON_HOST}:{RCON_PORT}')
             console = Console(host=RCON_HOST, port=int(RCON_PORT), password=RCON_PASS)
             break
         except Exception:
@@ -144,7 +145,11 @@ def runRcon(command: str):
 def count_online_players():
     connected_chars = []
 
-    rconResponse = runRcon('listplayers')
+    try:
+        rconResponse = runRcon('listplayers')
+    except TimeoutError:
+        return False
+
     rconResponse.output.pop(0)
 
     for x in rconResponse.output:

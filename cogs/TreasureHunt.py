@@ -87,7 +87,7 @@ def calculate_bonus(char_id, daily=False):
 
     return bonus, bonusMessage
 
-def get_daily_eligiblity(character):
+def get_daily_eligibility(character):
     result = db_query(False, f'select next_eligible from daily_treasure '
                              f'where char_id = {character.id} limit 1')
     if not result:
@@ -98,6 +98,7 @@ def get_daily_eligiblity(character):
             return True, 0
         else:
             return False, int(value)
+    return False
 
 def grant_treasure_rewards(character, target_name, bonus, daily=False):
     reward_list = []
@@ -268,7 +269,7 @@ class TreasureHunt(commands.Cog):
                             f'Visit {reg_channel.mention}!')
             return
 
-        eligible, time = get_daily_eligiblity(character)
+        eligible, time = get_daily_eligibility(character)
         if not eligible:
             outputMessage += f'{character.char_name} cannot claim another daily treasure until <t:{time}>\n'
             await ctx.reply(f'{outputMessage}')
