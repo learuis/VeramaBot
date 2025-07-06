@@ -13,7 +13,8 @@ from cogs.CommunityBoons import update_boons
 from cogs.Professions import updateProfessionBoard
 from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info, treasure_broadcast
 from cogs.Roleplaying import RoleplayingButton
-from functions.common import is_docker, editStatus, place_markers, fillThrallCages
+from cogs.Utilities import is_character_online
+from functions.common import is_docker, editStatus, place_markers, fillThrallCages, get_bot_config
 from cogs.Registration import RegistrationButton
 
 load_dotenv('data/server.env')
@@ -54,6 +55,9 @@ async def on_ready():
 
     if not liveStatus.is_running():
         liveStatus.start()
+
+    if not onlineCharacterAlert.is_running():
+        onlineCharacterAlert.start()
 
     if not professionBoard.is_running():
         professionBoard.start()
@@ -117,6 +121,16 @@ async def fillCages():
         return
     except Exception as e:
         print(f'fillThrallCages ended with an exception: {type(e)}')
+        return
+
+@tasks.loop(minutes=5)
+async def onlineCharacterAlert():
+    channel = bot.get_channel(BOT_CHANNEL)
+
+    try:
+        await is_character_online(channel)
+    except Exception as e:
+        print(f'onlineCharacterAlert ended with an exception {type(e)}')
         return
 
 @tasks.loop(minutes=1)

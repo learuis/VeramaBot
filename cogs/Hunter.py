@@ -7,13 +7,15 @@ from discord.ext import commands
 
 from cogs.EldariumBank import sufficient_funds, eld_transaction, get_balance
 from cogs.Registration import Registration
-from functions.common import is_registered, int_epoch_time, flatten_list, get_bot_config
+from functions.common import is_registered, int_epoch_time, flatten_list, get_bot_config, no_registered_char_reply
 from dotenv import load_dotenv
 
 from functions.externalConnections import runRcon, db_query
 
 load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 
 class SlayerTarget:
@@ -55,19 +57,19 @@ def set_slayer_target(character, exclude_target: SlayerTarget = False):
     # print(query_result)
     (my_target.target_name, my_target.display_name) = flatten_list(query_result)
     db_query(True, f'insert or replace into beast_slayers '
-                   f'(char_id, target_name, target_display_name, start_time) '
-                   f'values ({my_target.char_id}, \'{my_target.target_name}\', '
+                   f'(char_id, season, target_name, target_display_name, start_time) '
+                   f'values ({my_target.char_id}, {CURRENT_SEASON}, \'{my_target.target_name}\', '
                    f'\'{my_target.display_name}\', {my_target.start_time})')
     return my_target
 
 def clear_slayer_target(character: Registration):
-    db_query(True, f'delete from beast_slayers where char_id = {character.id}')
+    db_query(True, f'delete from beast_slayers where char_id = {character.id} and season = {CURRENT_SEASON}')
     return
 
 def get_slayer_target(character: Registration):
     my_target = SlayerTarget()
     query_result = db_query(False, f'select char_id, target_name, target_display_name, start_time from beast_slayers'
-                                   f' where char_id = {character.id}')
+                                   f' where char_id = {character.id} and season = {CURRENT_SEASON}')
     if query_result:
         print(query_result)
         (my_target.char_id, my_target.target_name,
@@ -125,8 +127,9 @@ class Hunter(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
+            # reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
         exclude_target = get_slayer_target(character)

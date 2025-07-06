@@ -8,7 +8,7 @@ from discord.ext import commands
 from cogs.QuestSystem import check_inventory, count_inventory_qty, treasure_broadcast
 from cogs.Reward import add_reward_record
 from functions.common import custom_cooldown, get_bot_config, is_registered, flatten_list, set_bot_config, get_rcon_id, \
-    run_console_command_by_name, get_single_registration, int_epoch_time
+    run_console_command_by_name, get_single_registration, int_epoch_time, no_registered_char_reply
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 
 treasure_location_count = int(get_bot_config('treasure_location_count'))
 
@@ -25,8 +26,8 @@ def choose_new_treasure_location():
     return location
 
 def update_daily_eligibility(character):
-    db_query(True, f'insert or replace into daily_treasure (char_id, next_eligible) '
-                   f'values ({character.id}, {int_epoch_time()+64800})')
+    db_query(True, f'insert or replace into daily_treasure (char_id, season, next_eligible) '
+                   f'values ({character.id}, {CURRENT_SEASON}, {int_epoch_time()+64800})')
     return
 
 
@@ -89,7 +90,7 @@ def calculate_bonus(char_id, daily=False):
 
 def get_daily_eligibility(character):
     result = db_query(False, f'select next_eligible from daily_treasure '
-                             f'where char_id = {character.id} limit 1')
+                             f'where char_id = {character.id} and season = {CURRENT_SEASON} limit 1')
     if not result:
         return True, 0
     for record in result:
@@ -181,9 +182,10 @@ class TreasureHunt(commands.Cog):
         daily = False
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}. '
-                            f'Visit {reg_channel.mention}!')
+            await no_registered_char_reply(self.bot, ctx)
+            # reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}. '
+            #                 f'Visit {reg_channel.mention}!')
             return
 
         rconCharId = get_rcon_id(character.char_name)
@@ -264,9 +266,10 @@ class TreasureHunt(commands.Cog):
         daily = True
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}. '
-                            f'Visit {reg_channel.mention}!')
+            await no_registered_char_reply(self.bot, ctx)
+            # reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}. '
+            #                 f'Visit {reg_channel.mention}!')
             return
 
         eligible, time = get_daily_eligibility(character)

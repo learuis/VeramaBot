@@ -11,6 +11,7 @@ from functions.externalConnections import db_query
 load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 def get_balance(character):
     balance = 0
@@ -56,30 +57,28 @@ class EldariumBank(commands.Cog):
 
     @commands.command(name='balance', aliases=['checkbalance', 'eld', 'bal'])
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
-    async def balance(self, ctx, name: str = ''):
+    async def balance(self, ctx, discord_user: discord.Member = None):
         """
         Displays current eldarium balance
 
         Parameters
         ----------
         ctx
-        name
+        discord_user
 
         Returns
         -------
 
         """
-        if name:
-            registration_record = get_single_registration(name)
-            (char_id, char_name, discord_id) = registration_record
-
-            character = is_registered(int(discord_id))
+        if discord_user:
+            character = is_registered(int(discord_user.id))
         else:
             character = is_registered(ctx.author.id)
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
+            # reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
         balance = int(get_balance(character))
@@ -88,15 +87,15 @@ class EldariumBank(commands.Cog):
     @commands.command(name='transaction', aliases=['tx'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
-    async def transaction(self, ctx, name: str, reason: str, amount: int = 0):
+    async def transaction(self, ctx, discord_user: discord.Member, reason: str, amount: int = 0):
         """
         Eldarium bank transaction v/tx Name Reason Amount
 
         Parameters
         ----------
         ctx
-        name
-            Character name
+        discord_user
+            Mention the discord user
         reason
             Explanation for transaction
         amount
@@ -108,14 +107,12 @@ class EldariumBank(commands.Cog):
         """
         balance = 0
 
-        registration_record = get_single_registration(name)
-        (char_id, char_name, discord_id) = registration_record
-
-        character = is_registered(int(discord_id))
+        character = is_registered(int(discord_user.id))
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
+            # reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
         if amount < 0:
@@ -325,14 +322,14 @@ class EldariumBank(commands.Cog):
         return
 
     @commands.command(name='transactiondetail', aliases=['txd'])
-    async def transactiondetail(self, ctx, name: str, transaction_count: int):
+    async def transactiondetail(self, ctx, discord_user: discord.Member, transaction_count: int):
         """ Shows the 10 most recent transactions for the named player
 
         Parameters
         ----------
         ctx
-        name
-            Character name
+        discord_user
+            Mention the discord user
         transaction_count
 
         Returns
@@ -340,10 +337,7 @@ class EldariumBank(commands.Cog):
 
         """
         message = ''
-        registration_record = get_single_registration(name)
-        (char_id, char_name, discord_id) = registration_record
-
-        character = is_registered(int(discord_id))
+        character = is_registered(discord_user.id)
 
         if not character:
             reg_channel = self.bot.get_channel(REGHERE_CHANNEL)

@@ -19,15 +19,40 @@ OWNER_USER_ID = int(os.getenv('OWNER_USER_ID'))
 SERVER_PASSWORD = str(os.getenv('SERVER_PASSWORD'))
 SERVER_NAME = str(os.getenv('SERVER_NAME'))
 SERVER_PORT = int(os.getenv('SERVER_PORT'))
+SERVER_IP = str(os.getenv('SERVER_IP'))
+REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
+
+def get_bot_config(item: str):
+    result = db_query(False, f'select value from config where item like \'%{item}%\' limit 1')
+    if not result:
+        return False
+    for record in result:
+        value = record[0]
+    return value
+
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
-SERVER_IP = str(os.getenv('SERVER_IP'))
 
 class Registration:
     def __init__(self):
         self.id = 0
         self.char_name = ''
         self.discord_id = ''
+
+def check_channel(ctx):
+    whitelist = {'Admin', 'Moderator'}
+    roles = {role.name for role in ctx.author.roles}
+    if not whitelist.isdisjoint(roles):
+        #if we're a special role, no limitations on channel
+        return True
+    else:
+        #everyone else
+        if int(ctx.channel.id) != OUTCASTBOT_CHANNEL:
+            print(f'wrong channel {ctx.channel.id} != {OUTCASTBOT_CHANNEL}')
+            return False
+        else:
+            print(f'good {ctx.channel.id} = {OUTCASTBOT_CHANNEL}')
+            return True
 
 def custom_cooldown(ctx):
     whitelist = {'Admin', 'Moderator'}
@@ -118,7 +143,7 @@ def get_rcon_id(name: str):
         return False
 
     for x in connected_chars:
-        if name.casefold() in x[1].casefold():
+        if name.casefold() == x[1].casefold().strip():
             return x[0].strip()
 
 def get_clan(character):
@@ -183,6 +208,11 @@ async def is_message_deleted(channel: discord.TextChannel, message_id):
     except discord.NotFound:
         print(f'Could not find message {message_id} in channel {channel.id}')
         return True
+
+async def no_registered_char_reply(bot, ctx):
+    reg_channel = bot.get_channel(REGHERE_CHANNEL)
+    await ctx.reply(f'Could not find a Season {CURRENT_SEASON} character registered to {ctx.author.mention}. '
+                    f'Visit {reg_channel.mention}!')
 
 def last_season_char(discord_id: int):
 
@@ -478,14 +508,6 @@ def fillThrallCages():
             response = f'Error when trying to fill cages'
 
     return response
-
-def get_bot_config(item: str):
-    result = db_query(False, f'select value from config where item like \'%{item}%\' limit 1')
-    if not result:
-        return False
-    for record in result:
-        value = record[0]
-    return value
 
 def set_bot_config(item: str, value: str):
     db_query(True, f'update config set value = \'{value}\' where item like \'{str(item)}\'')

@@ -7,7 +7,7 @@ from datetime import datetime
 import discord
 
 from functions.common import isInt, percentage, get_single_registration, is_registered, \
-    set_bot_config, get_bot_config, int_epoch_time, flatten_list
+    set_bot_config, get_bot_config, int_epoch_time, flatten_list, no_registered_char_reply
 from functions.externalConnections import runRcon, db_query, multi_rcon
 
 from discord.ext import commands
@@ -18,6 +18,7 @@ from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 class CommunityBoons(commands.Cog):
     """Cog class containing commands related to server status.
@@ -844,7 +845,8 @@ class CommunityBoons(commands.Cog):
             await ctx.reply(f'Your title has been removed, {character.char_name}')
             return
         else:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}!')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}!')
             return
 
     @commands.command(name='title')
@@ -869,7 +871,8 @@ class CommunityBoons(commands.Cog):
         if character:
             results = db_query(False, f'select title from earned_titles where contributor = \'{ctx.author.id}\'')
         else:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}!')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}!')
             return
 
         if results:

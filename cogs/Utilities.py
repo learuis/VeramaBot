@@ -2,17 +2,43 @@ import sqlite3
 import re
 import os
 
+import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
 from cogs.QuestSystem import pull_online_character_info_new
 from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id, \
-    flatten_list
+    flatten_list, get_bot_config, check_channel, no_registered_char_reply
 
 from functions.externalConnections import db_query, runRcon
 
 load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
+
+async def is_character_online(channel):
+    connected_chars = []
+    outputlist = ''
+    name = str(get_bot_config(f'online_alert'))
+    mention = str(get_bot_config(f'online_alert_tag'))
+
+    rconResponse = runRcon('listplayers')
+    rconResponse.output.pop(0)
+
+    for x in rconResponse.output:
+        match = re.findall(r'\s+\d+ | [^|]*', x)
+        connected_chars.append(match)
+        # print(connected_chars)
+
+    if not connected_chars:
+        # no one is online
+        return False
+
+    for x in connected_chars:
+        if name:
+            if name.casefold() in x[1].casefold():
+                await channel.send(f'<@{mention}> `{x[1].strip()}` is online with rcon ID `{x[0].strip()}`.')
+                return True
+    return False
 
 
 async def split_message(outputString, author):
@@ -172,6 +198,22 @@ class Utilities(commands.Cog):
                 await message.edit(content=str(outputString))
         else:
             await message.edit(content=f'No matching entries found.')
+
+    @commands.command(name='channeltest')
+    @commands.check(check_channel)
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def channeltest(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        await ctx.reply(f'Good to go!')
 
     @commands.command(name='outcastoverview', aliases=['oo', 'overview'])
     @commands.has_any_role('Outcasts')
@@ -343,8 +385,9 @@ class Utilities(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
+            # reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))

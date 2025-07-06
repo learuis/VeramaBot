@@ -2,7 +2,8 @@ import re
 import os
 
 from discord.ext import commands
-from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config
+from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config, \
+    no_registered_char_reply
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -58,7 +59,8 @@ class Warps(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            await ctx.reply(f'No character registered to player {ctx.author.mention}!')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'No character registered to player {ctx.author.mention}!')
             return
         else:
             name = character.char_name
@@ -93,9 +95,10 @@ class Warps(commands.Cog):
         target_z = 0
 
         if not character:
-            channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to player {ctx.author.mention}! '
-                            f'Please register here: {channel.mention} ')
+            await no_registered_char_reply(self.bot, ctx)
+            # channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'No character registered to player {ctx.author.mention}! '
+            #                 f'Please register here: {channel.mention} ')
             return
         else:
             name = character.char_name

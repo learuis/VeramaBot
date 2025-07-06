@@ -2,7 +2,7 @@ import sqlite3
 import os
 
 from discord.ext import commands
-from functions.common import custom_cooldown, get_rcon_id, is_registered, get_single_registration
+from functions.common import custom_cooldown, get_rcon_id, is_registered, get_single_registration, get_bot_config
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
 
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))

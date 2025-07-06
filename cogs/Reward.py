@@ -3,7 +3,9 @@ import sqlite3
 from datetime import date, timedelta
 
 from discord.ext import commands
-from functions.common import custom_cooldown, get_rcon_id, get_single_registration, is_registered
+
+from functions.common import custom_cooldown, get_rcon_id, get_single_registration, is_registered, \
+    no_registered_char_reply
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
 from textwrap import wrap
 
@@ -13,12 +15,13 @@ load_dotenv('data/server.env')
 VETERAN_ROLE = int(os.getenv('VETERAN_ROLE'))
 ANNIVERSARY_ROLE = int(os.getenv('ANNIVERSARY_ROLE'))
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 
 def add_reward_record(char_id: int, itemId: int, quantity: int, reasonString: str):
     if quantity == 0:
         return
-    query = (f'insert into event_rewards (reward_date, character_id, reward_material, reward_quantity, '
-             f'claim_flag, reward_name) values (\'{date.today()}\', {char_id}, \'{itemId}\', {quantity}, 0, '
+    query = (f'insert into event_rewards (reward_date, character_id, season, reward_material, reward_quantity, '
+             f'claim_flag, reward_name) values (\'{date.today()}\', {char_id}, {CURRENT_SEASON}, \'{itemId}\', {quantity}, 0, '
              f'\'{reasonString}\')')
 
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -104,8 +107,9 @@ class Rewards(commands.Cog):
         once = True
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
+            # reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
         rconCharId = get_rcon_id(character.char_name)
@@ -115,7 +119,7 @@ class Rewards(commands.Cog):
 
         results = db_query(False, f'select record_num, reward_material, reward_quantity, reward_name '
                                   f'from event_rewards '
-                                  f'where character_id = {character.id} '
+                                  f'where character_id = {character.id} and season = {CURRENT_SEASON} '
                                   f'and reward_date >= \'{date.today() - timedelta(days = 14)}\' '
                                   f'and claim_flag = 0')
         if results:
@@ -229,7 +233,7 @@ class Rewards(commands.Cog):
         -------
 
         """
-        outputString = f'reward_date | character_id | reward_material | reward_quantity | claim_flag | reward_name\n'
+        outputString = f'reward_date | character_id | season | reward_material | reward_quantity | claim_flag | reward_name\n'
 
         res = db_query(False, f'select * from event_rewards')
 

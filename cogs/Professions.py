@@ -9,16 +9,17 @@ from cogs.FeatClaim import grant_feat
 from cogs.Hunter import get_slayer_target, get_notoriety
 from cogs.Reward import add_reward_record
 from functions.common import int_epoch_time, get_bot_config, set_bot_config, is_registered, get_single_registration, \
-    flatten_list, get_registration, get_rcon_id, run_console_command_by_name, get_clan, get_single_registration_new
+    flatten_list, get_registration, get_rcon_id, run_console_command_by_name, get_clan, get_single_registration_new, \
+    no_registered_char_reply
 from functions.externalConnections import db_query, runRcon
 from dotenv import load_dotenv
 
 load_dotenv('data/server.env')
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 PROFESSION_CHANNEL = int(os.getenv('PROFESSION_CHANNEL'))
 PROFESSION_MESSAGE = int(os.getenv('PROFESSION_MESSAGE'))
-PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 
 class ProfessionTier:
@@ -327,13 +328,13 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
 
             # print(f'Updated {profession} Tier {tier}: {item_name}')
 
-    all_total = db_query(False, f'select sum(current_experience) from character_progression '
-                                f'where season = {CURRENT_SEASON}')
-    all_total = flatten_list(all_total)
-
-    totals = db_query(False, f'select profession, sum(current_experience) '
-                             f'from character_progression where season = {CURRENT_SEASON} '
-                             f'group by profession order by sum(current_experience) desc')
+    # all_total = db_query(False, f'select sum(current_experience) from character_progression '
+    #                             f'where season = {CURRENT_SEASON}')
+    # all_total = flatten_list(all_total)
+    #
+    # totals = db_query(False, f'select profession, sum(current_experience) '
+    #                          f'from character_progression where season = {CURRENT_SEASON} '
+    #                          f'group by profession order by sum(current_experience) desc')
     # outputString += f'__Serverwide:__\n'
     # for record in totals:
     #     outputString += f'`{record[0]}` - `{record[1]}`\n'
@@ -348,7 +349,7 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
 
         query = f'select char_id, current_experience from character_progression ' \
                 f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' ' \
-                f'order by current_experience desc limit 3'
+                f'order by current_experience desc, char_id limit 3'
         # print(f'{query}')
         profession_leaders = db_query(False, f'{query}')
         # print(f'{profession_leaders}')
@@ -371,7 +372,8 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
         # print(f'{faction}')
 
         query = (f'select char_id, lifetime_favor from factions where season = {CURRENT_SEASON} '
-                 f'and faction like \'%{faction.lower()}%\' group by char_id order by lifetime_favor desc limit 3')
+                 f'and faction like \'%{faction.lower()}%\' group by char_id order by lifetime_favor desc, char_id '
+                 f'limit 3')
         faction_leaders = db_query(False, f'{query}')
         # print(f'{faction_leaders}')
 
@@ -397,13 +399,19 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     if not displayOnly:
         set_bot_config(f'last_profession_update', current_time)
         next_update = current_time + profession_update_interval
-        outputString += (f'\n\nUpdated hourly.\n'
+        outputString = (f'\n\nUpdated hourly.\n'
                          f'Updated at: <t:{current_time}> in your timezone'
-                         f'\nNext: <t:{next_update}:f> in your timezone\n')
+                         f'\nNext: <t:{next_update}:f> in your timezone\n\n') + outputString
+        # outputString += (f'\n\nUpdated hourly.\n'
+        #                  f'Updated at: <t:{current_time}> in your timezone'
+        #                  f'\nNext: <t:{next_update}:f> in your timezone\n')
     else:
-        outputString += (f'\n\nUpdated hourly.\n'
-                         f'Updated at: <t:{last_profession_update}> in your timezone'
-                         f'\nNext: <t:{next_update}:f> in your timezone\n')
+        outputString = (f'\n\nUpdated hourly.\n'
+                        f'Updated at: <t:{last_profession_update}> in your timezone'
+                        f'\nNext: <t:{next_update}:f> in your timezone\n\n') + outputString
+        # outputString += (f'\n\nUpdated hourly.\n'
+        #                  f'Updated at: <t:{last_profession_update}> in your timezone'
+        #                  f'\nNext: <t:{next_update}:f> in your timezone\n')
 
     # print(f'outputstring is {len(outputString)} characters')
 
@@ -441,7 +449,8 @@ class Professions(commands.Cog):
 
         character = is_registered(ctx.author.id)
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         for profession in profession_list:
@@ -624,7 +633,8 @@ class Professions(commands.Cog):
         registration = get_single_registration(f'{input_name}')
 
         if not registration:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
         else:
             (char_id, char_name, discord_id) = registration
@@ -719,7 +729,8 @@ class Professions(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         if slot.lower() not in valid_slots:

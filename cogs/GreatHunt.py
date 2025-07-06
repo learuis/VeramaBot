@@ -3,7 +3,7 @@ import os
 from discord.ext import commands
 
 from cogs.QuestSystem import character_in_radius
-from functions.common import custom_cooldown, is_registered, get_rcon_id
+from functions.common import custom_cooldown, is_registered, get_rcon_id, no_registered_char_reply
 from functions.externalConnections import runRcon
 
 from dotenv import load_dotenv
@@ -58,8 +58,9 @@ class GreatHunt(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
+            # reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
         # char_id, char_name = character_in_radius(354927.28125, -34319.316406, -19872.861328, 200)

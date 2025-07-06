@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from cogs.EldariumBank import get_balance, eld_transaction
 from functions.common import is_registered, get_clan, flatten_list, get_rcon_id, int_epoch_time, get_bot_config, \
-    get_single_registration_new
+    get_single_registration_new, no_registered_char_reply
 from cogs.QuestSystem import character_in_radius
 from functions.externalConnections import db_query, runRcon
 
@@ -188,7 +188,8 @@ class InnSystem(commands.Cog):
         """
         character = is_registered(ctx.author.id)
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         clan_id, clan_name = get_clan(character)
@@ -233,7 +234,8 @@ class InnSystem(commands.Cog):
 
         character = is_registered(ctx.author.id)
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         rconCharId = get_rcon_id(character.char_name)
@@ -395,7 +397,8 @@ class InnSystem(commands.Cog):
         inn = Inn()
 
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         inn_list = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x, y, z from inn_locations')
@@ -440,7 +443,8 @@ class InnSystem(commands.Cog):
         """
         character = is_registered(ctx.author.id)
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         inn = Inn()

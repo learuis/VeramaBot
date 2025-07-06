@@ -70,6 +70,7 @@ def pull_online_character_info():
 
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
+    # print(f'Trying to clear online_character_info')
     cur.execute(f'delete from online_character_info')
     con.commit()
     con.close()
@@ -338,10 +339,12 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
 
                 case 'treasure hunt':
                     location = get_bot_config(f'current_treasure_location')
-                    result = str(db_query(False, f'select location_name from treasure_locations where id = {location}'))
+                    result = db_query(False, f'select location_name from treasure_locations where id = {location}')
                     print(f'{result}')
-                    location_name = re.search(r'[0-9a-zA-Z\s\-]+', result)
-                    run_console_command_by_name(char_name, f'testFIFO 6 Treasure {location_name.group()}')
+                    print(f'{result[0][0]}')
+                    location_name = result[0][0]
+                    # location_name = re.search(r'[0-9a-zA-Z\s\-()]+', result[0][0])
+                    run_console_command_by_name(char_name, f'testFIFO 6 Treasure {location_name}')
 
                 case 'profession':
                     if tier == 0:

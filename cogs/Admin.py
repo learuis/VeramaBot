@@ -9,7 +9,7 @@ from discord.ext import commands
 
 from functions.externalConnections import runRcon, downloadSave, db_query, rcon_all, send_rcon_command
 from functions.common import custom_cooldown, is_registered, get_rcon_id, get_single_registration, \
-    get_bot_config, set_bot_config, add_bot_config
+    get_bot_config, set_bot_config, add_bot_config, int_epoch_time, no_registered_char_reply
 from datetime import datetime
 from datetime import timezone
 from time import strftime, localtime
@@ -412,7 +412,8 @@ class Admin(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
         else:
             con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -454,7 +455,7 @@ class Admin(commands.Cog):
 
             match activate_char:
                 case 'alt':
-                    response = runRcon(f'sql update account set user = \'{main_char_name}\' where id = {main_acct_id}')
+                    response = runRcon(f'sql update account set user = \'{int_epoch_time()}\' where id = {main_acct_id}')
                     if response.error == 1:
                         outputString += f'\nRCON command error.'
                         await message.edit(content=outputString)
@@ -472,14 +473,14 @@ class Admin(commands.Cog):
                         outputString += f'\n{response.output}'
                         await message.edit(content=outputString)
 
-                    response = runRcon(f'sql update account set user = \'{alt_acct_user}\' where id = {main_acct_id}')
-                    if response.error == 1:
-                        outputString += f'\nRCON command error.'
-                        await message.edit(content=outputString)
-                        return
-                    else:
-                        outputString += f'\n{response.output}'
-                        await message.edit(content=outputString)
+                    # response = runRcon(f'sql update account set user = \'{alt_acct_user}\' where id = {main_acct_id}')
+                    # if response.error == 1:
+                    #     outputString += f'\nRCON command error.'
+                    #     await message.edit(content=outputString)
+                    #     return
+                    # else:
+                    #     outputString += f'\n{response.output}'
+                    #     await message.edit(content=outputString)
 
                     outputString += (f'\nCharacter swap from main `{main_char_name}` to alt `{alt_char_name}` '
                                      f'is complete')
@@ -487,7 +488,7 @@ class Admin(commands.Cog):
                     return
 
                 case 'main':
-                    response = runRcon(f'sql update account set user = \'{alt_char_name}\' where id = {alt_acct_id}')
+                    response = runRcon(f'sql update account set user = \'{int_epoch_time()}\' where id = {alt_acct_id}')
                     if response.error == 1:
                         outputString += f'\nRCON command error.'
                         await message.edit(content=outputString)
@@ -505,14 +506,14 @@ class Admin(commands.Cog):
                         outputString += f'\n{response.output}'
                         await message.edit(content=outputString)
 
-                    response = runRcon(f'sql update account set user = \'{alt_acct_user}\' where id = {alt_acct_id}')
-                    if response.error == 1:
-                        outputString += f'\nRCON command error.'
-                        await message.edit(content=outputString)
-                        return
-                    else:
-                        outputString += f'\n{response.output}'
-                        await message.edit(content=outputString)
+                    # response = runRcon(f'sql update account set user = \'{alt_acct_user}\' where id = {alt_acct_id}')
+                    # if response.error == 1:
+                    #     outputString += f'\nRCON command error.'
+                    #     await message.edit(content=outputString)
+                    #     return
+                    # else:
+                    #     outputString += f'\n{response.output}'
+                    #     await message.edit(content=outputString)
 
                     outputString += (f'\nCharacter swap from alt `{alt_char_name}` to main `{main_char_name}` '
                                      f'is complete')
@@ -609,6 +610,60 @@ class Admin(commands.Cog):
             runRcon(f'con {rconCharId} TeleportPlayer 218110.859375 -124766.046875 -16443.873047')
             await ctx.reply(f'Sent `{name}` to jail.')
             return
+
+    @commands.command(name='offlineroom')
+    @commands.has_any_role('Admin', 'Moderator')
+    async def jail(self, ctx, char_id: int = 0, target: str = None, x: str  = 0, y: str = 0, z: str = 0):
+        """- Moves an offline character to the chamber of offline notifications
+
+        Parameters
+        ----------
+        ctx
+        char_id
+            Character ID to move. Check with v/idlookup
+        target
+            Which room to send them to. namechange | theft | custom
+        x
+        y
+        z
+
+
+        Returns
+        -------
+
+        """
+        try:
+            float(x)
+            float(y)
+            float(z)
+        except ValueError:
+            await ctx.reply(f'Coordinates must be numbers.')
+            return
+        if char_id == 0:
+            await ctx.reply(f'Must provide a valid character ID.')
+            return
+        if not target:
+            await ctx.reply(f'Must provide a valid target room, `namechange` or `theft`')
+            return
+        match target.lower():
+            case 'namechange':
+                x = 271509.5625
+                y = -110983.726563
+                z = -9680.095703
+            case 'theft':
+                x = 272334.5
+                y = -111998.367188
+                z = -9549.048828
+            case 'custom':
+                pass
+            case _:
+                await ctx.reply(f'Must provide a valid target room, `namechange` | `theft` | `custom`')
+                return
+
+        runRcon(f'sql update actor_position set x = {x}, y = {y}, z = {z} where id = {char_id}')
+        await ctx.reply(f'Moved `{char_id}` to `{target}` chamber.')
+        return
+
 
     @commands.command(name='rcon_all')
     @commands.has_any_role('Admin')

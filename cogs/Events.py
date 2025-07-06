@@ -3,7 +3,8 @@ import random
 import os
 
 from discord.ext import commands
-from functions.common import custom_cooldown, is_registered, get_rcon_id, set_bot_config, get_bot_config
+from functions.common import custom_cooldown, is_registered, get_rcon_id, set_bot_config, get_bot_config, \
+    no_registered_char_reply
 from functions.externalConnections import runRcon, notify_all
 
 from dotenv import load_dotenv
@@ -38,7 +39,8 @@ class Events(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         file = io.open('data/boss_py.dat', mode='r')
@@ -107,9 +109,10 @@ class Events(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to player {ctx.author.mention}! '
-                            f'Please register here: {channel.mention} ')
+            await no_registered_char_reply(self.bot, ctx)
+            # channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'No character registered to player {ctx.author.mention}! '
+            #                 f'Please register here: {channel.mention} ')
             return
         else:
             name = character.char_name
@@ -119,6 +122,7 @@ class Events(commands.Cog):
             await ctx.reply(f'Character `{name}` must be online to teleport to an event!')
             return
         else:
+            print(f'{name} - slot {rconCharId} event TP')
             runRcon(f'con {rconCharId} TeleportPlayer {location}')
             await ctx.reply(f'Teleported `{name}` to the event location.')
             return

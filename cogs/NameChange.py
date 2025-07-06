@@ -7,11 +7,12 @@ from dotenv import load_dotenv
 
 from functions.common import (custom_cooldown, is_registered,
                               get_rcon_id, ununicode, update_registered_name, get_bot_config, flatten_list,
-                              set_bot_config)
+                              set_bot_config, no_registered_char_reply)
 from functions.externalConnections import runRcon, db_query
 
 load_dotenv('data/server.env')
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 
 def randomizeOrigin():
@@ -53,7 +54,8 @@ class NameChange(commands.Cog):
 
         character = is_registered(ctx.author.id)
         if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         new_origin = randomizeOrigin()

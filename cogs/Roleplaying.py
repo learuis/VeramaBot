@@ -7,11 +7,12 @@ from discord import ui
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from functions.common import is_message_deleted, is_registered
+from functions.common import is_message_deleted, is_registered, get_bot_config
 from functions.externalConnections import db_query
 
 load_dotenv('data/server.env')
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 CHARSHEETS_CHANNEL = int(os.getenv('CHARSHEETS_CHANNEL'))
 CHARSHEET_HELPCHANNEL = int(os.getenv('CHARSHEET_HELPCHANNEL'))
 

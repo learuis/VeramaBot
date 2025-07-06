@@ -1,7 +1,8 @@
 import os
 from discord.ext import commands
 
-from functions.common import is_registered, get_rcon_id, last_season_char
+from cogs.EldariumBank import get_balance, eld_transaction
+from functions.common import is_registered, get_rcon_id, last_season_char, get_bot_config
 
 from dotenv import load_dotenv
 
@@ -85,6 +86,68 @@ class Reroll(commands.Cog):
                                 f'to `{current_character.char_name}`. Log in to your new character, '
                                 f'then use `v/featrestore` to learn them.')
             return
+
+
+    @commands.command(name='carryover')
+    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    async def carryover(self, ctx):
+        """
+        Transfers all custom features from your old character to your new one
+
+        Parameters
+        ----------
+        ctx
+
+        """
+        prev_character = last_season_char(ctx.message.author.id)
+        if not prev_character:
+            await ctx.reply(f'No season {PREVIOUS_SEASON} character registered to player {ctx.author.mention}! '
+                            f'To transfer feats from a previous season character, you must have created a character '
+                            f'in the previous season.')
+            return
+        current_character = is_registered(ctx.message.author.id)
+        if not current_character:
+            await ctx.reply(f'No season {CURRENT_SEASON} character registered to player {ctx.author.mention}! '
+                            f'To carry over from a previous season character, you must have first '
+                            f'created and registered your Season {CURRENT_SEASON} character.')
+        else:
+            if get_rcon_id(prev_character.char_name) or get_rcon_id(current_character.char_name):
+                outputString = (f'Both characters `{prev_character.char_name}` and `{current_character.char_name}` '
+                                f'must be offline to transfer feats!')
+                await ctx.reply(outputString)
+                return
+            else:
+                db_query(True, f'insert into featclaim '
+                               f'select {CURRENT_SEASON}, {current_character.id}, feat_id from featclaim '
+                               f'where char_id = {prev_character.id} and season = {PREVIOUS_SEASON};')
+
+                old_balance = get_balance(prev_character.id)
+                eld_transaction(current_character.id, f'Season {PREVIOUS_SEASON} Carryover', old_balance)
+
+                db_query(True,f'delete from character_progression '
+                               f'where char_id = {current_character.id} and season = {CURRENT_SEASON}')
+                db_query(True,f'delete from factions '
+                               f'where char_id = {current_character.id} and season = {CURRENT_SEASON}')
+
+                db_query(True,
+                         f'insert into character_progression '
+                               f'select char_id, {CURRENT_SEASON}, profession, tier, current_experience, '
+                               f'turn_ins_this_cycle from character_progression '
+                               f'where char_id = {current_character.id} and season = {PREVIOUS_SEASON}')
+                db_query(True,
+                         f'insert into factions '
+                               f'select char_id, {CURRENT_SEASON}, faction, current_favor, lifetime_favor '
+                               f'from factions '
+                               f'where char_id = {current_character.id} and season = {PREVIOUS_SEASON}')
+
+                await ctx.reply(f'{old_balance} Decaying Eldarium has been transferred from Season {PREVIOUS_SEASON} character `{prev_character.char_name}` '
+                                f'to Season {CURRENT_SEASON} character `{current_character.char_name}`.\n\n'
+                                f'Feats learned from FOMO Events and Professions have been transferred from '
+                                f'Season {PREVIOUS_SEASON} character `{prev_character.char_name}` '
+                                f'to Season {CURRENT_SEASON} character `{current_character.char_name}`. '
+                                f'Log in to your new character, then use `v/featrestore` to learn them.')
+            return
+
 
 # runRcon(f'sql insert into item_inventory where (select ')
 
