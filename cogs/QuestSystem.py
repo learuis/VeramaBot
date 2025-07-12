@@ -599,7 +599,7 @@ async def oneStepQuestUpdate(bot):
             case 'Slayer':
                 print(f'Quest {quest_id} completed by id {char_id} {char_name}')
                 current_target = get_slayer_target(character)
-                if not current_target.char_id:
+                if not current_target:
                     print(f'character has no quarry, assigning one')
                     # no current target, set one
                     current_target = set_slayer_target(character)

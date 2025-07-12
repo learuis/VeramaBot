@@ -183,10 +183,10 @@ def is_registered(discord_id: int, last_season: bool = False):
     cur = con.cursor()
 
     if last_season:
-        query = (f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
+        query = (f'select game_char_id, character_name, discord_user from registration where discord_user = \'{discord_id}\' '
                  f'and season = {PREVIOUS_SEASON} order by id desc limit 1')
     else:
-        query = (f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
+        query = (f'select game_char_id, character_name, discord_user from registration where discord_user = \'{discord_id}\' '
                  f'and season = \'{CURRENT_SEASON}\'')
 
     cur.execute(query)
@@ -197,6 +197,7 @@ def is_registered(discord_id: int, last_season: bool = False):
     if result:
         returnValue.id = result[0]
         returnValue.char_name = result[1]
+        returnValue.discord_id = result[2]
         return returnValue
     else:
         return False
@@ -220,7 +221,7 @@ def last_season_char(discord_id: int):
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
-    cur.execute(f'select game_char_id, character_name from registration where discord_user = \'{discord_id}\' '
+    cur.execute(f'select game_char_id, character_name, discord_user from registration where discord_user = \'{discord_id}\' '
                 f'and season = {PREVIOUS_SEASON} order by id desc limit 1')
     result = cur.fetchone()
 
@@ -229,6 +230,7 @@ def last_season_char(discord_id: int):
     if result:
         returnValue.id = result[0]
         returnValue.char_name = result[1]
+        returnValue.discord_id = result[2]
         return returnValue
     else:
         return False
@@ -553,7 +555,6 @@ def consume_from_inventory(char_id, char_name, template_id, item_slot=-1):
         print(f'Tried to delete {template_id} from {char_id} {char_name} but they do not have {template_id}')
         return False
     return None
-
 
 def check_inventory(owner_id, inv_type, template_id):
     matched_template_id = 0

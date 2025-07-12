@@ -13,11 +13,11 @@ REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
-def get_balance(character):
+def get_balance(character, season = CURRENT_SEASON):
     balance = 0
 
     results = db_query(False,
-                       f'SELECT balance from bank where char_id = {character.id} and season = {CURRENT_SEASON} limit 1')
+                       f'SELECT balance from bank where char_id = {character.id} and season = {season} limit 1')
     if results:
         balance = int(flatten_list(results)[0])
     return balance
@@ -34,7 +34,7 @@ def sufficient_funds(character, debit_amount: int = 0, eld_type: str = 'raw'):
     else:
         return False
 
-def eld_transaction(character, reason: str, amount: int = 0, eld_type: str = 'raw'):
+def eld_transaction(character, reason: str, amount: int = 0, eld_type: str = 'raw', season = CURRENT_SEASON):
 
     if eld_type == 'bars':
         amount = amount * 2
@@ -43,11 +43,11 @@ def eld_transaction(character, reason: str, amount: int = 0, eld_type: str = 'ra
         reason += f' (DE)'
 
     db_query(True, f'insert into bank_transactions (season, char_id, amount, reason, timestamp) '
-                   f'values ({CURRENT_SEASON}, {character.id}, {amount}, \'{reason}\', \'{int_epoch_time()}\')')
+                   f'values ({season}, {character.id}, {amount}, \'{reason}\', \'{int_epoch_time()}\')')
     db_query(True, f'insert or replace into bank (season, char_id, balance) '
-                   f'values ({CURRENT_SEASON}, {character.id}, '
+                   f'values ({season}, {character.id}, '
                    f'( select sum(amount) from bank_transactions '
-                   f'where season = {CURRENT_SEASON} and char_id = {character.id}) )')
+                   f'where season = {season} and char_id = {character.id}) )')
     new_balance = get_balance(character)
     return new_balance
 

@@ -344,56 +344,57 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     #                  f'{profession_community_goal_desc}\n')
 
     # print(f'make leaderboard')
-
-    for item in profession_list:
-
-        query = f'select char_id, current_experience from character_progression ' \
-                f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' ' \
-                f'order by current_experience desc, char_id limit 3'
-        # print(f'{query}')
-        profession_leaders = db_query(False, f'{query}')
-        # print(f'{profession_leaders}')
-        if not profession_leaders:
-            continue
-        else:
-            outputString += f'\n__{item} Leaderboard:__\n| '
-
-            for character in profession_leaders:
-                char_details = get_registration('', int(character[0]))
-                char_details = flatten_list(char_details)
-                # print(f'{char_details}')
-                char_name = char_details[1]
-
-                outputString += f'`{char_name}` - `{character[1]}` | '
-                # print(f'outputstring is {outputString}')
-
-    # print(f'{faction_list}')
-    for faction in faction_list:
-        # print(f'{faction}')
-
-        query = (f'select char_id, lifetime_favor from factions where season = {CURRENT_SEASON} '
-                 f'and faction like \'%{faction.lower()}%\' group by char_id order by lifetime_favor desc, char_id '
-                 f'limit 3')
-        faction_leaders = db_query(False, f'{query}')
-        # print(f'{faction_leaders}')
-
-        if not faction_leaders:
-            continue
-        else:
-            outputString += f'\n__{faction} Leaderboard:__\n| '
-
-            for character in faction_leaders:
-                char_details = get_registration('', int(character[0]))
-                # print(char_details)
-                char_details = flatten_list(char_details)
-                # print(f'{char_details[1]}')
-                char_name = char_details[1]
-                # print(f'{char_name}')
-
-                outputString += f'`{char_name}` - `{character[1]}` | '
-                # print(f'outputstring is {len(outputString)} characters')
-
-            # print(f'end of loop')
+    #LEADERBOARD COMMENT 7/11/25
+    # for item in profession_list:
+    #
+    #     query = f'select char_id, current_experience from character_progression ' \
+    #             f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' ' \
+    #             f'order by current_experience desc, char_id limit 3'
+    #     # print(f'{query}')
+    #     profession_leaders = db_query(False, f'{query}')
+    #     # print(f'{profession_leaders}')
+    #     if not profession_leaders:
+    #         continue
+    #     else:
+    #         outputString += f'\n__{item} Leaderboard:__\n| '
+    #
+    #         for character in profession_leaders:
+    #             char_details = get_registration('', int(character[0]))
+    #             char_details = flatten_list(char_details)
+    #             # print(f'{char_details}')
+    #             char_name = char_details[1]
+    #
+    #             outputString += f'`{char_name}` - `{character[1]}` | '
+    #             # print(f'outputstring is {outputString}')
+    #
+    # # print(f'{faction_list}')
+    # for faction in faction_list:
+    #     # print(f'{faction}')
+    #
+    #     query = (f'select char_id, lifetime_favor from factions where season = {CURRENT_SEASON} '
+    #              f'and faction like \'%{faction.lower()}%\' group by char_id order by lifetime_favor desc, char_id '
+    #              f'limit 3')
+    #     faction_leaders = db_query(False, f'{query}')
+    #     # print(f'{faction_leaders}')
+    #
+    #     if not faction_leaders:
+    #         continue
+    #     else:
+    #         outputString += f'\n__{faction} Leaderboard:__\n| '
+    #
+    #         for character in faction_leaders:
+    #             char_details = get_registration('', int(character[0]))
+    #             # print(char_details)
+    #             char_details = flatten_list(char_details)
+    #             # print(f'{char_details[1]}')
+    #             char_name = char_details[1]
+    #             # print(f'{char_name}')
+    #
+    #             outputString += f'`{char_name}` - `{character[1]}` | '
+    #             # print(f'outputstring is {len(outputString)} characters')
+    #
+    #         # print(f'end of loop')
+        # LEADERBOARD COMMENT 7/11/25
 
     # print(f'timestamps')
     if not displayOnly:
@@ -489,13 +490,16 @@ class Professions(commands.Cog):
 
         outputString += f'`Beast Slayer` - Renown: `{slayer_favor.lifetime_favor}`\n'
 
-        if current_target.char_id:
-            outputString += f'Current Quarry: `{current_target.display_name}`'
-            notorious_target, notorious_multiplier = get_notoriety(current_target)
-            if notorious_multiplier > 0:
-                outputString += f' **Notorious +{notorious_multiplier}!**'
-        else:
+        if not current_target:
             outputString += f'`Beast Slayer` - Current Quarry: `None`'
+        else:
+            if current_target.char_id:
+                outputString += f'Current Quarry: `{current_target.display_name}`'
+                notorious_target, notorious_multiplier = get_notoriety(current_target)
+                if notorious_multiplier > 0:
+                    outputString += f' **Notorious +{notorious_multiplier}!**'
+            else:
+                outputString += f'`Beast Slayer` - Current Quarry: `None`'
 
 
         slayer_ranking = db_query(False, f'select char_id from factions '
@@ -560,34 +564,6 @@ class Professions(commands.Cog):
                            f'`{char_name}`: {profession.capitalize()} Tier {tier} XP {xp} Deliveries {turn_ins}')
         else:
             await ctx.send(f'Error updating Profession details for {char_name}')
-        return
-
-    @commands.command(name='carryoverprofessions')
-    @commands.has_any_role('Admin', 'Moderator')
-    async def carryoverprofessions(self, ctx):
-        """
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        character = is_registered(ctx.author.id)
-
-        results = db_query(True,
-                           f'insert into character_progression '
-                           f'select char_id, {CURRENT_SEASON}, profession, tier, current_experience, '
-                           f'turn_ins_this_cycle from character_progression '
-                           f'where char_id = {character.id} and season = {PREVIOUS_SEASON}')
-
-        if results:
-            await ctx.send(f'Transferred Profession experience from Season {PREVIOUS_SEASON} '
-                           f'to Season {CURRENT_SEASON} for `{character.char_name}`')
-        else:
-            await ctx.send(f'Error updating Profession details for {character.char_name}')
         return
 
     @commands.command(name='refreshprofessions')
@@ -787,7 +763,7 @@ class Professions(commands.Cog):
             eld_transaction(character, f'Item Repair Cost', -repair_cost)
             run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat {slot_value} 7 {repair_amount} {inv_type}')
             run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat {slot_value} 8 {repair_amount} {inv_type}')
-            await message.edit(content=f'`{character.char_name}` repaired the item in hotbar slot 1 to '
+            await message.edit(content=f'`{character.char_name}` repaired the item in `{slot}` slot{slot_text} to '
                                        f'`{repair_amount}/{repair_amount}` durability.'
                                        f'\nConsumed `{repair_cost}` Decaying Eldarium')
             return

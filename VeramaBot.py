@@ -15,7 +15,7 @@ from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info, tre
 from cogs.Roleplaying import RoleplayingButton
 from cogs.Utilities import is_character_online
 from functions.common import is_docker, editStatus, place_markers, fillThrallCages, get_bot_config
-from cogs.Registration import RegistrationButton
+from cogs.CharRegistration import RegistrationButton
 
 load_dotenv('data/server.env')
 TOKEN = os.getenv('DISCORD_TOKEN')

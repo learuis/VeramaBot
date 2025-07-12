@@ -105,7 +105,7 @@ class Admin(commands.Cog):
             # print(f'{arg}')
             command += f'{arg} '
 
-        command = re.sub(';', '\"', command)
+        command = re.sub(';', '\'', command)
 
         rconResponse = runRcon(command)
 

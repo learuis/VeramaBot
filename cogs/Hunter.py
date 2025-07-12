@@ -6,8 +6,8 @@ import discord
 from discord.ext import commands
 
 from cogs.EldariumBank import sufficient_funds, eld_transaction, get_balance
-from cogs.Registration import Registration
-from functions.common import is_registered, int_epoch_time, flatten_list, get_bot_config, no_registered_char_reply
+from functions.common import is_registered, int_epoch_time, flatten_list, get_bot_config, no_registered_char_reply, \
+    Registration
 from dotenv import load_dotenv
 
 from functions.externalConnections import runRcon, db_query
@@ -18,13 +18,13 @@ CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
 
+
 class SlayerTarget:
     def __init__(self):
         self.char_id = 0
         self.target_name = ''
         self.display_name = ''
         self.start_time = 0
-
 
 def killed_target(my_target):
     rconResponse = runRcon(f'sql select worldTime from game_events where '
@@ -74,8 +74,10 @@ def get_slayer_target(character: Registration):
         print(query_result)
         (my_target.char_id, my_target.target_name,
          my_target.display_name, my_target.start_time) = flatten_list(query_result)
-    # print(f'My target {my_target}')
-    return my_target
+        print(f'My target {my_target}')
+        return my_target
+    else:
+        return False
 
 def get_notoriety(quarry: SlayerTarget):
     print(f'getting notoriety {quarry.target_name}')
@@ -296,13 +298,18 @@ class Hunter(commands.Cog):
             return
 
         current_target = get_slayer_target(character)
-        if killed_target(current_target):
-            outputString += f'Your quarry, `{current_target.display_name}`, has been slain! Return for your reward!'
-            await ctx.reply(outputString)
-            return
+        if current_target:
+            if killed_target(current_target):
+                outputString += f'Your quarry, `{current_target.display_name}`, has been slain! Return for your reward!'
+                await ctx.reply(outputString)
+                return
+            else:
+                await ctx.reply(f'You have not yet slain `{current_target.display_name}` since it was '
+                                f'assigned on <t:{current_target.start_time}:f>.')
+                return
         else:
-            await ctx.reply(f'You have not yet slain `{current_target.display_name}` since it was '
-                            f'assigned on <t:{current_target.start_time}:f>.')
+            await ctx.reply(f'`{character.char_name}` does not currently have a Beast Slayer Quarry! '
+                            f'Visit the Profession Hub to be assigned one.')
             return
 
 

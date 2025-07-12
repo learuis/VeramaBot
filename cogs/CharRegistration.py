@@ -111,7 +111,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
         await interaction.user.add_roles(interaction.user.guild.get_role(REG_ROLE))
 
-class Registration(commands.Cog):
+class CharRegistration(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
@@ -391,4 +391,4 @@ class Registration(commands.Cog):
 
 @commands.Cog.listener()
 async def setup(bot):
-    await bot.add_cog(Registration(bot))
+    await bot.add_cog(CharRegistration(bot))
