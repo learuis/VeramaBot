@@ -34,7 +34,7 @@ class Reroll(commands.Cog):
         self.bot = bot
 
     @commands.command(name='reroll')
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper')
     async def reroll(self, ctx):
         """
         Disassociates your previous season character from your account, allowing you to create a new one.
@@ -122,7 +122,7 @@ class Reroll(commands.Cog):
     #         return
     #
     @commands.command(name='prestige')
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper')
     async def prestige(self, ctx):
         """
         Grants you earned prestige points
@@ -148,20 +148,17 @@ class Reroll(commands.Cog):
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
                           f'and name = \'BP_ProgressionSystem_C.AttributePointsDistributed\'')
         results.output.pop(0)
-        if results.output:
+        if len(results.output) == 1:
             distributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
             print(f'Dist: {distributed_points}')
         else:
-            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Missing Dist)\n'
-                                f'Allocated Points: Dist: {int(distributed_points, 16)} '
-                                f'Undist: {int(undistributed_points, 16)} '
-                                f'Total: {int(total_points, 16)}')
+            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Missing Dist)')
             return
 
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
                           f'and name = \'BP_ProgressionSystem_C.AttributePointsTotal\'')
         results.output.pop(0)
-        if results:
+        if len(results.output) == 1:
             total_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
             print(f'Total: {total_points}')
         else:
@@ -170,38 +167,28 @@ class Reroll(commands.Cog):
 
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
                           f'and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
+        print(f'Undist result: {results.output}')
         results.output.pop(0)
-        if results:
+        print(f'Len: {len(results.output)} Popped: {results.output}')
+        if len(results.output) == 1:
             undistributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
             print(f'Undist: {undistributed_points}')
             if int(undistributed_points, 16) > 0:
-                await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Undist Points)\n'
-                                f'Allocated Points: Dist: {int(distributed_points, 16)} '
-                                f'Undist: {int(undistributed_points, 16)} '
-                                f'Total: {int(total_points, 16)}')
+                await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Undist Points)')
                 return
         else:
-            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Missing Undist)\n'
-                                f'Allocated Points: Dist: {int(distributed_points, 16)} '
-                                f'Undist: {int(undistributed_points, 16)} '
-                                f'Total: {int(total_points, 16)}')
+            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Missing Undist)')
             return
 
         points = get_prestige_points(character)
         if not points:
-            await ctx.reply(f'`{character.char_name}` has no prestige points to claim!\n'
-                            f'Allocated Points: Dist: {int(distributed_points, 16)} '
-                            f'Undist: {int(undistributed_points, 16)} '
-                            f'Total: {int(total_points, 16)}')
+            await ctx.reply(f'`{character.char_name}` has no prestige points to claim!\n')
             return
 
         if int(distributed_points, 16) > int(total_points, 16):
-            await ctx.reply(f'`{character.char_name}` has `{points}` total prestige points available.\n\n'
+            await ctx.reply(f'`{character.char_name}` is entitled to `{points}` total prestige points.\n\n'
                             f'To claim them, you must use a Potion of Bestial Memory to reset your attributes '
-                            f'and then distribute all of the points!\n'
-                            f'Allocated Points: Dist: {int(distributed_points, 16)} '
-                            f'Undist: {int(undistributed_points, 16)} '
-                            f'Total: {int(total_points, 16)}')
+                            f'and then distribute all of the points!')
             return
 
         if distributed_points == total_points and undistributed_points == '00':
@@ -211,15 +198,12 @@ class Reroll(commands.Cog):
             runRcon(query)
             # run_console_command_by_name(character.char_name, f'addundistributedattributepoints {points}')
             # print(f'You have {get_prestige_points(character)} prestige points in total.')
-            await ctx.reply(f'`{character.char_name}` claimed `{points}` extra attribute points from Prestige!.\n'
-                            f'Allocated Points: Dist: {int(distributed_points,16)} '
-                            f'Undist: {int(undistributed_points, 16)} '
-                            f'Total: {int(total_points,16)}')
+            await ctx.reply(f'`{character.char_name}` claimed `{points}` extra attribute points from Prestige!.\n')
             return
         return
 
     @commands.command(name='carryover')
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper')
     async def carryover(self, ctx, feature: str):
         """
         Transfers all custom features from your old character to your new one
@@ -228,7 +212,7 @@ class Reroll(commands.Cog):
         ----------
         ctx
         feature
-            Use bank | fomo | professions
+            bank | fomo | professions
 
         """
 
@@ -286,16 +270,19 @@ class Reroll(commands.Cog):
                         db_query(True,f'delete from factions '
                                        f'where char_id = {current_character.id} and season = {CURRENT_SEASON}')
 
-                        db_query(True,
-                                 f'insert into character_progression '
-                                       f'select char_id, {CURRENT_SEASON}, profession, tier, current_experience, '
-                                       f'turn_ins_this_cycle from character_progression '
-                                       f'where char_id = {current_character.id} and season = {PREVIOUS_SEASON}')
-                        db_query(True,
-                                 f'insert into factions '
-                                       f'select char_id, {CURRENT_SEASON}, faction, current_favor, lifetime_favor '
-                                       f'from factions '
-                                       f'where char_id = {current_character.id} and season = {PREVIOUS_SEASON}')
+                        query = (f'insert or replace into character_progression '
+                                 f'select {current_character.id}, {CURRENT_SEASON}, profession, tier, current_experience, '
+                                 f'turn_ins_this_cycle from character_progression '
+                                 f'where char_id = {prev_character.id} and season = {PREVIOUS_SEASON}')
+                        print(f'query: {query}')
+                        db_query(True, f'{query}')
+
+                        query = (f'insert or replace into factions '
+                                 f'select {current_character.id}, {CURRENT_SEASON}, faction, current_favor, lifetime_favor '
+                                 f'from factions '
+                                 f'where char_id = {prev_character.id} and season = {PREVIOUS_SEASON}')
+                        db_query(True,f'{query}')
+
                         await ctx.send(f'Transferred Profession experience and tiers from Season {PREVIOUS_SEASON} '
                                        f'to Season {CURRENT_SEASON} for `{current_character.char_name}`\n\n'
                                        f'T4 and T5 abilities that were unlocked can be used immediately. '

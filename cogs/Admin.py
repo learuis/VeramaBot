@@ -9,7 +9,8 @@ from discord.ext import commands
 
 from functions.externalConnections import runRcon, downloadSave, db_query, rcon_all, send_rcon_command
 from functions.common import custom_cooldown, is_registered, get_rcon_id, get_single_registration, \
-    get_bot_config, set_bot_config, add_bot_config, int_epoch_time, no_registered_char_reply
+    get_bot_config, set_bot_config, add_bot_config, int_epoch_time, no_registered_char_reply, \
+    run_console_command_by_name, flatten_list
 from datetime import datetime
 from datetime import timezone
 from time import strftime, localtime
@@ -519,6 +520,40 @@ class Admin(commands.Cog):
                                      f'is complete')
                     await message.edit(content=outputString)
                     return
+
+    @commands.command(name='buildeverywhere')
+    @commands.has_any_role('BuildHelper')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def buildeverywhere(self, ctx):
+        """ Enables build anywhere.
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        print(f'{character}')
+
+        alt_char_name = db_query(False, f'select alt_char_name from char_swap '
+                                        f'where main_char_id = \'{character.id}\' limit 1')
+        alt_char_name = flatten_list(alt_char_name)
+        print(f'{alt_char_name}')
+        check = run_console_command_by_name(f'{alt_char_name[0]}', f'PlayerCanBuildEverywhere {alt_char_name[0]}')
+        if not check:
+            await ctx.reply(f'Character `{alt_char_name[0]}` is not online.')
+            return
+        check = run_console_command_by_name(f'{alt_char_name[0]}', f'CreativeMode')
+        if not check:
+            await ctx.reply(f'Character `{alt_char_name[0]}` is not online.')
+            return
+
+        await  ctx.reply(f'Character `{alt_char_name[0]}` has been put into '
+                         f'Creative Mode and has PlayerCanBuildEverywhere enabled.')
+        return
 
     @commands.command(name='dbquery', aliases=['db', 'query'])
     @commands.has_any_role('Admin')

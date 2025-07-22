@@ -94,6 +94,8 @@ def runRcon(command: str):
         def __init__(self):
             self.output = []
             self.error = 0
+        def __bool__(self):
+            return self.output != []
 
     returnValue = RconResponse()
     
