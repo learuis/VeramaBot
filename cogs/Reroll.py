@@ -33,9 +33,9 @@ class Reroll(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name='reroll')
-    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper')
-    async def reroll(self, ctx):
+    @commands.command(name='newgameplus', aliases=['ng+', 'newgame+'])
+    @commands.has_any_role('Outcasts')
+    async def newgameplus(self, ctx):
         """
         Disassociates your previous season character from your account, allowing you to create a new one.
 
@@ -51,18 +51,18 @@ class Reroll(commands.Cog):
         if not character:
             channel = self.bot.get_channel(REGHERE_CHANNEL)
             await ctx.reply(f'No Season {PREVIOUS_SEASON} character registered to player {ctx.author.mention}! '
-                            f'To roll over a character to Season {CURRENT_SEASON}, '
+                            f'To begin New Game + in Season {CURRENT_SEASON}, '
                             f'you must have registered a character in Season {PREVIOUS_SEASON} {channel.mention} ')
             return
         else:
             if get_rcon_id(character.char_name):
-                outputString = f'Character `{character.char_name}` must be offline to reroll!'
+                outputString = f'Character `{character.char_name}` must be offline to begin New Game +!'
                 await ctx.reply(outputString)
                 return
 
-        runRcon(f'sql update account set user = \'{ctx.author.id}_S{PREVIOUS_SEASON}\' where id in ( '
+        runRcon(f'sql update account set user = \'{character.char_name}_S{PREVIOUS_SEASON}\' where id in ( '
                 f'select c.playerId from characters as c where c.id = {character.id} )')
-        runRcon(f'sql update characters set char_name = \'{ctx.author.id}_S{PREVIOUS_SEASON}\' '
+        runRcon(f'sql update characters set char_name = \'{character.char_name}_S{PREVIOUS_SEASON}\' '
                 f'where id = {character.id}')
 
         reroll_points = int(get_bot_config(f'reroll_points'))
@@ -74,7 +74,7 @@ class Reroll(commands.Cog):
         db_query(True, f'{query_string}')
 
         await ctx.reply(f'Removed association to Season {PREVIOUS_SEASON} character `{character.char_name}` '
-                        f'from {ctx.author.mention}. \nYou have been granted 5 Prestige Points for rerolling!\n'
+                        f'from {ctx.author.mention}. \nYou have been granted 5 Prestige Points for starting New Game +!\n'
                         f'You must create and register your new character before transferring feats!')
     #
     # @commands.command(name='fomofeats')
@@ -122,7 +122,7 @@ class Reroll(commands.Cog):
     #         return
     #
     @commands.command(name='prestige')
-    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper')
+    @commands.has_any_role('Outcasts')
     async def prestige(self, ctx):
         """
         Grants you earned prestige points
@@ -145,6 +145,11 @@ class Reroll(commands.Cog):
             await ctx.reply(f'Character `{character.char_name}` must be offline to be claim prestige points!')
             return
 
+        points = get_prestige_points(character)
+        if not points:
+            await ctx.reply(f'`{character.char_name}` has no prestige points to claim!\n')
+            return
+
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
                           f'and name = \'BP_ProgressionSystem_C.AttributePointsDistributed\'')
         results.output.pop(0)
@@ -152,7 +157,7 @@ class Reroll(commands.Cog):
             distributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
             print(f'Dist: {distributed_points}')
         else:
-            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Missing Dist)')
+            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You have not spent any points)')
             return
 
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
@@ -162,7 +167,7 @@ class Reroll(commands.Cog):
             total_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
             print(f'Total: {total_points}')
         else:
-            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Missing Total)')
+            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You must be at least level 2)')
             return
 
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
@@ -174,15 +179,10 @@ class Reroll(commands.Cog):
             undistributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
             print(f'Undist: {undistributed_points}')
             if int(undistributed_points, 16) > 0:
-                await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Undist Points)')
+                await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You currently have undistributed points)')
                 return
         else:
-            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (Missing Undist)')
-            return
-
-        points = get_prestige_points(character)
-        if not points:
-            await ctx.reply(f'`{character.char_name}` has no prestige points to claim!\n')
+            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You currently have undistributed points)')
             return
 
         if int(distributed_points, 16) > int(total_points, 16):
@@ -203,7 +203,7 @@ class Reroll(commands.Cog):
         return
 
     @commands.command(name='carryover')
-    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper')
+    @commands.has_any_role('Outcasts')
     async def carryover(self, ctx, feature: str):
         """
         Transfers all custom features from your old character to your new one

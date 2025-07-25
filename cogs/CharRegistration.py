@@ -149,16 +149,13 @@ class CharRegistration(commands.Cog):
         -------
 
         """
-        #fix me!
-        season = 6
-
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur = con.cursor()
 
         cur.execute(f'insert into registration '
                     f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) '
                     f'values (\'{discord_user.id}\', \'{name}\', \'{funcom_id}\', \'{date.today()}\', '
-                    f'{season}, {game_char_id})')
+                    f'{CURRENT_SEASON}, {game_char_id})')
         con.commit()
         con.close()
 
@@ -168,7 +165,7 @@ class CharRegistration(commands.Cog):
         await ctx.invoke(self.bot.get_command('registrationlist'))
 
         channel = ctx.author.guild.get_channel(AUTOREG_CHANNEL)
-        await channel.send(f'__Season {season} Character Name:__ {name}\n'
+        await channel.send(f'__Season {CURRENT_SEASON} Character Name:__ {name}\n'
                            f'__Previous Season Name:__ <none>\n'
                            f'__Funcom ID:__ {funcom_id}\n'
                            f'__Discord:__ {discord_user.mention}\n')
