@@ -6,7 +6,7 @@ import os
 from discord import ui
 from discord.ext import commands
 from functions.common import custom_cooldown, get_character_id, is_registered, get_registration, \
-    get_member_from_userid, last_season_char, get_bot_config
+    get_member_from_userid, last_season_char, get_bot_config, check_channel
 from datetime import date
 from dotenv import load_dotenv
 
@@ -117,6 +117,7 @@ class CharRegistration(commands.Cog):
 
     @commands.command(name='prepare')
     @commands.is_owner()
+    @commands.check(check_channel)
     async def prepare(self, ctx: commands.Context):
         await ctx.send(f'Click the button below to register your character. Your character must already be '
                        f'created in game in order to register! \nMake sure to type your name exactly as it'
@@ -127,6 +128,7 @@ class CharRegistration(commands.Cog):
     @commands.command(name='registrationforce',
                       aliases=['forcereg', 'linkchar'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def registrationForce(self, ctx, discord_user: discord.Member, name: str, funcom_id: str, game_char_id: int):
         """- Manually create a character registration record
@@ -176,6 +178,7 @@ class CharRegistration(commands.Cog):
 
     @commands.command(name='registrationlist', aliases=['reglist'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def register(self, ctx):
         """- Lists all registered characters
@@ -227,6 +230,7 @@ class CharRegistration(commands.Cog):
 
     @commands.command(name='registrationdelete', aliases=['regdelete', 'regdel'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def registrationdelete(self, ctx,
                                  recordToDelete: int = commands.parameter(default=0)):
@@ -258,7 +262,8 @@ class CharRegistration(commands.Cog):
                 await ctx.send(f'Deleted record:\n{res}')
 
     @commands.command(name='registrationlookup', aliases=['reglook', 'whois', 'who'])
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def registrationLookup(self, ctx, name: str):
         """- Look up registrations based on partial character name
@@ -293,6 +298,7 @@ class CharRegistration(commands.Cog):
 
     @commands.command(name='clanlookup', aliases=['clanwho', 'whoclan', 'clan'])
     @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def clanLookup(self, ctx, searchTerm: str):
         """ - Look up clan membership
@@ -327,10 +333,11 @@ class CharRegistration(commands.Cog):
             255: 'a Member'
         }
 
-        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name, g.guildId from characters as c '
+        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name, g.guildId, c.lastTimeOnline '
+                               f'from characters as c '
                                f'inner join guilds as g on g.guildId = c.guild '
                                f'where g.name like \'%{searchTerm}%\' '
-                               f'order by guild')
+                               f'order by c.guild asc, c.lastTimeOnline desc')
         if rconResponse.output:
             rconResponse.output.pop(0)
             for record in rconResponse.output:
@@ -338,10 +345,11 @@ class CharRegistration(commands.Cog):
                 match = [line.strip() for line in match]
                 clanList.append(match)
 
-        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name, g.guildId from characters as c '
+        rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name, g.guildId, c.lastTimeOnline '
+                               f'from characters as c '
                                f'inner join guilds as g on g.guildId = c.guild '
                                f'where c.char_name like \'%{searchTerm}%\' '
-                               f'order by guild')
+                               f'order by c.guild asc, c.lastTimeOnline desc')
         if rconResponse.output:
             rconResponse.output.pop(0)
 
@@ -353,12 +361,12 @@ class CharRegistration(commands.Cog):
         if playerList:
             outputString += f'__Player name matches:__\n'
             for player in playerList:
-                outputString += f'`{player[0]}` is {rankLookup.get(int(player[1]))} of `{player[2]}` (`{player[3]}`)\n'
+                outputString += f'`{player[0]}` is {rankLookup.get(int(player[1]))} of `{player[2]}` (`{player[3]}`) last seen: <t:{player[4]}:f>\n'
 
         if clanList:
             outputString += f'__Clan name matches:__\n'
             for clan in clanList:
-                outputString += f'`{clan[0]}` is {rankLookup.get(int(clan[1]))} of `{clan[2]}` (`{clan[3]}`)\n'
+                outputString += f'`{clan[0]}` is {rankLookup.get(int(clan[1]))} of `{clan[2]}` (`{clan[3]}`) last seen: <t:{clan[4]}:f>\n'
 
         if outputString:
             await ctx.send(f'{outputString}')

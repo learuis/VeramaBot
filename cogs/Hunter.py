@@ -7,7 +7,7 @@ from discord.ext import commands
 
 from cogs.EldariumBank import sufficient_funds, eld_transaction, get_balance
 from functions.common import is_registered, int_epoch_time, flatten_list, get_bot_config, no_registered_char_reply, \
-    Registration
+    Registration, check_channel
 from dotenv import load_dotenv
 
 from functions.externalConnections import runRcon, db_query
@@ -113,6 +113,8 @@ class Hunter(commands.Cog):
         self.bot = bot
 
     @commands.command(name='quarry', aliases=['rq'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def quarry(self, ctx, confirm: str = ''):
         """ - Be assigned a different Beast Slayer quarry, costs 50 DE
 
@@ -176,6 +178,8 @@ class Hunter(commands.Cog):
             return
 
     @commands.command(name='notorious')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def notorious(self, ctx):
         """ - Lists the top 10 notorious quarries
 
@@ -215,6 +219,7 @@ class Hunter(commands.Cog):
 
     @commands.command(name='adminquarry')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def adminquarry(self, ctx, user: discord.Member, option: str = ''):
         """ - Assigns a Beast Slayer task
         
@@ -245,6 +250,7 @@ class Hunter(commands.Cog):
 
     @commands.command(name='logkill')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def logkill(self, ctx):
         """ - Completes a Beast Slayer task
 
@@ -278,6 +284,8 @@ class Hunter(commands.Cog):
             return
 
     @commands.command(name='verifyslaying', aliases=['verifyquarry', 'vquarry', 'slay', 'vslay'])
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
     async def verifyslaying(self, ctx):
         """ - Verifies that you killed your quarry after it was assigned.
 

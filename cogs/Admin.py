@@ -10,7 +10,7 @@ from discord.ext import commands
 from functions.externalConnections import runRcon, downloadSave, db_query, rcon_all, send_rcon_command
 from functions.common import custom_cooldown, is_registered, get_rcon_id, get_single_registration, \
     get_bot_config, set_bot_config, add_bot_config, int_epoch_time, no_registered_char_reply, \
-    run_console_command_by_name, flatten_list
+    run_console_command_by_name, flatten_list, check_channel
 from datetime import datetime
 from datetime import timezone
 from time import strftime, localtime
@@ -36,6 +36,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='command_sync')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     async def command_sync(self, ctx):
         await self.bot.tree.sync()
         await ctx.reply(f'Command sync completed.')
@@ -44,6 +45,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='restart')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def restart(self, ctx, sure: bool):
         """- Immediately restarts the Conan Exiles server.
@@ -78,11 +80,13 @@ class Admin(commands.Cog):
 
     @commands.command(name='status_prepare')
     @commands.is_owner()
+    @commands.check(check_channel)
     async def prepare(self, ctx: commands.Context):
         await ctx.send(f'This message will be updated with status information!')
 
     @commands.command(name='rcon')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def rcon(self, ctx, *args):
         """- Use RCON to run a single command
@@ -122,6 +126,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='gamechat')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def gamechat(self, ctx):
         """- Parses in-game chat and posts to Discord
@@ -199,6 +204,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='welcome')
     @commands.has_any_role('Moderator', 'Helper', 'Admin')
+    @commands.check(check_channel)
     async def welcome(self, ctx, char_name: str):
         """ - Sends a welcome message to a new player
 
@@ -226,6 +232,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='veteran2')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def veteran2(self, ctx):
         """
@@ -263,6 +270,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='veteran', aliases=['vet', 'vets'])
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def veteran(self, ctx):
         """- Creates a list of Veteran Outcast candidates
@@ -324,6 +332,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='maintenance')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def maintenance(self, ctx):
         """
@@ -343,6 +352,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='getconfig')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def getConfig(self, ctx, item: str):
         """
@@ -363,6 +373,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='setconfig')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def setConfig(self, ctx, item: str, value: str):
         """
@@ -386,7 +397,8 @@ class Admin(commands.Cog):
         await ctx.send(f'Set {item.casefold()} = {value.casefold()}')
 
     @commands.command(name='charswap')
-    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper')
+    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper'
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def charswap(self, ctx, activate_char: str):
         """
@@ -523,6 +535,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='buildeverywhere')
     @commands.has_any_role('BuildHelper')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def buildeverywhere(self, ctx):
         """ Enables build anywhere.
@@ -557,6 +570,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='dbquery', aliases=['db', 'query'])
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def dbQuery(self, ctx, commit_query: bool, query: str):
         """
@@ -589,6 +603,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='volcano', aliases=['drop', 'getrekt'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def volcano(self, ctx, name: str):
         """Throws the named player into the volcano.
@@ -622,6 +637,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='jail', aliases=['prison', 'capture'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def jail(self, ctx, name: str):
         """- Sends the named player to jail
@@ -648,6 +664,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='offlineroom')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def jail(self, ctx, char_id: int = 0, target: str = None, x: str  = 0, y: str = 0, z: str = 0):
         """- Moves an offline character to the chamber of offline notifications
 
@@ -702,6 +719,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='rcon_all')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def rcon_all(self, ctx, command: str):
         """
@@ -724,6 +742,7 @@ class Admin(commands.Cog):
 
     @commands.command(name='lastonline')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def lastonline(self, ctx, char_name:str):
         """- Checks when a player was last online.
@@ -751,19 +770,20 @@ class Admin(commands.Cog):
             outputString = f'Character `{char_name}` could not be found.\n'
             await ctx.reply(content=outputString)
 
-        last_time_online = strftime('%Y-%m-%d %H:%M:%S %Z', localtime(int(last_time_online)))
+        # last_time_online = strftime('%Y-%m-%d %H:%M:%S %Z', localtime(int(last_time_online)))
         if response.error == 1:
             outputString += f'\n\nRCON Error.'
             await ctx.reply(content=outputString)
             return
         else:
-            outputString = f'Character `{char_name}` was last online at: {last_time_online}\n'
+            outputString = f'Character `{char_name}` was last online at: <t:{last_time_online.strip()}:f>\n'
             await ctx.reply(content=outputString)
 
             return
 
     @commands.command(name='rcontest')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def rcontest(self, ctx, *args):
         """
 

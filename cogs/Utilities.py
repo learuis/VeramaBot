@@ -217,6 +217,7 @@ class Utilities(commands.Cog):
 
     @commands.command(name='outcastoverview', aliases=['oo', 'overview'])
     @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def outcastoverview(self, ctx, command: str = 'top', name: str = False):
         """ - Reviews kills for the most recent season
@@ -371,6 +372,8 @@ class Utilities(commands.Cog):
         return
 
     @commands.command(name='where', aliases=['location', 'loc', 'whereami'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def where(self, ctx):
         """ - Checks where the bot thinks you're located
 
@@ -405,6 +408,8 @@ class Utilities(commands.Cog):
         return
 
     @commands.command(name='clearmyquests', aliases=['questclear', 'questfix'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def clearmyquests(self, ctx, confirm: str = 'False'):
         """- Erases your Liu Fei and Freya quest progress.
 
@@ -451,6 +456,8 @@ class Utilities(commands.Cog):
             return
 
     @commands.command(name='journey', aliases=['fixjourney'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def journey(self, ctx, confirm: str = 'False'):
         """- Fix your stuck journey step. Please do not abuse this command!
@@ -501,6 +508,7 @@ class Utilities(commands.Cog):
 
     @commands.command(name='thralldeath')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def thralldeath(self, ctx, owner: str):
         """
 
@@ -532,6 +540,7 @@ class Utilities(commands.Cog):
 
     @commands.command(name='test1')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def test1(self, ctx):
         """
 

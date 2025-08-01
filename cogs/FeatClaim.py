@@ -68,6 +68,7 @@ class FeatClaim(commands.Cog):
 
     @commands.command(name='featrestore', aliases=['feats', 'restore', 'knowledge', 'restorefeats'])
     @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def featRestore(self, ctx):
         """- Restore all feats that were previously granted to you
@@ -174,6 +175,7 @@ class FeatClaim(commands.Cog):
 
     @commands.command(name='featadd', aliases=['addfeats', 'addfeat'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def addFeat(self, ctx, feat: int, name: str):
         """- Adds a feat to the list granted to a player
@@ -216,6 +218,7 @@ class FeatClaim(commands.Cog):
 
     @commands.command(name='featlist', aliases=['listfeats', 'listfeat'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def featList(self, ctx, name: str):
         """- List all feats that have been granted to a player
@@ -279,6 +282,7 @@ class FeatClaim(commands.Cog):
 
     @commands.command(name='featlibrary', aliases=['viewfeats', 'validfeats', 'featlib'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def featLibrary(self, ctx):
         """- Prints the list of feats that can be granted with v/featadd

@@ -2,8 +2,10 @@ import re
 import os
 
 from discord.ext import commands
+
+from cogs.EldariumBank import get_balance, sufficient_funds, eld_transaction
 from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config, \
-    no_registered_char_reply
+    no_registered_char_reply, check_channel
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -17,7 +19,7 @@ class Warps(commands.Cog):
 
     @commands.command(name='warp')
     @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(check_channel)
     async def warp(self, ctx, destination: str, quest_id: int = commands.parameter(default=None)):
         """
 
@@ -74,15 +76,17 @@ class Warps(commands.Cog):
             await ctx.reply(f'Teleported `{name}` to {description}.')
             return
 
-    @commands.command(name='stuck', aliases=['rescue', 'floor', 'home', 'unstuck'])
+    @commands.command(name='home', aliases=['stuck'])
     @commands.has_any_role('Outcasts')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def stuck(self, ctx):
+    @commands.check(check_channel)
+    async def stuck(self, ctx, option: int = 1):
         """- Use if you're stuck in the floor. Warps you to the Sinkhole.
 
         Parameters
         ----------
         ctx
+        option
+            1 = oldest spawn point 2 = latest spawn point
 
         Returns
         -------
@@ -105,13 +109,30 @@ class Warps(commands.Cog):
 
         if 'home' in ctx.invoked_with:
             location = get_bot_config('event_location')
-            if location == '0':
-                await ctx.reply(f'This command can only be used during an event!')
-                return
+            if location != '0':
+                home_cost = 0
+                pass
+                # an event is active, do not charge.
+                # await ctx.reply(f'This command can only be used during an event!')
+                # return
+            else:
+                home_cost = int(get_bot_config('home_cost'))
+                if sufficient_funds(character, home_cost):
+                    eld_transaction(character, f'Teleport to Home', -home_cost)
+                    pass
+                else:
+                    balance = int(get_balance(character))
+                    await ctx.reply(f'Insufficient funds! Available decaying eldarium: {balance}. Needed: {home_cost}')
+                    return
 
             # hex_name = bytes(name, 'utf8')
             # hex_name = hex_name.hex()
             # print(f'Char name in hex is {hex_name}')
+
+            if option == 2:
+                order_by = f'desc'
+            else:
+                order_by = f'asc'
 
             commandString = (f'sql select ap.x,ap.y,ap.z from actor_position ap '
                              f'left join properties p on ap.id = p.object_id '
@@ -120,7 +141,7 @@ class Warps(commands.Cog):
                              f'left join characters c on a.id = c.playerId '
                              f'left join properties p2 on a.id = p2.object_id '
                              f'where c.id = {character.id} ) '
-                             f'order by p.object_id desc limit 1;')
+                             f'order by p.object_id {order_by} limit 1;')
 
             # commandString = (f'sql select x,y,z from actor_position where id in '
             #                  f'(select object_id from properties '
@@ -142,6 +163,7 @@ class Warps(commands.Cog):
             # print(coordinates)
             if not coordinates:
                 print(f'RCON error in parsing')
+                await ctx.send(f'Found no spawn points for {character.char_name}!')
                 return False
 
             for record in coordinates:
@@ -155,7 +177,13 @@ class Warps(commands.Cog):
                 return
             else:
                 runRcon(f'con {rconCharId} TeleportPlayer {target_x} {target_y} {target_z}')
-                await ctx.reply(f'Returned `{name}` to their spawn.')
+                print(f'{home_cost}')
+                if home_cost != 0:
+                    await ctx.reply(f'Returned `{name}` to their spawn for {home_cost} decaying eldarium.')
+                    return
+                else:
+                    await ctx.reply(f'Returned `{name}` to their spawn.')
+                    return
         else:
             destination = get_bot_config('rescue_location')
 

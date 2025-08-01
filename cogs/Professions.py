@@ -1,6 +1,7 @@
 import os
 import math
 import random
+from math import floor
 
 from discord.ext import commands
 
@@ -10,7 +11,7 @@ from cogs.Hunter import get_slayer_target, get_notoriety
 from cogs.Reward import add_reward_record
 from functions.common import int_epoch_time, get_bot_config, set_bot_config, is_registered, get_single_registration, \
     flatten_list, get_registration, get_rcon_id, run_console_command_by_name, get_clan, get_single_registration_new, \
-    no_registered_char_reply
+    no_registered_char_reply, check_channel
 from functions.externalConnections import db_query, runRcon
 from dotenv import load_dotenv
 
@@ -432,6 +433,7 @@ class Professions(commands.Cog):
 
     @commands.command(name='profession')
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    @commands.check(check_channel)
     async def profession(self, ctx):
         """
 
@@ -534,6 +536,7 @@ class Professions(commands.Cog):
 
     @commands.command(name='modifyprofession')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def modifyprofession(self, ctx, char_name: str, profession: str, tier: int, xp: int, turn_ins: int):
         """
 
@@ -568,6 +571,7 @@ class Professions(commands.Cog):
 
     @commands.command(name='refreshprofessions')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def refreshprofessions(self, ctx, update: bool = False):
         """
 
@@ -592,6 +596,7 @@ class Professions(commands.Cog):
 
     @commands.command(name='professionitem')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def professionitem(self, ctx, input_name: str, profession: str = 'all', quantity: int = 1):
         """ Give player the current profession items for their tier for testing/replacement
 
@@ -641,6 +646,7 @@ class Professions(commands.Cog):
 
     @commands.command(name='renameitem')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     async def renameitem(self, ctx, item_id: int, item_name: str):
         """
 
@@ -663,6 +669,7 @@ class Professions(commands.Cog):
 
     @commands.command(name='professiondetails')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def professiondetails(self, ctx):
         """ Displays the current profession details
 
@@ -680,6 +687,8 @@ class Professions(commands.Cog):
         await ctx.send(content=message.content)
 
     @commands.command(name='repair', aliases=['fix'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def repair(self, ctx, slot: str = 'hotbar', repair_amount: int = 0, confirm: str = ''):
         """ Modifies current and max durability for eldarium
 
@@ -753,7 +762,7 @@ class Professions(commands.Cog):
                 f'\n`{int(repair_cost)} Decaying Eldarium` will be consumed. \nDo not move items in your '
                 f'inventory while this command is processing, or it may fail. \nNo refunds will be '
                 f'given for user error! \n\nIf you are sure you want to proceed, '
-                f'use `v/repair {repair_amount} confirm`')
+                f'use `v/repair {slot} {repair_amount} confirm`')
             return
 
         balance = get_balance(character)
@@ -773,6 +782,8 @@ class Professions(commands.Cog):
             return
 
     @commands.command(name='reforge')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def reforge(self, ctx, attribute: str = '', confirm: str = ''):
         """ - Changes the attribute that scales weapon damage for hotbar slot 1
 
@@ -845,6 +856,8 @@ class Professions(commands.Cog):
             return
 
     @commands.command(name='fortify')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def fortify(self, ctx, slot: str = '', amount: int = 0, confirm: str = ''):
         """ - Increases the armor value of equipped armor to a fixed amount
         
@@ -918,6 +931,8 @@ class Professions(commands.Cog):
             return
 
     @commands.command(name='trim')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def trim(self, ctx, slot: str = '', confirm: str = ''):
         """ - Reduces the weight of equipped armor to 0
 
@@ -984,6 +999,8 @@ class Professions(commands.Cog):
             return
 
     @commands.command(name='enchant')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def enchant(self, ctx, enchant: str = '', confirm: str = ''):
         """ - Enchants a weapon with a long-lasting effect (1000 charges)
 
@@ -1051,6 +1068,8 @@ class Professions(commands.Cog):
             return
 
     @commands.command(name='research')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def research(self, ctx, sigil: str = '', amount: int = 0, confirm: str = ''):
         """ - Researches a specified sigil for 100 Decaying Eldarium
 
@@ -1158,6 +1177,8 @@ class Professions(commands.Cog):
             return
 
     @commands.command(name='offspring')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def offspring(self, ctx, pet: str = '', amount: int = 0, confirm: str = ''):
         """ - Directs your animals to produce offspring, resulting in rare siptah baby animals using decaying eldarium
 
@@ -1214,8 +1235,8 @@ class Professions(commands.Cog):
             return
 
         tamer = get_profession_tier(character.id, f'Tamer')
-        if not (tamer.tier >= 4):
-            await ctx.reply(f'Only Tamers who have achieved Tier 4 can direct their animals to produce offspring. \n'
+        if not (tamer.tier >= 3):
+            await ctx.reply(f'Only Tamers who have achieved Tier 3 can direct their animals to produce offspring. \n'
                             f'Current Tamer Tier: `T{tamer.tier}`')
             return
 
@@ -1232,7 +1253,7 @@ class Professions(commands.Cog):
         try:
             int(amount)
         except ValueError:
-            await ctx.reply(f'Your anaimls can only produce offspring in whole numbers greater than zero!')
+            await ctx.reply(f'Your animals can only produce offspring in whole numbers greater than zero!')
             return
 
         id_value = id_mapping[pet]
@@ -1262,9 +1283,75 @@ class Professions(commands.Cog):
                             f'Needed: `{final_cost}`')
             return
 
+    @commands.command(name=f'train')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def train(self, ctx, amount: int, confirm: str = ''):
+        """ - Grants your follower XP
+
+        Parameters
+        ----------
+        ctx
+        amount
+        confirm
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        xp_per_eldarium = int(get_bot_config('xp_per_eldarium'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        try:
+            int(amount)
+        except ValueError:
+            await ctx.reply(f'Amount must be an integer!.')
+            return
+
+        if amount <= 0 or amount < xp_per_eldarium:
+            await ctx.reply(f'Amount must be positive and >= {xp_per_eldarium}!.')
+            return
+
+        tamer = get_profession_tier(character.id, f'Tamer')
+        if not (tamer.tier == 5):
+            await ctx.reply(f'Only Tamers who have achieved Tier 5 can train followers. \n'
+                            f'Current Tamer Tier: `T{tamer.tier}`')
+            return
+
+        final_cost = math.ceil(amount / xp_per_eldarium)
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command grant your follower `{amount}` experience. If you have '
+                f'War Party, you can train both followers at once.\n'
+                f'\n`{final_cost} Decaying Eldarium` will be consumed. \n\n'
+                f'If you are sure you want to proceed, use `v/train {amount} confirm`')
+            return
+
+        balance = get_balance(character)
+
+        if balance >= final_cost:
+            message = await ctx.reply(f'Training followers... please wait!')
+            eld_transaction(character, f'Training Cost: {amount}', -final_cost)
+            run_console_command_by_name(character.char_name,f'givefollowerxp {amount}')
+
+            await message.edit(content=f'`{character.char_name}`trained their followers, granting `{amount}` experience. '
+                                       f'\nConsumed `{final_cost}` Decaying Eldarium')
+        else:
+            await ctx.reply(f'Not enough materials to train that much experience! '
+                            f'Available decaying eldarium: `{balance}`, '
+                            f'Needed: `{final_cost}`')
+            return
+
     @commands.command(name='animalbond')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def animalbond(self, ctx, confirm: str = ''):
-        """ - Increases the damage modifier of a pet to 3.0
+        """ - Increases pet stats significantly
 
         Parameters
         ----------
@@ -1284,14 +1371,15 @@ class Professions(commands.Cog):
             return
 
         tamer = get_profession_tier(character.id, f'Tamer')
-        if not (tamer.tier == 5):
-            await ctx.reply(f'Only Tamers who have achieved Tier 5 perform an animal bonding ritual. \n'
+        if not (tamer.tier >= 4):
+            await ctx.reply(f'Only Tamers who have achieved Tier 4 perform an animal bonding ritual. \n'
                             f'Current Tamer Tier: `T{tamer.tier}`')
             return
 
         if 'confirm' not in confirm.lower():
             await ctx.reply(
-                f'This command will set the Damage Modifier of your current pet on follow mode to `3.0`. '
+                f'This command will set the Damage Modifier of your current pet on follow mode to `5.0`. Mounts will '
+                f'be upgraded to `10,000` Endurance.'
                 f'Do not use this command with human followers, or you will be thrown into the volcano.\nIf you have '
                 f'War Party, you can bond with both following pets at once.\n'
                 f'\n`{bond_cost} Decaying Eldarium` will be consumed. \n\n'
@@ -1304,12 +1392,14 @@ class Professions(commands.Cog):
             message = await ctx.reply(f'Performing ritual of bonding with your pet, please wait... ')
             eld_transaction(character, f'Animal Bond Cost', -bond_cost)
             run_console_command_by_name(character.char_name,
-                                        f'setfollowerstat damagemodifiermelee 3')
+                                        f'setfollowerstat damagemodifiermelee 5')
             run_console_command_by_name(character.char_name,
-                                        f'setfollowerstat damagemodifierranged 3')
+                                        f'setfollowerstat damagemodifierranged 5')
+            run_console_command_by_name(character.char_name,
+                                        f'setfollowerstat endurancemax 10000')
 
             await message.edit(content=f'`{character.char_name}` has performed a ritual of bonding with their pet, '
-                                       f'increasing their damage modifiers to `3.0`!'
+                                       f'increasing their damage modifiers to `5.0` and endurance to `10,000`!'
                                        f'\nConsumed `{bond_cost}` Decaying Eldarium')
         else:
             await ctx.reply(f'Not enough materials to perform a ritual of bonding! '
@@ -1317,6 +1407,8 @@ class Professions(commands.Cog):
             return
 
     @commands.command(name='crafterlist', aliases=['professionlist', 'whocrafter'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def crafterlist(self, ctx):
         """ - Lists profession crafters of T4 or higher
 

@@ -666,6 +666,7 @@ class QuestSystem(commands.Cog):
 
     @commands.command(name='clearquesthistory')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def clearquesthistory(self, ctx, quest_id, char_id):
         """
@@ -700,6 +701,7 @@ class QuestSystem(commands.Cog):
 
     @commands.command(name='updatequesttext')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def updatequesttext(self, ctx, quest_id: int, style: int, text1: str, text2: str):
         """
@@ -738,6 +740,7 @@ class QuestSystem(commands.Cog):
 
     @commands.command(name='updatequestcooldown')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def addqueststep(self, ctx, quest_id: int, new_cooldown: int):
         """
@@ -771,6 +774,7 @@ class QuestSystem(commands.Cog):
 
     @commands.command(name='replayquesttext')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def createquest(self, ctx, quest_id: int, char_name: str):
         """
@@ -798,6 +802,7 @@ class QuestSystem(commands.Cog):
 
     @commands.command(name='onlinecharinfo')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def onlinecharinfo(self, ctx):
         """

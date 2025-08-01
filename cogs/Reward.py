@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from discord.ext import commands
 
 from functions.common import custom_cooldown, get_rcon_id, get_single_registration, is_registered, \
-    no_registered_char_reply
+    no_registered_char_reply, check_channel
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
 from textwrap import wrap
 
@@ -37,6 +37,7 @@ class Rewards(commands.Cog):
 
     @commands.command(name='reward', aliases=['give', 'giveitem', 'prize', 'spawnitem'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def giveReward(self, ctx, itemId: int, quantity: int, name: str, *reason):
         """- Gives a reward to the named player to retrieve with v/claim
@@ -87,6 +88,7 @@ class Rewards(commands.Cog):
 
     @commands.command(name='claim')
     @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def claim(self, ctx):
         """- Delivers item rewards to your character
@@ -219,6 +221,7 @@ class Rewards(commands.Cog):
 
     @commands.command(name='claimlist')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def claimList(self, ctx):
         """- Lists all claim records
@@ -244,6 +247,7 @@ class Rewards(commands.Cog):
 
     @commands.command(name='claimdelete')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def claimDelete(self, ctx, recordToDelete: int = commands.parameter(default=0)):
         """- Delete a record from the claim database

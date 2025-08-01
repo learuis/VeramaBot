@@ -7,7 +7,7 @@ from discord import ui
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from functions.common import is_message_deleted, is_registered, get_bot_config
+from functions.common import is_message_deleted, is_registered, get_bot_config, check_channel
 from functions.externalConnections import db_query
 
 load_dotenv('data/server.env')
@@ -174,6 +174,7 @@ class Roleplaying(commands.Cog):
 
     @commands.command(name='rp_prep')
     @commands.is_owner()
+    @commands.check(check_channel)
     async def rp_prep(self, ctx: commands.Context):
         await ctx.send(f'OPTIONAL - Click the button below to create your RP character sheet. '
                        f'It\'s very brief and simple! Please note - you must '
@@ -183,6 +184,7 @@ class Roleplaying(commands.Cog):
 
     @commands.command(name='charsheet', aliases=['charactersheet', 'rpcard'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     async def rpcard(self, ctx):
         """
 
@@ -227,6 +229,7 @@ class Roleplaying(commands.Cog):
 
     @commands.command(name='roleplay', aliases=['rp'])
     @commands.has_any_role('Admin', 'Moderator', 'Roleplay')
+    @commands.check(check_channel)
     async def Roleplay(self, ctx):
         """
 

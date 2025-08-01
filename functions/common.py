@@ -48,10 +48,10 @@ def check_channel(ctx):
     else:
         #everyone else
         if int(ctx.channel.id) != OUTCASTBOT_CHANNEL:
-            print(f'wrong channel {ctx.channel.id} != {OUTCASTBOT_CHANNEL}')
+            # print(f'wrong channel {ctx.channel.id} != {OUTCASTBOT_CHANNEL}')
             return False
         else:
-            print(f'good {ctx.channel.id} = {OUTCASTBOT_CHANNEL}')
+            # print(f'good {ctx.channel.id} = {OUTCASTBOT_CHANNEL}')
             return True
 
 def custom_cooldown(ctx):

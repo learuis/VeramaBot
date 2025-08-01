@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 from cogs.EldariumBank import get_balance, eld_transaction
 from functions.common import is_registered, get_clan, flatten_list, get_rcon_id, int_epoch_time, get_bot_config, \
-    get_single_registration_new, no_registered_char_reply
+    get_single_registration_new, no_registered_char_reply, check_channel
 from cogs.QuestSystem import character_in_radius
 from functions.externalConnections import db_query, runRcon
 
@@ -173,6 +173,8 @@ class InnSystem(commands.Cog):
         self.bot = bot
 
     @commands.command(name='closeinn')
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
     async def closeinn(self, ctx, confirm: str = ''):
         """ - Closes your current inn
 
@@ -217,6 +219,8 @@ class InnSystem(commands.Cog):
             return
 
     @commands.command(name='establishinn', aliases=['setupinn'])
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
     async def establishinn(self, ctx, inn_name: str):
         """ - Establishes an inn at your current location
 
@@ -284,6 +288,8 @@ class InnSystem(commands.Cog):
         # consume decaying eldarium and grant a reward to the inn owner
 
     @commands.command(name='inninfo', aliases=['innfo'])
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
     async def inninfo(self, ctx):
         """ - Shows information about your check-in and your clan's inn
 
@@ -331,6 +337,8 @@ class InnSystem(commands.Cog):
         await ctx.reply(f'{outputString}')
 
     @commands.command(name='inn')
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
     async def inn(self, ctx):
         """ - Teleports you to the inn where you are checked-in. Costs Decyain Eldarium.
 
@@ -381,6 +389,8 @@ class InnSystem(commands.Cog):
             return
 
     @commands.command(name='checkin', aliases=['book'])
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
     async def checkin(self, ctx):
         """- Checks in to the inn room nearest to your location
 
@@ -430,6 +440,8 @@ class InnSystem(commands.Cog):
             return
 
     @commands.command(name='innlist')
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
     async def innlist(self, ctx):
         """
 
@@ -450,6 +462,9 @@ class InnSystem(commands.Cog):
         inn = Inn()
         outputString = '__List of Inns__\n'
         results = db_query(False, f'select * from inn_locations')
+        if not results:
+            await ctx.reply(f'There are no inns registered yet.')
+            return
 
         for result in results:
             (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z) = result

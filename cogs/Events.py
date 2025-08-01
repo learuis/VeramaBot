@@ -4,7 +4,7 @@ import os
 
 from discord.ext import commands
 from functions.common import custom_cooldown, is_registered, get_rcon_id, set_bot_config, get_bot_config, \
-    no_registered_char_reply
+    no_registered_char_reply, check_channel
 from functions.externalConnections import runRcon, notify_all
 
 from dotenv import load_dotenv
@@ -19,6 +19,7 @@ class Events(commands.Cog):
 
     @commands.command(name='boss')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def boss(self, ctx):
         """- Spawns a random Siptah boss at cursor position.
@@ -65,6 +66,7 @@ class Events(commands.Cog):
 
     @commands.command(name='startevent', aliases=['endevent'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def startevent(self, ctx, location: str = commands.parameter(default='0')):
         """
@@ -88,6 +90,7 @@ class Events(commands.Cog):
 
     @commands.command(name='event', aliases=['market'])
     @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def event(self, ctx):
         """- Teleports you to an active event location.
@@ -129,6 +132,7 @@ class Events(commands.Cog):
 
     @commands.command(name='alert')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def Alert(self, ctx, style: int = commands.parameter(default=5),
                     text1: str = commands.parameter(default=f'-Event-'),

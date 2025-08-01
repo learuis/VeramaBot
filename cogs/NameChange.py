@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 
 from functions.common import (custom_cooldown, is_registered,
                               get_rcon_id, ununicode, update_registered_name, get_bot_config, flatten_list,
-                              set_bot_config, no_registered_char_reply)
+                              set_bot_config, no_registered_char_reply, check_channel)
 from functions.externalConnections import runRcon, db_query
 
 load_dotenv('data/server.env')
@@ -38,6 +38,7 @@ class NameChange(commands.Cog):
 
     @commands.command(name='randomname')
     @commands.has_any_role('Admin', 'Chameleon')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def randomname(self, ctx, update: bool = False):
         """
@@ -85,6 +86,7 @@ class NameChange(commands.Cog):
 
     @commands.command(name='idlookup')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def idlookup(self, ctx, char_name: str):
         """ Returns matching IDs and Character Names based on the provided name
@@ -116,6 +118,7 @@ class NameChange(commands.Cog):
 
     @commands.command(name='rename')
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def rename(self, ctx, char_id: int, new_name: str):
         """ Renames an unregistered character. Character must be offline to change name
@@ -150,6 +153,7 @@ class NameChange(commands.Cog):
 
     @commands.command(name='namechange', aliases=['changename', 'setname'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def changeName(self, ctx, discord_user: discord.Member, new_name: str):
         """- Changes registered player name

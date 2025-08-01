@@ -5,7 +5,7 @@ from discord.ext import commands
 
 from cogs.EldariumBank import get_balance, eld_transaction
 from functions.common import is_registered, get_rcon_id, last_season_char, get_bot_config, no_registered_char_reply, \
-    flatten_list, run_console_command_by_name
+    flatten_list, run_console_command_by_name, check_channel
 
 from dotenv import load_dotenv
 
@@ -35,6 +35,7 @@ class Reroll(commands.Cog):
 
     @commands.command(name='newgameplus', aliases=['ng+', 'newgame+'])
     @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def newgameplus(self, ctx):
         """
         Disassociates your previous season character from your account, allowing you to create a new one.
@@ -123,6 +124,7 @@ class Reroll(commands.Cog):
     #
     @commands.command(name='prestige')
     @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def prestige(self, ctx):
         """
         Grants you earned prestige points
@@ -139,6 +141,7 @@ class Reroll(commands.Cog):
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             return
+        print(f'{character.char_name} used the prestige command.')
 
         rconCharId = get_rcon_id(character.char_name)
         if rconCharId:
@@ -204,6 +207,7 @@ class Reroll(commands.Cog):
 
     @commands.command(name='carryover')
     @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def carryover(self, ctx, feature: str):
         """
         Transfers all custom features from your old character to your new one
@@ -215,6 +219,8 @@ class Reroll(commands.Cog):
             bank | fomo | professions
 
         """
+
+        featlist = []
 
         prev_character = last_season_char(ctx.message.author.id)
         if not prev_character:

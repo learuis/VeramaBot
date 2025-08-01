@@ -56,6 +56,7 @@ class EldariumBank(commands.Cog):
         self.bot = bot
 
     @commands.command(name='balance', aliases=['checkbalance', 'eld', 'bal'])
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
     async def balance(self, ctx, discord_user: discord.Member = None):
         """
@@ -86,6 +87,7 @@ class EldariumBank(commands.Cog):
 
     @commands.command(name='transaction', aliases=['tx'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
     async def transaction(self, ctx, discord_user: discord.Member, reason: str, amount: int = 0):
         """
@@ -133,6 +135,7 @@ class EldariumBank(commands.Cog):
             return
 
     @commands.command(name='pay', aliases=['transfer', 'sendmoney'])
+    @commands.check(check_channel)
     async def pay(self, ctx, payee: discord.Member, amount: str = 0, confirm: str = ''):
         """ - Transfers decaying eldarium to another registered player.
 
@@ -199,6 +202,7 @@ class EldariumBank(commands.Cog):
             return
 
     @commands.command(name='withdraw', aliases=['atm'])
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
     async def withdraw(self, ctx, amount: str = '0', eld_type: str = 'raw'):
         """
@@ -269,6 +273,7 @@ class EldariumBank(commands.Cog):
                 return
 
     @commands.command(name='deposit', aliases=['bank'])
+    @commands.check(check_channel)
     @commands.has_any_role('Admin', 'Moderator')
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
     async def deposit(self, ctx):
@@ -322,6 +327,8 @@ class EldariumBank(commands.Cog):
         return
 
     @commands.command(name='transactiondetail', aliases=['txd'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     async def transactiondetail(self, ctx, discord_user: discord.Member, transaction_count: int):
         """ Shows the 10 most recent transactions for the named player
 

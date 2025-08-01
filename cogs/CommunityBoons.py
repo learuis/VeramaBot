@@ -7,7 +7,7 @@ from datetime import datetime
 import discord
 
 from functions.common import isInt, percentage, get_single_registration, is_registered, \
-    set_bot_config, get_bot_config, int_epoch_time, flatten_list, no_registered_char_reply
+    set_bot_config, get_bot_config, int_epoch_time, flatten_list, no_registered_char_reply, check_channel
 from functions.externalConnections import runRcon, db_query, multi_rcon
 
 from discord.ext import commands
@@ -31,6 +31,7 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='boondelete',
                       aliases=['logdel', 'boondel', 'delboon', 'delboons'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def deleteboonlog(self, ctx,
                             command: str = commands.parameter(default='error'),
@@ -99,6 +100,7 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='boonconsume',
                       aliases=['bcon', 'bconsume', 'booncon'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def boonconsume(self, ctx,
                           identifier: str):
@@ -227,6 +229,7 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='boonlog',
                       aliases=['log', 'blog', 'boon', 'boons'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def boonlog(self, ctx,
                       name: str = commands.parameter(default='error'),
@@ -338,6 +341,7 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='booninfo',
                       aliases=['binfo'])
     @commands.has_any_role('Admin', 'Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def booninfo(self, ctx):
         """- Reports on current boon status
@@ -353,7 +357,10 @@ class CommunityBoons(commands.Cog):
         outputString = f'**Boon Status as of {datetime.fromtimestamp(float(int_epoch_time()))}**\n'
         settings_list = [['Blood (Experience Multiplier)', 'PlayerXPRateMultiplier', 'Heart of a Hero'],
                          ['Abundance (Harvest Amount)', 'HarvestAmountMultiplier', 'Tablet of Derketo'],
-                         ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier', 'Skull of Yog'],]
+                         ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier', 'Skull of Yog'],
+                         ['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier', 'Everice of Ymir'],
+                         ['Finesse (Stamina Cost)', 'StaminaCostMultiplier', 'Tablet of Power'],
+                         ['Returning (v/home Discount)', 'BoonOfReturning', 'Eye of Set'],]
 
         #['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],
         #['Preservation (Item Spoil Rate)', 'ItemSpoilRateScale'],
@@ -391,6 +398,7 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='old_booninfo',
                       aliases=['old_boonrep', 'old_brep', 'old_binfo', 'old_boonreport'])
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def old_booninfo(self, ctx,
                            command: str = commands.parameter(default='report')):
@@ -538,6 +546,7 @@ class CommunityBoons(commands.Cog):
 
     @commands.command(name='boonset')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def setboon(self, ctx, boon_name: str, expiration_time: int):
         """
@@ -565,6 +574,7 @@ class CommunityBoons(commands.Cog):
     @commands.command(name='old_boonset',
                       aliases=['old_setboons', 'old_setboon'])
     @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def old_setboon(self, ctx, option: str = commands.parameter(default='check'), *args):
         """- Modify Boon settings
@@ -821,6 +831,7 @@ class CommunityBoons(commands.Cog):
 
     @commands.command(name='titleclear', aliases=['cleartitle'])
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def titleClear(self, ctx):
         """- Removes your current title
@@ -851,6 +862,7 @@ class CommunityBoons(commands.Cog):
 
     @commands.command(name='title')
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def title(self, ctx, set_title: int = 0):
         """- Check titles you have earned or set your title.
@@ -915,7 +927,7 @@ def update_boons(indv_boon: str = ''):
     else:
         boonList = ['ItemConvertionMultiplier', 'ItemSpoilRateScale', 'PlayerXPKillMultiplier',
                     'PlayerXPRateMultiplier', 'DurabilityMultiplier', 'HarvestAmountMultiplier',
-                    'ResourceRespawnSpeedMultiplier', 'NPCRespawnMultiplier']
+                    'ResourceRespawnSpeedMultiplier', 'NPCRespawnMultiplier', 'StaminaCostMultiplier']
 
     for boon in boonList:
         if int(get_bot_config(boon)) >= currentTime:
@@ -932,6 +944,13 @@ def update_boons(indv_boon: str = ''):
         command_list.append(new_command)
 
     multi_rcon(command_list)
+
+    if int(get_bot_config('BoonOfReturning')) >= currentTime:
+        set_bot_config('home_cost', get_bot_config('home_discount_value'))
+    else:
+        set_bot_config('home_cost', get_bot_config('home_default_value'))
+
+    return
 
     #
     # else:

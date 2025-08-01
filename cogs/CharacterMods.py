@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from functions.common import custom_cooldown, is_registered, get_rcon_id
+from functions.common import custom_cooldown, is_registered, get_rcon_id, check_channel
 from functions.externalConnections import runRcon
 
 class CharacterMods(commands.Cog):
@@ -9,6 +9,7 @@ class CharacterMods(commands.Cog):
 
     @commands.command(name='shrink', aliases=['grow'])
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def small(self, ctx, discord_user: discord.Member):
         """
@@ -67,6 +68,7 @@ class CharacterMods(commands.Cog):
 
     @commands.command(name='tattoo', aliases=['warpaint'])
     @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def tattoo(self, ctx):
         """- Converts your active warpaint to a permanent tattoo that lasts through death

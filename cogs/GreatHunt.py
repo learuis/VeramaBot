@@ -3,7 +3,7 @@ import os
 from discord.ext import commands
 
 from cogs.QuestSystem import character_in_radius
-from functions.common import custom_cooldown, is_registered, get_rcon_id, no_registered_char_reply
+from functions.common import custom_cooldown, is_registered, get_rcon_id, no_registered_char_reply, check_channel
 from functions.externalConnections import runRcon
 
 from dotenv import load_dotenv
@@ -17,6 +17,7 @@ class GreatHunt(commands.Cog):
 
     @commands.command(name='hunt')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def hunt(self, ctx):
         """- Spawns the Sacred Hunt vendor at your location.

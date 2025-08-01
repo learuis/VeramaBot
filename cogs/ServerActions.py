@@ -6,7 +6,7 @@ from time import strftime, localtime
 
 from discord.ext import commands
 from functions.externalConnections import runRcon
-from functions.common import custom_cooldown, place_markers, set_bot_config
+from functions.common import custom_cooldown, place_markers, set_bot_config, check_channel
 
 TOKEN = os.getenv('DISCORD_TOKEN')
 
@@ -18,6 +18,7 @@ class ServerActions(commands.Cog):
 
     @commands.command(name='bye')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     async def bye(self, ctx):
         """- Shut down VeramaBot
 
@@ -38,7 +39,7 @@ class ServerActions(commands.Cog):
     @commands.command(name='listplayers',
                       aliases=['list', 'lp'])
     @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(check_channel)
     async def listplayers(self, ctx, name: str = None):
         """- Lists connected players
 
@@ -89,7 +90,7 @@ class ServerActions(commands.Cog):
 
     @commands.command(name='markers')
     @commands.has_any_role('Admin', 'Moderator', 'Helper')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(check_channel)
     async def markers(self, ctx):
         """- Place map markers (req 1 player online)
 
@@ -116,6 +117,7 @@ class ServerActions(commands.Cog):
 
     @commands.command(name='bot')
     @commands.has_any_role('Admin')
+    @commands.check(check_channel)
     async def bot(self, ctx):
         """- Restarts down VeramaBot
 

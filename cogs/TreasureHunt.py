@@ -8,7 +8,7 @@ from discord.ext import commands
 from cogs.QuestSystem import check_inventory, count_inventory_qty, treasure_broadcast
 from cogs.Reward import add_reward_record
 from functions.common import custom_cooldown, get_bot_config, is_registered, flatten_list, set_bot_config, get_rcon_id, \
-    run_console_command_by_name, get_single_registration, int_epoch_time, no_registered_char_reply
+    run_console_command_by_name, get_single_registration, int_epoch_time, no_registered_char_reply, check_channel
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -145,7 +145,7 @@ class TreasureHunt(commands.Cog):
 
     @commands.command(name='treasurebroadcast')
     @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(check_channel)
     async def treasurebroadcast(self, ctx):
         """
 
@@ -163,7 +163,7 @@ class TreasureHunt(commands.Cog):
 
     @commands.command(name='dig', aliases=['treasure'])
     @commands.has_any_role('Outcasts')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(check_channel)
     async def dig(self, ctx):
         """- Dig for treasure at your current location
 
@@ -247,7 +247,7 @@ class TreasureHunt(commands.Cog):
         return
 
     @commands.command(name='daily', aliases=['dailydig', 'dailytrasure'])
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(check_channel)
     async def daily(self, ctx):
         """- Collect daily treasure
 
@@ -341,7 +341,7 @@ class TreasureHunt(commands.Cog):
 
     @commands.command(name='givetreasure')
     @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    @commands.check(check_channel)
     async def givetreasure(self, ctx, name: str, bonus: int = 0):
         """
 
