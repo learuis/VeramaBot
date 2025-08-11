@@ -1,11 +1,11 @@
 import os
 import re
 
+import discord
 from discord.ext import commands
 
-from cogs.EldariumBank import get_balance, eld_transaction
 from functions.common import is_registered, get_rcon_id, last_season_char, get_bot_config, no_registered_char_reply, \
-    flatten_list, run_console_command_by_name, check_channel
+    flatten_list, run_console_command_by_name, check_channel, eld_transaction, get_balance
 
 from dotenv import load_dotenv
 
@@ -32,6 +32,36 @@ def get_prestige_points(character):
 class Reroll(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @commands.command(name='giveprestige')
+    @commands.has_any_role('Admin')
+    @commands.check(check_channel)
+    async def giveprestige(self, ctx, discord_user: discord.Member, points_to_give: int):
+        """
+
+
+        Parameters
+        ----------
+        ctx
+        discord_user
+
+        Returns
+        -------
+
+        """
+        character = is_registered(discord_user.id)
+        if not character:
+            await ctx.reply(f'No {CURRENT_SEASON} character registered to player {discord_user.name}!')
+            return
+
+        query_string = (f'insert or replace into prestige (discord_id, reason, points) values ({character.discord_id}, '
+                        f'\'Season {CURRENT_SEASON} Keystone Points\', {points_to_give})')
+        print(query_string)
+
+        db_query(True, f'{query_string}')
+
+        await ctx.reply(f'Granted {points_to_give} Prestige points to `{character.name}`!')
+        return
 
     @commands.command(name='newgameplus', aliases=['ng+', 'newgame+'])
     @commands.has_any_role('Outcasts')
@@ -141,7 +171,7 @@ class Reroll(commands.Cog):
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             return
-        print(f'{character.char_name} used the prestige command.')
+        # print(f'{character.char_name} used the prestige command.')
 
         rconCharId = get_rcon_id(character.char_name)
         if rconCharId:
@@ -158,7 +188,7 @@ class Reroll(commands.Cog):
         results.output.pop(0)
         if len(results.output) == 1:
             distributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
-            print(f'Dist: {distributed_points}')
+            # print(f'Dist: {distributed_points}')
         else:
             await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You have not spent any points)')
             return
@@ -168,19 +198,19 @@ class Reroll(commands.Cog):
         results.output.pop(0)
         if len(results.output) == 1:
             total_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
-            print(f'Total: {total_points}')
+            # print(f'Total: {total_points}')
         else:
             await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You must be at least level 2)')
             return
 
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
                           f'and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
-        print(f'Undist result: {results.output}')
+        # print(f'Undist result: {results.output}')
         results.output.pop(0)
-        print(f'Len: {len(results.output)} Popped: {results.output}')
+        # print(f'Len: {len(results.output)} Popped: {results.output}')
         if len(results.output) == 1:
             undistributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
-            print(f'Undist: {undistributed_points}')
+            # print(f'Undist: {undistributed_points}')
             if int(undistributed_points, 16) > 0:
                 await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You currently have undistributed points)')
                 return
@@ -197,7 +227,7 @@ class Reroll(commands.Cog):
         if distributed_points == total_points and undistributed_points == '00':
             query = (f'sql update properties set value = x\'00000000{points:02x}000000\' '
                      f'where object_id = {character.id} and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
-            print(query)
+            # print(query)
             runRcon(query)
             # run_console_command_by_name(character.char_name, f'addundistributedattributepoints {points}')
             # print(f'You have {get_prestige_points(character)} prestige points in total.')

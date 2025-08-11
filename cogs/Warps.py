@@ -3,9 +3,8 @@ import os
 
 from discord.ext import commands
 
-from cogs.EldariumBank import get_balance, sufficient_funds, eld_transaction
 from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config, \
-    no_registered_char_reply, check_channel
+    no_registered_char_reply, check_channel, eld_transaction, get_balance, sufficient_funds
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -177,7 +176,7 @@ class Warps(commands.Cog):
                 return
             else:
                 runRcon(f'con {rconCharId} TeleportPlayer {target_x} {target_y} {target_z}')
-                print(f'{home_cost}')
+                # print(f'{home_cost}')
                 if home_cost != 0:
                     await ctx.reply(f'Returned `{name}` to their spawn for {home_cost} decaying eldarium.')
                     return

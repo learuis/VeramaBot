@@ -9,12 +9,11 @@ from discord.ext.commands import Bot
 from discord.ext import tasks
 from dotenv import load_dotenv
 
-from cogs.CommunityBoons import update_boons
 from cogs.Professions import updateProfessionBoard
 from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info, treasure_broadcast
 from cogs.Roleplaying import RoleplayingButton
 from cogs.Utilities import is_character_online
-from functions.common import is_docker, editStatus, place_markers, fillThrallCages, get_bot_config
+from functions.common import is_docker, editStatus, place_markers, fillThrallCages, update_boons, get_bot_config
 from cogs.CharRegistration import RegistrationButton
 
 load_dotenv('data/server.env')
@@ -77,8 +76,8 @@ async def on_ready():
     if not fillCages.is_running():
         fillCages.start()
 
-    if not treasure_announcer.is_running():
-        treasure_announcer.start()
+    # if not treasure_announcer.is_running():
+    #     treasure_announcer.start()
 
     if is_docker():
         await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')

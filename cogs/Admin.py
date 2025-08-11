@@ -24,6 +24,7 @@ RCON_PORT = int(os.getenv('RCON_PORT'))
 RCON_PASS = str(os.getenv('RCON_PASS'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
+GUILD_ID = int(os.getenv('GUILD_ID'))
 
 class Admin(commands.Cog):
     """Cog class containing commands related to server status."""
@@ -397,9 +398,8 @@ class Admin(commands.Cog):
         await ctx.send(f'Set {item.casefold()} = {value.casefold()}')
 
     @commands.command(name='charswap')
-    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper'
+    @commands.has_any_role('Admin', 'Moderator', 'BuildHelper')
     @commands.check(check_channel)
-    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def charswap(self, ctx, activate_char: str):
         """
 
@@ -447,7 +447,7 @@ class Admin(commands.Cog):
             alt_char_id = res[7]
             alt_char_name = res[8]
 
-            print(f'{res[0]} {res[1]} {res[2]} {res[3]} {res[4]} {res[5]} {res[6]} {res[7]} {res[8]}')
+            # print(f'{res[0]} {res[1]} {res[2]} {res[3]} {res[4]} {res[5]} {res[6]} {res[7]} {res[8]}')
 
             outputString = (f'Starting character account swap process...\n'
                             f'{res[0]} {res[1]} {res[2]} {res[3]} {res[4]} {res[5]} {res[6]} {res[7]} {res[8]}')
@@ -533,6 +533,7 @@ class Admin(commands.Cog):
                     await message.edit(content=outputString)
                     return
 
+
     @commands.command(name='buildeverywhere')
     @commands.has_any_role('BuildHelper')
     @commands.check(check_channel)
@@ -549,12 +550,12 @@ class Admin(commands.Cog):
 
         """
         character = is_registered(ctx.author.id)
-        print(f'{character}')
+        # print(f'{character}')
 
         alt_char_name = db_query(False, f'select alt_char_name from char_swap '
                                         f'where main_char_id = \'{character.id}\' limit 1')
         alt_char_name = flatten_list(alt_char_name)
-        print(f'{alt_char_name}')
+        # print(f'{alt_char_name}')
         check = run_console_command_by_name(f'{alt_char_name[0]}', f'PlayerCanBuildEverywhere {alt_char_name[0]}')
         if not check:
             await ctx.reply(f'Character `{alt_char_name[0]}` is not online.')

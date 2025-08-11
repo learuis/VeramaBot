@@ -7,7 +7,7 @@ from datetime import datetime
 import discord
 
 from functions.common import isInt, percentage, get_single_registration, is_registered, \
-    set_bot_config, get_bot_config, int_epoch_time, flatten_list, no_registered_char_reply, check_channel
+    set_bot_config, get_bot_config, int_epoch_time, flatten_list, no_registered_char_reply, check_channel, update_boons
 from functions.externalConnections import runRcon, db_query, multi_rcon
 
 from discord.ext import commands
@@ -908,49 +908,6 @@ class CommunityBoons(commands.Cog):
         else:
             await ctx.reply(f'You have not earned any titles this season.')
             return
-
-def update_boons(indv_boon: str = ''):
-    command_prep = []
-    command_list = []
-    currentTime = int_epoch_time()
-
-    if int(get_bot_config(f'maintenance_flag')) == 1:
-        print(f'Skipping boons loop, server in maintenance mode')
-        return
-
-    if int(get_bot_config(f'boons_toggle')) == 0:
-        print(f'Skipping boons loop, boons globally disabled')
-        return
-
-    if indv_boon:
-        boonList = [f'{indv_boon}']
-    else:
-        boonList = ['ItemConvertionMultiplier', 'ItemSpoilRateScale', 'PlayerXPKillMultiplier',
-                    'PlayerXPRateMultiplier', 'DurabilityMultiplier', 'HarvestAmountMultiplier',
-                    'ResourceRespawnSpeedMultiplier', 'NPCRespawnMultiplier', 'StaminaCostMultiplier']
-
-    for boon in boonList:
-        if int(get_bot_config(boon)) >= currentTime:
-            result = db_query(False, f'select active_value from boon_settings where setting_name = \'{boon}\'')
-        else:
-            result = db_query(False, f'select inactive_value from boon_settings where setting_name = \'{boon}\'')
-        setting = flatten_list(result)
-        # print(f'{setting}')
-        command_prep.append([boon, setting[0]])
-
-    for command in command_prep:
-        (setting, value) = command
-        new_command = f'SetServerSetting {setting} {value}'
-        command_list.append(new_command)
-
-    multi_rcon(command_list)
-
-    if int(get_bot_config('BoonOfReturning')) >= currentTime:
-        set_bot_config('home_cost', get_bot_config('home_discount_value'))
-    else:
-        set_bot_config('home_cost', get_bot_config('home_default_value'))
-
-    return
 
     #
     # else:

@@ -1,17 +1,14 @@
 import os
 import math
 import random
-from math import floor
 
 from discord.ext import commands
 
-from cogs.EldariumBank import get_balance, eld_transaction
 from cogs.FeatClaim import grant_feat
-from cogs.Hunter import get_slayer_target, get_notoriety
-from cogs.Reward import add_reward_record
 from functions.common import int_epoch_time, get_bot_config, set_bot_config, is_registered, get_single_registration, \
-    flatten_list, get_registration, get_rcon_id, run_console_command_by_name, get_clan, get_single_registration_new, \
-    no_registered_char_reply, check_channel
+    flatten_list, get_rcon_id, run_console_command_by_name, get_single_registration_new, \
+    no_registered_char_reply, check_channel, eld_transaction, get_balance, get_slayer_target, get_notoriety, get_favor, \
+    add_reward_record, get_treasure_target
 from functions.externalConnections import db_query, runRcon
 from dotenv import load_dotenv
 
@@ -38,15 +35,6 @@ class ProfessionObjective:
         self.tier = 0
         self.item_id = 0
         self.item_name = ''
-
-
-class Favor:
-    def __init__(self):
-        self.char_id = 0
-        self.faction = ''
-        self.current_favor = 0
-        self.lifetime_favor = 0
-
 
 def get_current_objective(profession, tier):
     objective = ProfessionObjective()
@@ -103,50 +91,6 @@ def get_profession_tier(char_id, profession):
 
     return player_profession_tier
 
-
-def get_favor(char_id, faction):
-    favor_values = Favor()
-
-    query = db_query(False,
-                     f'select char_id, faction, current_favor, lifetime_favor from factions '
-                     f'where char_id = {char_id} '
-                     f'and faction = \'{faction}\' '
-                     f'and season = {CURRENT_SEASON} '
-                     f'limit 1')
-    print(f'{query}')
-
-    if not query:
-        db_query(True,
-                 f'insert into factions '
-                 f'(char_id, season, faction, current_favor, lifetime_favor) '
-                 f'values ({char_id},{CURRENT_SEASON}, \'{faction}\', 0, 0)')
-        # print(f'Created faction record for {char_id} / {faction}')
-        favor_values.char_id = char_id
-        favor_values.faction = faction
-        favor_values.current_favor = 0
-        favor_values.lifetime_favor = 0
-
-        return favor_values
-
-    for record in query:
-        (favor_values.char_id,
-         favor_values.faction,
-         favor_values.current_favor,
-         favor_values.lifetime_favor) = record
-
-    return favor_values
-
-def provisioner_thrall():
-    thrall_to_give = ''
-    count = int(get_bot_config(f'provisioner_thrall_count'))
-    # record_id = random.randint(int(1), count)
-    results = db_query(False, f'select thrall_name from provisioner_rewards '
-                              f'order by random() limit 1')
-
-    for result in results:
-        thrall_to_give = str(result[0])
-
-    return thrall_to_give
 
 async def give_profession_xp(char_id, char_name, profession, tier, bot):
     profession_xp_mult = int(get_bot_config(f'{profession.casefold()}_xp_multiplier'))
@@ -220,10 +164,40 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
 
     outputString += f'<@{registration[2]}>:\n`{char_name}` - `{profession}` tier has increased to `T{new_tier}`!\n'
     outputString += f'Your remaining deliveries for this cycle have been reset to `{cycle_limit}`.\n'
+    match profession.casefold():
+        case 'blacksmith':
+            if new_tier == 4:
+                outputString += (f'**You have gained the ability to reforge weapons to scale with different attributes '
+                                 f'with `v/reforge`. Use `v/help reforge` for an explanation.**\n')
+            if new_tier == 5:
+                outputString += (f'**You have gained the ability to repair all items with `v/repair`. '
+                                 f'Use `v/help repair` for an explanation.**\n')
+        case 'armorer':
+            if new_tier == 4:
+                outputString += (f'**You have gained the ability to trim armor weight to 0 with `v/trim`. '
+                                 f'Use `v/help trim` for an explanation.**\n')
+            if new_tier == 5:
+                outputString += (f'**You have gained the ability to repair equipped armor with `v/repair`. '
+                                 f'Use `v/help repair` for an explanation.**\n')
+        case 'archivist':
+            if new_tier == 4:
+                outputString += (f'**You have gained the ability to enchant weapons with long-lasting effects '
+                                 f'with `v/enchant`.  Use `v/help enchant` for an explanation.**\n')
+            if new_tier == 5:
+                outputString += (f'**You have gained the ability to research sigils with `v/research`. '
+                                 f'Use `v/help research` for an explanation.**\n')
+        case 'tamer':
+            if new_tier == 3:
+                outputString += (f'**You have gained the ability to breed rare offspring from animals '
+                                 f'with `v/offspring`. Use `v/help offspring` for an explanation.**\n')
+            if new_tier == 4:
+                outputString += (f'**You have gained the ability to bond with an animal companion, increasing its damage significantly '
+                                 f'with `v/animalbond`. Use `v/help animalbond` for an explanation.**\n')
+            if new_tier == 5:
+                outputString += (f'**You have gained the ability to train followers, granting them experience '
+                                 f'with `v/train`. Use `v/help train` for an explanation.**\n')
+
     outputString += f'You have unlocked the following {profession} recipes (claim with with `v/featrestore`)\n'
-    if new_tier == 5:
-        outputString += (f'You have gained the ability to repair all items with `v/repair`. '
-                         f'Use `v/help repair` for an explanation.\n')
 
     feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
                                      f'where turn_in_amount <= {turn_in_amount} and profession like \'%{profession}%\' '
@@ -235,42 +209,6 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
     await channel.send(f'{outputString}')
 
     return
-
-
-def modify_favor(char_id, faction, amount):
-    query = db_query(False,
-                     f'select char_id, faction, current_favor, lifetime_favor from factions '
-                     f'where char_id = {char_id} '
-                     f'and faction = \'{faction}\' '
-                     f'and season = {CURRENT_SEASON} '
-                     f'limit 1')
-    if not query:
-        db_query(True,
-                 f'insert into factions '
-                 f'(char_id, season, faction, current_favor, lifetime_favor) '
-                 f'values ({char_id},{CURRENT_SEASON}, \'{faction}\', {amount}, {amount})')
-        # print(f'Created faction record for {char_id} / {faction}')
-
-    if amount >= 0:
-        db_query(True,
-                 f'update factions set lifetime_favor = ( '
-                 f'select lifetime_favor + {amount} from factions '
-                 f'where char_id = {char_id} and faction = \'{faction}\') '
-                 f'where char_id = {char_id} and faction = \'{faction}\'')
-
-    db_query(True,
-             f'update factions set current_favor = ( '
-             f'select current_favor + {amount} from factions '
-             f'where char_id = {char_id} and faction = \'{faction}\') '
-             f'where char_id = {char_id} and faction = \'{faction}\'')
-
-    results = db_query(False,
-                       f'select current_favor from factions '
-                       f'where char_id = {char_id} and faction = \'{faction}\' limit 1')
-    favor_total = results[0]
-
-    return favor_total
-
 
 async def updateProfessionBoard(message, displayOnly: bool = False):
     if int(get_bot_config(f'disable_professions')) == 1:
@@ -285,6 +223,8 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist']
     faction_list = ['Provisioner', 'Slayer']
     count = 0
+    item_id_string = ''
+    item_name_string = ''
 
     current_time = int_epoch_time()
 
@@ -294,7 +234,7 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     outputString = '__Requested Items (No uniques/gold borders)__\n'
 
     profession_tier_list = db_query(False, f'select distinct profession, tier '
-                                           f'from profession_item_list')
+                                           f'from profession_item_list order by profession, tier asc')
     for record in profession_tier_list:
         (profession, tier) = record
 
@@ -306,26 +246,41 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
                                 f'select item_id, item_name from profession_item_list '
                                 f'where profession like \'%{profession}%\''
                                 f'and tier = \'{tier}\' and item_id not in ( select item_id from profession_objectives )'
-                                f'order by RANDOM() limit 1')
+                                f'order by RANDOM() limit 3')
         else:
             itemList = db_query(False,
                                 f'select item_id, item_name from profession_objectives '
                                 f'where tier = \'{tier}\' and profession like \'%{profession}%\' limit 1')
-        for item in itemList:
-            (item_id, item_name) = item
+        for index, item in enumerate(itemList):
+            # (item_id, item_name) = item
+            if len(itemList) == 1:
+                item_id_string += f'{item[0]}'
+                item_name_string += f'`{item[1]}`'
+                break
+            elif index == len(itemList) - 1:
+                item_id_string += f'{item[0]}'
+                item_name_string += f'`{item[1]}`'
+            else:
+                item_id_string += f'{item[0]}, '
+                item_name_string += f'`{item[1]}`, '
 
-            if not displayOnly:
-                db_query(True, f'insert or replace into profession_objectives '
-                               f'(profession,tier,item_id,item_name) '
-                               f'values (\'{profession}\', {tier}, {item_id}, \'{item_name}\')')
-                db_query(True, f'update character_progression set turn_ins_this_cycle = 0')
+        outputString += f'T{tier}: {item_name_string}\n'
 
-            outputString += f'T{tier}: `{item_name}`\n'
+        item_name_string = item_name_string.replace('`', '')
 
-            # print(f'{count}')
-            count += 1
-            if int(count) % 4 == 0:
-                outputString += f'\n'
+        # print(f'{count}')
+        count += 1
+        if int(count) % 4 == 0:
+            outputString += f'\n'
+
+        if not displayOnly:
+            db_query(True, f'insert or replace into profession_objectives '
+                           f'(profession,tier,item_id,item_name) '
+                           f'values (\'{profession}\', {tier}, \'{item_id_string}\', \'{item_name_string}\')')
+            db_query(True, f'update character_progression set turn_ins_this_cycle = 0')
+
+        item_id_string = ''
+        item_name_string = ''
 
             # print(f'Updated {profession} Tier {tier}: {item_name}')
 
@@ -416,6 +371,7 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
         #                  f'\nNext: <t:{next_update}:f> in your timezone\n')
 
     # print(f'outputstring is {len(outputString)} characters')
+    # print(f'{outputString}')
 
     await message.edit(content=f'{outputString}')
     return True
@@ -523,7 +479,17 @@ class Professions(commands.Cog):
         provisioner_ranking = flatten_list(provisioner_ranking)
         for index, rank in enumerate(provisioner_ranking):
             if int(rank) == character.id:
-                outputString += f'Server-wide Ranking: `{index + 1}`'
+                outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
+
+        treasure_target = get_treasure_target(character)
+
+        if not treasure_target:
+            outputString += f'`Treasure Hunter`\nCurrent Location: `None`'
+        else:
+            if treasure_target.char_id:
+                outputString += f'`Treasure Hunter`\nCurrent Location: `{treasure_target.location_name}`'
+            else:
+                outputString += f'`Treasure Hunter`\nCurrent Location: `None`'
 
         last_profession_update = int(get_bot_config(f'last_profession_update'))
         profession_update_interval = int(get_bot_config(f'profession_update_interval'))
@@ -1187,7 +1153,7 @@ class Professions(commands.Cog):
         ctx
         pet
             feraldog | lynx | lacerta | aardwolf | jungleclaw | siptah pelican |
-            mountain lion | turtle | tuskbeast | elephant | pup
+            mountain lion | turtle | tuskbeast | elephant | pup | yakith
         amount
             How many baby animals to produce
         confirm
@@ -1199,7 +1165,7 @@ class Professions(commands.Cog):
         """
         pet = pet.lower()
         valid_pets = ['feraldog', 'lynx', 'lacerta', 'aardwolf', 'jungleclaw', 'pelican',
-                      'mountainlion', 'turtle', 'tuskbeast', 'elephant', 'pup']
+                      'mountainlion', 'turtle', 'tuskbeast', 'elephant', 'pup', 'yakith']
         pet_names = {'feraldog': 'Feral Dog Pup',
                      'lynx': 'Island Lynx Cub',
                      'lacerta': 'Crested Lacerta Hatchling',
@@ -1210,10 +1176,12 @@ class Professions(commands.Cog):
                      'turtle': 'Turtle Hatchling',
                      'tuskbeast': 'Siptah Rhinoceros Calf',
                      'elephant': 'Antediluvian Elephant Calf',
-                     'pup': 'Playful Pup'}
+                     'pup': 'Playful Pup',
+                     'yakith': 'Yakith'}
 
         pup_randomizer = random.randint(19223, 19229)
         tuskbeast_randomizer = random.randint(19046, 19047)
+        yakith_randomizer = random.randint(19623, 19624)
 
         id_mapping = {'feraldog': 19038,
                       'lynx': 19039,
@@ -1225,7 +1193,8 @@ class Professions(commands.Cog):
                       'turtle': 18262,
                       'tuskbeast': int(tuskbeast_randomizer),
                       'elephant': 19045,
-                      'pup': int(pup_randomizer)}
+                      'pup': int(pup_randomizer),
+                      'yakith': int(yakith_randomizer)}
 
         character = is_registered(ctx.author.id)
         offspring_cost = int(get_bot_config('offspring_cost'))
@@ -1242,7 +1211,7 @@ class Professions(commands.Cog):
 
         if pet not in valid_pets:
             await ctx.reply(f'You must specify a valid pet to breed! Use `feraldog`, `lynx`, `lacerta`, `aardwolf`, '
-                            f'`jungleclaw`, `pelican`, `mountainlion`, `turtle`, `tuskbeast`, `elephant`, `pup`')
+                            f'`jungleclaw`, `pelican`, `mountainlion`, `turtle`, `tuskbeast`, `elephant`, `pup`, `yakith`')
             return
 
         if amount == 0:
@@ -1365,6 +1334,7 @@ class Professions(commands.Cog):
         """
         character = is_registered(ctx.author.id)
         bond_cost = int(get_bot_config('bond_cost'))
+        damage_bonus = int(get_bot_config('animal_bond_damage_bonus'))
 
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
@@ -1378,8 +1348,8 @@ class Professions(commands.Cog):
 
         if 'confirm' not in confirm.lower():
             await ctx.reply(
-                f'This command will set the Damage Modifier of your current pet on follow mode to `5.0`. Mounts will '
-                f'be upgraded to `10,000` Endurance.'
+                f'This command will set the Damage Modifier of your current pet on follow mode to `{damage_bonus}.0`. '
+                f'Mounts will be upgraded to `10,000` Endurance.'
                 f'Do not use this command with human followers, or you will be thrown into the volcano.\nIf you have '
                 f'War Party, you can bond with both following pets at once.\n'
                 f'\n`{bond_cost} Decaying Eldarium` will be consumed. \n\n'
@@ -1389,12 +1359,13 @@ class Professions(commands.Cog):
 
         balance = get_balance(character)
         if balance >= bond_cost:
+            damage_bonus = int(get_bot_config('animal_bond_damage_bonus'))
             message = await ctx.reply(f'Performing ritual of bonding with your pet, please wait... ')
             eld_transaction(character, f'Animal Bond Cost', -bond_cost)
             run_console_command_by_name(character.char_name,
-                                        f'setfollowerstat damagemodifiermelee 5')
+                                        f'setfollowerstat damagemodifiermelee {damage_bonus}')
             run_console_command_by_name(character.char_name,
-                                        f'setfollowerstat damagemodifierranged 5')
+                                        f'setfollowerstat damagemodifierranged {damage_bonus}')
             run_console_command_by_name(character.char_name,
                                         f'setfollowerstat endurancemax 10000')
 

@@ -1,26 +1,11 @@
-import datetime
-import random
-
 from discord.ext import commands
 
-from cogs.CommunityBoons import update_boons
-from cogs.EldariumBank import eld_transaction
-from cogs.Hunter import get_slayer_target, set_slayer_target, killed_target, clear_slayer_target, get_notoriety, \
-    clear_notoriety
-from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp, modify_favor, get_favor, \
-    provisioner_thrall
-from cogs.Reward import add_reward_record
+from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp
 from functions.common import *
-from functions.externalConnections import runRcon, db_query, notify_all, rcon_all
+from functions.common import display_quest_text, grant_reward, killed_target, set_slayer_target, clear_slayer_target, \
+    get_slayer_target, get_notoriety, RegistrationOLD
+from functions.externalConnections import runRcon, db_query, rcon_all
 
-
-class Registration:
-    def __init__(self):
-        self.id = 0
-        self.char_name = ''
-
-    def reset(self):
-        self.__init__()
 
 class CharLocation:
     def __init__(self):
@@ -118,6 +103,16 @@ def pull_online_character_info():
     con.commit()
     con.close()
 
+    result = runRcon(f'sql select worldTime from game_events '
+                     f'where eventType = 0 order by worldTime desc limit 1')
+    # print(result.output)
+    result.output.pop(0)
+    print(f'server last restarted at: {result.output}')
+    match = re.search(r'(\d{10})', result.output[0])
+    last_restart = int(match.group(1))
+    print(f'server last restarted at: {last_restart}')
+    set_bot_config(f'last_server_restart', f'{last_restart}')
+
     # print(f'end char info query {int_epoch_time()}')
     return True
 
@@ -136,45 +131,6 @@ def complete_quest(quest_id: int, char_id: int):
 
     con.commit()
     con.close()
-
-    return
-
-
-def display_quest_text(quest_id, quest_status, alt, char_name,
-                       override_style: int = None, override_text1: str = None, override_text2: str = None):
-    style = 0
-    text1 = ''
-    text2 = ''
-    altStyle = ''
-    altText1 = ''
-    altText2 = ''
-
-    if override_style and override_text1 and override_text2:
-        print(f'Using override quest text for {quest_id}')
-        run_console_command_by_name(char_name,
-                                    f'testFIFO {override_style} \"{override_text1}\" \"{override_text2}\"')
-        return
-
-    questText = db_query(False, f'select Style, Text1, Text2, AltStyle, AltText1, AltText2 from quest_text '
-                                f'where quest_id = {quest_id} and step_number = {quest_status}')
-    if not questText:
-        print(f'No text defined for {quest_id}, skipping')
-        return
-
-    # print(f'{questText}')
-
-    for record in questText:
-        style = record[0]
-        text1 = record[1]
-        text2 = record[2]
-        altStyle = record[3]
-        altText1 = record[4]
-        altText2 = record[5]
-
-    if alt:
-        run_console_command_by_name(char_name, f'testFIFO {altStyle} \"{altText1}\" \"{altText2}\"')
-    else:
-        run_console_command_by_name(char_name, f'testFIFO {style} \"{text1}\" \"{text2}\"')
 
     return
 
@@ -241,211 +197,6 @@ def add_cooldown(char_id, quest_id, cooldown: int):
     con.close()
 
 
-def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
-    character = Registration()
-    character.id = char_id
-    character.char_name = char_name
-    print(f'Granting reward for quest {quest_id} / character {char_id}')
-
-    reward_list = db_query(False, f'select reward_template_id, reward_qty, reward_feat_id, '
-                                  f'reward_thrall_name, reward_emote_name, reward_boon, reward_command, range_min, range_max '
-                                  f'from quest_rewards where quest_id = {quest_id}')
-    if not reward_list:
-        print(f'No records returned from reward list, skipping delivery')
-        return
-
-    for reward in reward_list:
-        (reward_template_id, reward_qty, reward_feat_id, reward_thrall_name,
-         reward_emote_name, reward_boon, reward_command, range_min, range_max) = reward
-
-        # display_quest_text(quest_id, 0, True, char_name)
-        if reward_template_id and reward_qty:
-            check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {reward_qty}')
-            if not check:
-                error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
-                add_reward_record(int(char_id), int(reward_template_id), int(reward_qty),
-                                  f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
-            continue
-        if reward_feat_id:
-            run_console_command_by_name(char_name, f'learnfeat {reward_feat_id}')
-            con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-            cur = con.cursor()
-            cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({char_id},{reward_feat_id})')
-            con.commit()
-            con.close()
-            continue
-        if reward_thrall_name:
-            runRcon(f'con 0 dc spawn 1 thrall exact {reward_thrall_name}x')
-            run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {reward_thrall_name}')
-            continue
-        if reward_emote_name:
-            print(f'granting emote {reward_emote_name} to {char_name} / {char_id}')
-            run_console_command_by_name(char_name, f'learnemote {reward_emote_name}')
-            continue
-        if reward_boon:
-            print(f'Activating boon {reward_boon}')
-            current_expiration = get_bot_config(f'{reward_boon}')
-            current_time = int_epoch_time()
-            if int(current_expiration) < current_time:
-                set_bot_config(f'{reward_boon}', str(current_time + 10800))
-            else:
-                set_bot_config(f'{reward_boon}', str(int(current_expiration) + 10800))
-            result = db_query(False, f'select boon_name from boon_settings '
-                                     f'where setting_name = \'{reward_boon}\'')
-            boon_name = flatten_list(result)[0]
-            notify_all(7, f'-Boon-', f'{boon_name} +3 hours')
-            update_boons(f'{reward_boon}')
-            continue
-        if reward_command:
-            match reward_command:
-                case 'dc meteor spawn':
-                    current_time = int_epoch_time()
-                    last_meteor = get_bot_config(f'{reward_command}')
-                    next_meteor = current_time + int(repeatable)
-                    cooldown_time = int(last_meteor) - int(current_time)
-
-                    if current_time >= int(last_meteor) + int(repeatable):
-                        runRcon(f'con 0 {reward_command}')
-                        notify_all(7, f'-Boon-', f'Starfall!')
-                        set_bot_config(f'{reward_command}', f'{next_meteor}')
-                    else:
-                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time}s until '
-                                                               f'Boon of Starfall is available')
-                    continue
-
-                case 'AddPatron Patron_Thrallable 0':
-                    current_time = int_epoch_time()
-                    last_patron = get_bot_config(f'{reward_command}')
-                    next_patron = current_time + int(repeatable)
-                    cooldown_time = int(last_patron) - int(current_time)
-
-                    if current_time >= int(last_patron) + int(repeatable):
-                        rcon_all(f'{reward_command}')
-                        notify_all(7, f'-Boon-', f'Check your tavern for a new patron')
-                        set_bot_config(f'{reward_command}', f'{next_patron}')
-                    else:
-                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time}s until '
-                                                               f'Boon of Freedom is available')
-                    continue
-
-                case 'random range':
-                    random_reward = random.randint(int(range_min), int(range_max))
-                    check = run_console_command_by_name(char_name, f'spawnitem {random_reward} 1')
-                    if not check:
-                        error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
-                        add_reward_record(int(char_id), int(random_reward), 1,
-                                          f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
-                    continue
-
-                case 'treasure hunt':
-                    location = get_bot_config(f'current_treasure_location')
-                    result = db_query(False, f'select location_name from treasure_locations where id = {location}')
-                    print(f'{result}')
-                    print(f'{result[0][0]}')
-                    location_name = result[0][0]
-                    # location_name = re.search(r'[0-9a-zA-Z\s\-()]+', result[0][0])
-                    run_console_command_by_name(char_name, f'testFIFO 6 Treasure {location_name}')
-
-                case 'profession':
-                    if tier == 0:
-                        tier = 1
-                    profession_eldarium_min_mult = int(get_bot_config(f'profession_eldarium_min_mult'))
-                    profession_eldarium_min_tier_mult = int(get_bot_config(f'profession_eldarium_min_tier_mult'))
-                    profession_eldarium_max_mult = int(get_bot_config(f'profession_eldarium_max_mult'))
-                    range_min = (((tier ** 2) * profession_eldarium_min_mult) +
-                                 (tier * profession_eldarium_min_tier_mult) +
-                                 ((5 - tier) * profession_eldarium_min_tier_mult))
-                    range_max = (range_min * profession_eldarium_max_mult)
-                    random_qty = random.randint(int(range_min), int(range_max))
-                    # print(f'reward quantity for tier {tier}: {range_min} to {range_max}')
-
-                    if int(get_bot_config(f'use_bank')) == 1:
-                        query_result = db_query(False, f'select requirement_type '
-                                                       f'from one_step_quests where quest_id = {quest_id}')
-                        profession_name = flatten_list(query_result)
-                        eld_transaction(character, f'{profession_name[0]} Payout', random_qty)
-                        run_console_command_by_name(char_name, f'testFIFO 6 Reward Deposited {random_qty} '
-                                                               f'Decaying Eldarium ')
-                        if tier >= 4:
-                            run_console_command_by_name(char_name, f'setstat HealthBarStyle 4')
-                    else:
-                        check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {random_qty}')
-                        if not check:
-                            error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
-                            add_reward_record(int(char_id), int(reward_template_id), int(random_qty),
-                                              f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
-                case 'provisioner':
-                    current_favor = get_favor(char_id, reward_command)
-                    threshhold = int(get_bot_config(f'{reward_command}_reward_threshhold'))
-                    print(f'{reward_command} threshhold: {threshhold} current_favor = {current_favor.current_favor}')
-
-                    if int(current_favor.current_favor) >= threshhold:
-                        modify_favor(char_id, reward_command, -threshhold)
-                        thrall_to_give = provisioner_thrall()
-                        print(f"{thrall_to_give}")
-
-                        result = runRcon(f'sql select worldTime from game_events '
-                                         f'where eventType = 0 order by worldTime desc limit 1')
-                        print(result.output)
-                        result.output.pop(0)
-                        print(result.output)
-                        match = re.search(r'(\d{10})', result.output[0])
-                        last_restart = int(match.group(1))
-                        print(f'{last_restart}')
-
-                        check_time = int(get_bot_config(f'last_thrall_spawned'))
-                        print(f'time: {int_epoch_time()} player: {char_name} check_time: {check_time} reward: {thrall_to_give}')
-                        if int(check_time) < last_restart:
-                            # Run an extra time if no thrall has been delivered since last server restart.
-                            run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {thrall_to_give}')
-                        run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {thrall_to_give}')
-                        set_bot_config(f'last_thrall_spawned', str(int_epoch_time()))
-                        display_quest_text(quest_id, 0, False, char_name,
-                                           6, f'Joined!',
-                                           f'A new follower has pledged loyalty to you!')
-                    else:
-                        continue
-
-                case 'slayer':
-                    print(f'we are in slayer reward')
-                    reroll_cost = int(get_bot_config(f'beast_slayer_reroll_cost'))
-                    reward_quantity = int(get_bot_config(f'beast_slayer_reward'))
-                    t1_favor = int(get_bot_config(f'beast_slayer_t1_favor'))
-                    t2_favor = int(get_bot_config(f'beast_slayer_t2_favor'))
-                    t3_favor = int(get_bot_config(f'beast_slayer_t3_favor'))
-
-                    current_target = get_slayer_target(character)
-                    notorious_target, notorious_multiplier = get_notoriety(current_target)
-
-                    print(f'{notorious_target} {notorious_multiplier} for grant_reward')
-
-                    reward_quantity = reward_quantity + (reroll_cost * notorious_multiplier)
-
-                    current_favor = get_favor(char_id, reward_command)
-                    if current_favor.lifetime_favor >= t3_favor:
-                        run_console_command_by_name(char_name, f'setstat HealthBarStyle 3')
-                    elif current_favor.lifetime_favor >= t2_favor:
-                        run_console_command_by_name(char_name, f'setstat HealthBarStyle 2')
-                    elif current_favor.lifetime_favor >= t1_favor:
-                        run_console_command_by_name(char_name, f'setstat HealthBarStyle 1')
-
-                    print(f'granting eld')
-                    if notorious_multiplier == 0:
-                        eld_transaction(character, f'Beast Slayer Reward', reward_quantity)
-                    else:
-                        eld_transaction(character, f'Notorious Beast Reward', reward_quantity)
-
-                    clear_notoriety(current_target)
-
-                    run_console_command_by_name(char_name, f'testFIFO 6 Reward Deposited {reward_quantity} '
-                                                           f'Decaying Eldarium ')
-
-
-        continue
-
-    return
-
-
 def treasure_broadcast(override=False):
     if not override:
         treasure_last_announced = get_bot_config(f'treasure_last_announced')
@@ -466,7 +217,7 @@ def treasure_broadcast(override=False):
 async def oneStepQuestUpdate(bot):
     # print(f'{int_epoch_time()}')
 
-    character = Registration()
+    character = RegistrationOLD()
 
     if int(get_bot_config(f'maintenance_flag')) == 1:
         print(f'Skipping quest loop, server in maintenance mode')
@@ -525,27 +276,33 @@ async def oneStepQuestUpdate(bot):
 
         match requirement_type:
             case 'Treasure':
-                grant_reward(char_id, char_name, quest_id, repeatable)
-                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                treasure_target = get_treasure_target(character)
+                if not treasure_target:
+                    print(f'character has no treasure target, assigning one')
+                    treasure_target = set_treasure_target(character)
+
+                display_quest_text(0, 0, False, char_name, 6,
+                                   f'Treasure!', f'{treasure_target.location_name}')
+                print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
                 continue
             case 'Information':
                 display_quest_text(quest_id, 0, False, char_name)
                 add_cooldown(char_id, quest_id, repeatable)
-                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
                 continue
             case 'Presence':
                 display_quest_text(quest_id, 0, False, char_name)
                 grant_reward(char_id, char_name, quest_id, repeatable)
                 if target_x:
                     run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
-                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
                 add_cooldown(char_id, quest_id, repeatable)
                 continue
             case 'Meteor':
                 if target_x:
                     run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
                 grant_reward(char_id, char_name, quest_id, repeatable)
-                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
                 add_cooldown(char_id, quest_id, repeatable)
                 continue
             case 'BringItems':
@@ -559,20 +316,20 @@ async def oneStepQuestUpdate(bot):
                         consume_from_inventory(char_id, char_name, template_id, inventoryHasItem)
                     else:
                         missingitem += 1
-                        print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
+                        print(f'Skipping quest {quest_id} / {quest_name}, id {char_id} {char_name} '
                               f'does not have the required item {template_id}')
                         continue
                 if missingitem == 0:
                     display_quest_text(quest_id, 0, False, char_name)
                     grant_reward(char_id, char_name, quest_id, repeatable)
-                    print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                    print(f'Quest {quest_id} / {quest_name}completed by id {char_id} {char_name}')
                     add_cooldown(char_id, quest_id, repeatable)
                     if target_x:
                         run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
             case 'Blacksmith' | 'Armorer' | 'Archivist' | 'Tamer':
                 player_tier = get_profession_tier(char_id, requirement_type)
                 if player_tier.turn_ins_this_cycle >= int(get_bot_config(f'profession_cycle_limit')):
-                    print(f'Skipping quest {quest_id}, id {char_id} {char_name}, at cycle limit')
+                    print(f'Skipping quest {quest_id}/ {quest_name} , id {char_id} {char_name}, at cycle limit')
                     display_quest_text(quest_id, 0, True, char_name,
                                        2, f'Exceeded', f'Limit for this cycle')
                     continue
@@ -588,19 +345,19 @@ async def oneStepQuestUpdate(bot):
                         player_tier.char_id, char_name, player_tier.profession, player_tier.tier, bot)
                     grant_reward(char_id, char_name, quest_id, repeatable, player_tier.tier)
                     #give_favor(player_tier.char_id, 'VoidforgedExiles', player_tier.tier)
-                    print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                    print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
                     continue
 
                 else:
                     display_quest_text(quest_id, 0, True, char_name)
-                    print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
+                    print(f'Skipping quest {quest_id}/ {quest_name}, id {char_id} {char_name} '
                           f'does not have the required item {objective.item_id} / {objective.item_name}')
                     continue
             case 'Slayer':
                 print(f'Quest {quest_id} completed by id {char_id} {char_name}')
                 current_target = get_slayer_target(character)
                 if not current_target:
-                    print(f'character has no quarry, assigning one')
+                    # print(f'character has no quarry, assigning one')
                     # no current target, set one
                     current_target = set_slayer_target(character)
                     notorious_target, notorious_multiplier = get_notoriety(current_target)
@@ -612,13 +369,13 @@ async def oneStepQuestUpdate(bot):
                                            f'Quarry:', f'{current_target.display_name}')
                 else:
                     # has a current target, check if killed
-                    if killed_target(current_target):
-                        print(f'{current_target.display_name} has been killed by {character.char_name}')
+                    if killed_target(current_target, character):
+                        # print(f'{current_target.display_name} has been killed by {character.char_name}')
                         favor_to_give = int(get_bot_config(f'slayer_favor_per_kill'))
                         modify_favor(char_id, 'slayer', favor_to_give)
 
                         notorious_target, notorious_multiplier = get_notoriety(current_target)
-                        print(f'{notorious_target} {notorious_multiplier} in killed_target')
+                        # print(f'{notorious_target} {notorious_multiplier} in killed_target')
                         if notorious_multiplier > 0:
                             display_quest_text(0, 0, False, char_name, 7,
                                                f'Notorious Beast Slain!', f'{current_target.display_name}')
@@ -628,7 +385,7 @@ async def oneStepQuestUpdate(bot):
                         grant_reward(char_id, char_name, quest_id, repeatable)
                         clear_slayer_target(character)
                     else:
-                        print(f'displaying existing quarry')
+                        # print(f'displaying existing quarry')
                         display_quest_text(0, 0, False, char_name, 6,
                                            f'Quarry:', f'{current_target.display_name}')
                 continue
@@ -652,7 +409,7 @@ async def oneStepQuestUpdate(bot):
                 if missingitem == 0:
                     display_quest_text(quest_id, 0, False, char_name)
                     print(f'{item_qty}')
-                    modify_favor(char_id, 'provisioner', item_qty)
+                    modify_favor(char_id, requirement_type.lower(), item_qty)
                     print(f'Quest {quest_id} completed by id {char_id} {char_name}')
                     add_cooldown(char_id, quest_id, repeatable)
                     grant_reward(char_id, char_name, quest_id, repeatable)

@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from discord.ext import commands
 
 from functions.common import custom_cooldown, get_rcon_id, get_single_registration, is_registered, \
-    no_registered_char_reply, check_channel
+    no_registered_char_reply, check_channel, add_reward_record
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
 from textwrap import wrap
 
@@ -17,18 +17,6 @@ ANNIVERSARY_ROLE = int(os.getenv('ANNIVERSARY_ROLE'))
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 
-def add_reward_record(char_id: int, itemId: int, quantity: int, reasonString: str):
-    if quantity == 0:
-        return
-    query = (f'insert into event_rewards (reward_date, character_id, season, reward_material, reward_quantity, '
-             f'claim_flag, reward_name) values (\'{date.today()}\', {char_id}, {CURRENT_SEASON}, \'{itemId}\', {quantity}, 0, '
-             f'\'{reasonString}\')')
-
-    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-    cur = con.cursor()
-    cur.execute(query)
-    con.commit()
-    con.close()
 
 class Rewards(commands.Cog):
 
@@ -119,13 +107,19 @@ class Rewards(commands.Cog):
             await ctx.reply(f'Character {character.char_name} must be online to claim rewards.')
             return
 
-        results = db_query(False, f'select record_num, reward_material, reward_quantity, reward_name '
+        count = db_query(False, f'select count(*) '
                                   f'from event_rewards '
                                   f'where character_id = {character.id} and season = {CURRENT_SEASON} '
                                   f'and reward_date >= \'{date.today() - timedelta(days = 14)}\' '
                                   f'and claim_flag = 0')
+        results = db_query(False, f'select record_num, reward_material, reward_quantity, reward_name '
+                                  f'from event_rewards '
+                                  f'where character_id = {character.id} and season = {CURRENT_SEASON} '
+                                  f'and reward_date >= \'{date.today() - timedelta(days = 14)}\' '
+                                  f'and claim_flag = 0 limit 10')
         if results:
-            outputString = f'You have rewards available to claim! Please wait...\n'
+            outputString = (f'You have {count[0][0]} rewards available to claim! Only 10 can be delivered at a time. '
+                            f'Please wait...\n')
             message = await ctx.reply(f'{outputString}')
 
             reward_con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))

@@ -6,9 +6,8 @@ import math
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from cogs.EldariumBank import get_balance, eld_transaction
 from functions.common import is_registered, get_clan, flatten_list, get_rcon_id, int_epoch_time, get_bot_config, \
-    get_single_registration_new, no_registered_char_reply, check_channel
+    get_single_registration_new, no_registered_char_reply, check_channel, eld_transaction, get_balance
 from cogs.QuestSystem import character_in_radius
 from functions.externalConnections import db_query, runRcon
 
@@ -31,6 +30,7 @@ class Inn:
         self.x = 0
         self.y = 0
         self.z = 0
+        self.teleport_counter = 0
 
     def structure_inn(self, inn_id, clan_id, owner_id, name, x, y, z):
         self.inn_id = inn_id
@@ -40,6 +40,7 @@ class Inn:
         self.x = x
         self.y = y
         self.z = z
+        self.teleport_counter = teleport_counter
         return self
 
 
@@ -106,12 +107,12 @@ def count_checkins(clan_id):
 
 def get_inn_details(inn_id: str):
     inn = Inn()
-    results = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x,y,z '
+    results = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x,y,z, teleport_counter '
                               f'from inn_locations where inn_id = \'{inn_id}\' limit 1')
     if results:
         results = flatten_list(results)
         print(results)
-        (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z) = results
+        (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.teleport_counter) = results
     return inn
 
 
@@ -331,6 +332,7 @@ class InnSystem(commands.Cog):
             # f'at `{inn.x} {inn.y} {inn.z}`')
                 number_of_checkins = count_checkins(clan_id)
                 outputString += f'\nCurrently checked-in characters: `{number_of_checkins}`'
+                outputString += f'\nTotal teleports to your inn: `{inn.teleport_counter}`'
             else:
                 outputString += f'Your clan, `{clan_name}`, has not established an inn.'
 
@@ -422,7 +424,7 @@ class InnSystem(commands.Cog):
             result_id, result_name = character_in_radius(inn.x, inn.y, inn.z, 2500, character.id)
             if result_id:
                 clan_id, clan_name = get_clan(character)
-                print(f'Player Clan: {clan_id}, Inn Clan Id: {inn.clan_id}')
+                # print(f'Player Clan: {clan_id}, Inn Clan Id: {inn.clan_id}')
                 if clan_id == inn.clan_id:
                     await ctx.reply(f'You cannot check in at an inn owned by your clan!')
                     return

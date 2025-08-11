@@ -2,7 +2,8 @@ import sqlite3
 import os
 
 from discord.ext import commands
-from functions.common import custom_cooldown, get_rcon_id, is_registered, get_single_registration, get_bot_config
+from functions.common import custom_cooldown, get_rcon_id, is_registered, get_single_registration, get_bot_config, \
+    check_channel
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
 
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
@@ -118,6 +119,13 @@ class FeatClaim(commands.Cog):
         else:
             missingFeatList.append(576)
             missingFeatString = f'576, '
+
+        # Island Ranger Armor
+        if has_feat(charId.id, 52489):
+            # print(f'has ranger armor')
+            featList.append([charId.id, 52418])
+            featList.append([charId.id, 52419])
+            featList.append([charId.id, 52485])
 
         for record in featList:
             feat = record[1]

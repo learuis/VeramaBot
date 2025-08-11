@@ -1,112 +1,21 @@
 import os
-import random
-import re
 
 import discord
 from discord.ext import commands
 
-from cogs.EldariumBank import sufficient_funds, eld_transaction, get_balance
-from functions.common import is_registered, int_epoch_time, flatten_list, get_bot_config, no_registered_char_reply, \
-    Registration, check_channel
+from functions.common import is_registered, get_bot_config, no_registered_char_reply, \
+    check_channel, modify_favor, display_quest_text, grant_reward, eld_transaction, get_balance, \
+    sufficient_funds, killed_target, set_slayer_target, clear_slayer_target, get_slayer_target, get_notoriety, \
+    increase_notoriety, increment_killed_total
 from dotenv import load_dotenv
 
-from functions.externalConnections import runRcon, db_query
+from functions.externalConnections import db_query
 
 load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
-
-
-class SlayerTarget:
-    def __init__(self):
-        self.char_id = 0
-        self.target_name = ''
-        self.display_name = ''
-        self.start_time = 0
-
-def killed_target(my_target):
-    rconResponse = runRcon(f'sql select worldTime from game_events where '
-                           f'eventType = 86 and '
-                           f'objectName = \'{my_target.target_name}\' and '
-                           f'worldTime >= {my_target.start_time} and '
-                           f'causerId = {my_target.char_id} '
-                           f'order by worldTime desc limit 1;')
-    # print(str(rconResponse.output))
-    match = re.search(r'#0 (\d+) \|', str(rconResponse.output))
-    if match:
-        return True
-    else:
-        return False
-
-
-def set_slayer_target(character, exclude_target: SlayerTarget = False):
-    if exclude_target:
-        where_clause = f' where target_name not like \'%{exclude_target.target_name}%\''
-    else:
-        where_clause = f''
-
-    my_target = SlayerTarget()
-    my_target.char_id = character.id
-    my_target.start_time = int_epoch_time()
-    # randomizer = random.randint(0, int(get_bot_config('beast_slayer_target_count')))
-    query = (f'select target_name, target_display_name from beast_slayer_target_list'
-             f'{where_clause} order by random() limit 1')
-    query_result = db_query(False, f'{query}')
-    # print(query_result)
-    (my_target.target_name, my_target.display_name) = flatten_list(query_result)
-    db_query(True, f'insert or replace into beast_slayers '
-                   f'(char_id, season, target_name, target_display_name, start_time) '
-                   f'values ({my_target.char_id}, {CURRENT_SEASON}, \'{my_target.target_name}\', '
-                   f'\'{my_target.display_name}\', {my_target.start_time})')
-    return my_target
-
-def clear_slayer_target(character: Registration):
-    db_query(True, f'delete from beast_slayers where char_id = {character.id} and season = {CURRENT_SEASON}')
-    return
-
-def get_slayer_target(character: Registration):
-    my_target = SlayerTarget()
-    query_result = db_query(False, f'select char_id, target_name, target_display_name, start_time from beast_slayers'
-                                   f' where char_id = {character.id} and season = {CURRENT_SEASON}')
-    if query_result:
-        print(query_result)
-        (my_target.char_id, my_target.target_name,
-         my_target.display_name, my_target.start_time) = flatten_list(query_result)
-        print(f'My target {my_target}')
-        return my_target
-    else:
-        return False
-
-def get_notoriety(quarry: SlayerTarget):
-    print(f'getting notoriety {quarry.target_name}')
-    query_result = db_query(False, f'select target_name, notoriety from beast_slayer_target_list '
-                                   f'where target_name like \'%{quarry.target_name}%\' limit 1')
-    print(query_result)
-    notorious_target, notorious_multiplier = flatten_list(query_result)
-    print(notorious_target, notorious_multiplier)
-
-    return notorious_target, int(notorious_multiplier)
-
-def clear_notoriety(quarry: SlayerTarget):
-    db_query(True, f'update beast_slayer_target_list set notoriety = 0 '
-                   f'where target_name like \'%{quarry.target_name}%\'')
-    query_result = db_query(False, f'select target_name, notoriety from beast_slayer_target_list '
-                                   f'where target_name like \'%{quarry.target_name}%\' limit 1')
-
-    notorious_target, notorious_multiplier = flatten_list(query_result)
-
-    return notorious_target, int(notorious_multiplier)
-
-def increase_notoriety(quarry: SlayerTarget):
-    db_query(True, f'update beast_slayer_target_list set notoriety = notoriety + 1 '
-                   f'where target_name like \'%{quarry.target_name}%\'')
-    query_result = db_query(False, f'select target_name, notoriety from beast_slayer_target_list '
-                                   f'where target_name like \'%{quarry.target_name}%\' limit 1')
-    notorious_target, notorious_multiplier = flatten_list(query_result)
-
-    return notorious_target, int(notorious_multiplier)
 
 class Hunter(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -248,40 +157,40 @@ class Hunter(commands.Cog):
         await ctx.reply(f'`{character.char_name}` was assigned a task to slay `{current_target.display_name}`'
                         f' on <t:{current_target.start_time}:f>')
 
-    @commands.command(name='logkill')
-    @commands.has_any_role('Admin', 'Moderator')
-    @commands.check(check_channel)
-    async def logkill(self, ctx):
-        """ - Completes a Beast Slayer task
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        character = is_registered(ctx.author.id)
-        outputString = ''
-
-        if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
-            return
-
-        current_target = get_slayer_target(character)
-        if killed_target(current_target):
-            outputString += f'`{character.char_name}` slew `{current_target.target_name}`. Assigning new target!'
-            new_target = set_slayer_target(character)
-            outputString += (f'\n\n`{character.char_name}` was assigned a task to slay `{current_target.display_name}`'
-                             f' on <t:{current_target.start_time}:f>.')
-            await ctx.reply(outputString)
-            return
-        else:
-            await ctx.reply(f'You have not yet slain `{current_target.target_name}` since it was '
-                            f'assigned on <t:{current_target.start_time}:f>.')
-            return
+    # @commands.command(name='logkill')
+    # @commands.has_any_role('Admin', 'Moderator')
+    # @commands.check(check_channel)
+    # async def logkill(self, ctx):
+    #     """ - Completes a Beast Slayer task
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     character = is_registered(ctx.author.id)
+    #     outputString = ''
+    #
+    #     if not character:
+    #         reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+    #         await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+    #         return
+    #
+    #     current_target = get_slayer_target(character)
+    #     if killed_target(current_target):
+    #         outputString += f'`{character.char_name}` slew `{current_target.target_name}`. Assigning new target!'
+    #         new_target = set_slayer_target(character)
+    #         outputString += (f'\n\n`{character.char_name}` was assigned a task to slay `{current_target.display_name}`'
+    #                          f' on <t:{current_target.start_time}:f>.')
+    #         await ctx.reply(outputString)
+    #         return
+    #     else:
+    #         await ctx.reply(f'You have not yet slain `{current_target.target_name}` since it was '
+    #                         f'assigned on <t:{current_target.start_time}:f>.')
+    #         return
 
     @commands.command(name='verifyslaying', aliases=['verifyquarry', 'vquarry', 'slay', 'vslay'])
     @commands.check(check_channel)
@@ -299,6 +208,7 @@ class Hunter(commands.Cog):
         """
         character = is_registered(ctx.author.id)
         outputString = ''
+        notorious_multiplier = 0
 
         if not character:
             reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
@@ -306,9 +216,36 @@ class Hunter(commands.Cog):
             return
 
         current_target = get_slayer_target(character)
+
         if current_target:
-            if killed_target(current_target):
-                outputString += f'Your quarry, `{current_target.display_name}`, has been slain! Return for your reward!'
+            if killed_target(current_target, character):
+                favor_to_give = int(get_bot_config(f'slayer_favor_per_kill'))
+                modify_favor(character.id, 'slayer', favor_to_give)
+
+                notorious_target, notorious_multiplier = get_notoriety(current_target)
+                if notorious_multiplier > 0:
+                    display_quest_text(0, 0, False, character.char_name, 7,
+                                       f'Notorious Beast Slain!', f'{current_target.display_name}')
+                else:
+                    display_quest_text(0, 0, False, character.char_name, 7,
+                                       f'Slain', f'{current_target.display_name}')
+                grant_reward(character.id, character.char_name, 10016, 30)
+                increment_killed_total(current_target)
+                clear_slayer_target(character)
+            else:
+                # print(f'displaying existing quarry')
+                display_quest_text(0, 0, False, character.char_name, 6,
+                                   f'Quarry:', f'{current_target.display_name}')
+
+
+        if current_target:
+            if killed_target(current_target, character):
+                reward = int(get_bot_config(f'beast_slayer_reward'))
+                reroll_cost = int(get_bot_config('beast_slayer_reroll_cost'))
+                outputString += (f'Your quarry, `{current_target.display_name}`, has been slain! '
+                                 f'You have earned '
+                                 f'`{reward+(reroll_cost*notorious_multiplier)}`decaying eldarium!\n'
+                                 f'Return to the Beast Slayer at the Profession Hub to be assigned a new Quarry.')
                 await ctx.reply(outputString)
                 return
             else:

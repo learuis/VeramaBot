@@ -1,14 +1,16 @@
+import datetime
+import random
+
 import discord
 import re
 import time
-import requests
 import os
 import sqlite3
 
-from functions.externalConnections import runRcon, db_query, count_online_players
+from functions.externalConnections import runRcon, db_query, count_online_players, notify_all, rcon_all, multi_rcon
 from time import strftime
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import date, datetime
 
 load_dotenv('data/server.env')
 QUERY_URL = os.getenv('QUERY_URL')
@@ -21,6 +23,21 @@ SERVER_NAME = str(os.getenv('SERVER_NAME'))
 SERVER_PORT = int(os.getenv('SERVER_PORT'))
 SERVER_IP = str(os.getenv('SERVER_IP'))
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
+CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
+PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
+
+def add_reward_record(char_id: int, itemId: int, quantity: int, reasonString: str):
+    if quantity == 0:
+        return
+    query = (f'insert into event_rewards (reward_date, character_id, season, reward_material, reward_quantity, '
+             f'claim_flag, reward_name) values (\'{date.today()}\', {char_id}, {CURRENT_SEASON}, \'{itemId}\', {quantity}, 0, '
+             f'\'{reasonString}\')')
+
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+    cur.execute(query)
+    con.commit()
+    con.close()
 
 def get_bot_config(item: str):
     result = db_query(False, f'select value from config where item like \'%{item}%\' limit 1')
@@ -30,14 +47,55 @@ def get_bot_config(item: str):
         value = record[0]
     return value
 
-CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
-PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
-
 class Registration:
     def __init__(self):
         self.id = 0
         self.char_name = ''
         self.discord_id = ''
+
+def update_boons(indv_boon: str = ''):
+    command_prep = []
+    command_list = []
+    currentTime = int_epoch_time()
+
+    if int(get_bot_config(f'maintenance_flag')) == 1:
+        print(f'Skipping boons loop, server in maintenance mode')
+        return
+
+    if int(get_bot_config(f'boons_toggle')) == 0:
+        print(f'Skipping boons loop, boons globally disabled')
+        return
+
+    if indv_boon:
+        boonList = [f'{indv_boon}']
+    else:
+        boonList = ['ItemConvertionMultiplier', 'ItemSpoilRateScale', 'PlayerXPKillMultiplier',
+                    'PlayerXPRateMultiplier', 'DurabilityMultiplier', 'HarvestAmountMultiplier',
+                    'ResourceRespawnSpeedMultiplier', 'NPCRespawnMultiplier', 'StaminaCostMultiplier']
+
+    for boon in boonList:
+        if int(get_bot_config(boon)) >= currentTime:
+            result = db_query(False, f'select active_value from boon_settings where setting_name = \'{boon}\'')
+        else:
+            result = db_query(False, f'select inactive_value from boon_settings where setting_name = \'{boon}\'')
+        setting = flatten_list(result)
+        # print(f'{setting}')
+        command_prep.append([boon, setting[0]])
+
+    for command in command_prep:
+        (setting, value) = command
+        new_command = f'SetServerSetting {setting} {value}'
+        command_list.append(new_command)
+
+    multi_rcon(command_list)
+
+    if int(get_bot_config('BoonOfReturning')) >= currentTime:
+        set_bot_config('home_cost', get_bot_config('home_discount_value'))
+    else:
+        set_bot_config('home_cost', get_bot_config('home_default_value'))
+
+    return
+
 
 def check_channel(ctx):
     whitelist = {'Admin', 'Moderator'}
@@ -178,7 +236,7 @@ def update_registered_name(input_user, name):
 
 def is_registered(discord_id: int, last_season: bool = False):
 
-    returnValue = Registration()
+    returnValue = RegistrationOLD()
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
@@ -217,7 +275,7 @@ async def no_registered_char_reply(bot, ctx):
 
 def last_season_char(discord_id: int):
 
-    returnValue = Registration()
+    returnValue = RegistrationOLD()
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
@@ -262,7 +320,7 @@ def get_registration(char_name, char_id: int = 0):
         return False
 
 def get_single_registration_new(char_name: str = '', char_id: int = 0):
-    character = Registration()
+    character = RegistrationOLD()
 
     if char_id:
         query_string = (f'select game_char_id, character_name, discord_user from registration '
@@ -323,25 +381,25 @@ def get_single_registration_temp(char_name):
     else:
         return False
 
-def get_multiple_registration(namelist):
-
-    for name in namelist:
-        name = str(name.casefold())
-
-    char_name = str(char_name).casefold()
-    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-    cur = con.cursor()
-
-    cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
-                f'\'%{char_name}%\' and season = {CURRENT_SEASON}')
-    results = cur.fetchone()
-
-    con.close()
-
-    if results:
-        return results
-    else:
-        return False
+# def get_multiple_registration(namelist):
+#
+#     for name in namelist:
+#         name = str(name.casefold())
+#
+#     char_name = str(char_name).casefold()
+#     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+#     cur = con.cursor()
+#
+#     cur.execute(f'select game_char_id, character_name, discord_user from registration where character_name like '
+#                 f'\'%{char_name}%\' and season = {CURRENT_SEASON}')
+#     results = cur.fetchone()
+#
+#     con.close()
+#
+#     if results:
+#         return results
+#     else:
+#         return False
 
 def run_console_command_by_name(char_name: str, command: str):
     rcon_id = get_rcon_id(f'{char_name}')
@@ -435,7 +493,7 @@ async def editStatus(message, bot):
                                    f'- Direct Connect: ```directconnect {SERVER_IP} {SERVER_PORT}```\n'
                                    # f'- Server Online: `{onlineStatus}` {statusSymbol}\n'
                                    f'- Players Connected: `{currentPlayers}` / `{maxPlayers}` {onlineSymbol}\n'
-                                   f'Server restarts are at {restart_string} Eastern.')
+                                   f'Server restarts are at {restart_string} in your local timezone.')
     return
 
 def place_markers():
@@ -578,7 +636,7 @@ def check_inventory(owner_id, inv_type, template_id):
 
     for result in results.output:
         match = re.findall(r'\s+\d+ | [^|]*', result)
-        print(f'{match}')
+        # print(f'{match}')
         slot = match[0]
         matched_template_id = match[1]
         try:
@@ -652,3 +710,538 @@ def count_inventory_qty(owner_id, inv_type, template_id):
         # value = int(value, 16)
 
     return False
+
+def modify_favor(char_id, faction, amount):
+    query = db_query(False,
+                     f'select char_id, faction, current_favor, lifetime_favor from factions '
+                     f'where char_id = {char_id} '
+                     f'and faction = \'{faction}\' '
+                     f'and season = {CURRENT_SEASON} '
+                     f'limit 1')
+    if not query:
+        db_query(True,
+                 f'insert into factions '
+                 f'(char_id, season, faction, current_favor, lifetime_favor) '
+                 f'values ({char_id},{CURRENT_SEASON}, \'{faction}\', {amount}, {amount})')
+        # print(f'Created faction record for {char_id} / {faction}')
+
+    if amount >= 0:
+        db_query(True,
+                 f'update factions set lifetime_favor = ( '
+                 f'select lifetime_favor + {amount} from factions '
+                 f'where char_id = {char_id} and faction = \'{faction}\') '
+                 f'where char_id = {char_id} and faction = \'{faction}\'')
+
+    db_query(True,
+             f'update factions set current_favor = ( '
+             f'select current_favor + {amount} from factions '
+             f'where char_id = {char_id} and faction = \'{faction}\') '
+             f'where char_id = {char_id} and faction = \'{faction}\'')
+
+    results = db_query(False,
+                       f'select current_favor from factions '
+                       f'where char_id = {char_id} and faction = \'{faction}\' limit 1')
+    favor_total = results[0]
+
+    return favor_total
+
+
+def display_quest_text(quest_id, quest_status, alt, char_name,
+                       override_style: int = None, override_text1: str = None, override_text2: str = None):
+    style = 0
+    text1 = ''
+    text2 = ''
+    altStyle = ''
+    altText1 = ''
+    altText2 = ''
+
+    if override_style and override_text1 and override_text2:
+        # print(f'Using override quest text for {quest_id}')
+        run_console_command_by_name(char_name,
+                                    f'testFIFO {override_style} \"{override_text1}\" \"{override_text2}\"')
+        return
+
+    questText = db_query(False, f'select Style, Text1, Text2, AltStyle, AltText1, AltText2 from quest_text '
+                                f'where quest_id = {quest_id} and step_number = {quest_status}')
+    if not questText:
+        # print(f'No text defined for {quest_id}, skipping')
+        return
+
+    # print(f'{questText}')
+
+    for record in questText:
+        style = record[0]
+        text1 = record[1]
+        text2 = record[2]
+        altStyle = record[3]
+        altText1 = record[4]
+        altText2 = record[5]
+
+    if alt:
+        run_console_command_by_name(char_name, f'testFIFO {altStyle} \"{altText1}\" \"{altText2}\"')
+    else:
+        run_console_command_by_name(char_name, f'testFIFO {style} \"{text1}\" \"{text2}\"')
+
+    return
+
+
+def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
+    character = RegistrationOLD()
+    character.id = char_id
+    character.char_name = char_name
+    print(f'Granting reward for quest {quest_id} / character {char_id}')
+
+    reward_list = db_query(False, f'select reward_template_id, reward_qty, reward_feat_id, '
+                                  f'reward_thrall_name, reward_emote_name, reward_boon, reward_command, range_min, range_max '
+                                  f'from quest_rewards where quest_id = {quest_id}')
+    if not reward_list:
+        print(f'No records returned from reward list, skipping delivery')
+        return
+
+    for reward in reward_list:
+        (reward_template_id, reward_qty, reward_feat_id, reward_thrall_name,
+         reward_emote_name, reward_boon, reward_command, range_min, range_max) = reward
+
+        # display_quest_text(quest_id, 0, True, char_name)
+        if reward_template_id and reward_qty:
+            check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {reward_qty}')
+            if not check:
+                error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
+                add_reward_record(int(char_id), int(reward_template_id), int(reward_qty),
+                                  f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
+            continue
+        if reward_feat_id:
+            run_console_command_by_name(char_name, f'learnfeat {reward_feat_id}')
+            con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+            cur = con.cursor()
+            cur.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({char_id},{reward_feat_id})')
+            con.commit()
+            con.close()
+            continue
+        if reward_thrall_name:
+            runRcon(f'con 0 dc spawn 1 thrall exact {reward_thrall_name}x')
+            run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {reward_thrall_name}')
+            continue
+        if reward_emote_name:
+            print(f'granting emote {reward_emote_name} to {char_name} / {char_id}')
+            run_console_command_by_name(char_name, f'learnemote {reward_emote_name}')
+            continue
+        if reward_boon:
+            print(f'Activating boon {reward_boon}')
+            current_expiration = get_bot_config(f'{reward_boon}')
+            current_time = int_epoch_time()
+            if int(current_expiration) < current_time:
+                set_bot_config(f'{reward_boon}', str(current_time + 10800))
+            else:
+                set_bot_config(f'{reward_boon}', str(int(current_expiration) + 10800))
+            result = db_query(False, f'select boon_name from boon_settings '
+                                     f'where setting_name = \'{reward_boon}\'')
+            boon_name = flatten_list(result)[0]
+            notify_all(7, f'-Boon-', f'{boon_name} +3 hours')
+            update_boons(f'{reward_boon}')
+            continue
+        if reward_command:
+            match reward_command:
+                case 'dc meteor spawn':
+                    current_time = int_epoch_time()
+                    last_meteor = get_bot_config(f'{reward_command}')
+                    next_meteor = current_time + int(repeatable)
+                    cooldown_time = int(last_meteor) - int(current_time)
+
+                    if current_time >= int(last_meteor) + int(repeatable):
+                        runRcon(f'con 0 {reward_command}')
+                        notify_all(7, f'-Boon-', f'Starfall!')
+                        set_bot_config(f'{reward_command}', f'{next_meteor}')
+                    else:
+                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time}s until '
+                                                               f'Boon of Starfall is available')
+                    continue
+
+                case 'AddPatron Patron_Thrallable 0':
+                    current_time = int_epoch_time()
+                    last_patron = get_bot_config(f'{reward_command}')
+                    next_patron = current_time + int(repeatable)
+                    cooldown_time = int(last_patron) - int(current_time)
+
+                    if current_time >= int(last_patron) + int(repeatable):
+                        rcon_all(f'{reward_command}')
+                        notify_all(7, f'-Boon-', f'Check your tavern for a new patron')
+                        set_bot_config(f'{reward_command}', f'{next_patron}')
+                    else:
+                        run_console_command_by_name(char_name, f'testFIFO 2 Cooldown {cooldown_time}s until '
+                                                               f'Boon of Freedom is available')
+                    continue
+
+                case 'random range':
+                    random_reward = random.randint(int(range_min), int(range_max))
+                    check = run_console_command_by_name(char_name, f'spawnitem {random_reward} 1')
+                    if not check:
+                        error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
+                        add_reward_record(int(char_id), int(random_reward), 1,
+                                          f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
+                    continue
+
+                # case 'treasure hunt':
+
+                    # # location = get_bot_config(f'current_treasure_location')
+                    # # result = db_query(False, f'select location_name from treasure_locations where id = {location}')
+                    # # print(f'{result}')
+                    # # print(f'{result[0][0]}')
+                    # # location_name = result[0][0]
+                    # # # location_name = re.search(r'[0-9a-zA-Z\s\-()]+', result[0][0])
+                    # treasure_target = get_treasure_target(character)
+                    # run_console_command_by_name(char_name, f'testFIFO 6 Treasure {treasure_target.target_name}')
+
+                case 'profession':
+                    if tier == 0:
+                        tier = 1
+                    profession_eldarium_min_mult = int(get_bot_config(f'profession_eldarium_min_mult'))
+                    profession_eldarium_min_tier_mult = int(get_bot_config(f'profession_eldarium_min_tier_mult'))
+                    profession_eldarium_max_mult = int(get_bot_config(f'profession_eldarium_max_mult'))
+                    range_min = (((tier ** 2) * profession_eldarium_min_mult) +
+                                 (tier * profession_eldarium_min_tier_mult) +
+                                 ((5 - tier) * profession_eldarium_min_tier_mult))
+                    range_max = (range_min * profession_eldarium_max_mult)
+                    random_qty = random.randint(int(range_min), int(range_max))
+                    # print(f'reward quantity for tier {tier}: {range_min} to {range_max}')
+
+                    if int(get_bot_config(f'use_bank')) == 1:
+                        query_result = db_query(False, f'select requirement_type '
+                                                       f'from one_step_quests where quest_id = {quest_id}')
+                        profession_name = flatten_list(query_result)
+                        eld_transaction(character, f'{profession_name[0]} Payout', random_qty)
+                        run_console_command_by_name(char_name, f'testFIFO 6 Reward Deposited {random_qty} '
+                                                               f'Decaying Eldarium ')
+                        if tier >= 4:
+                            run_console_command_by_name(char_name, f'setstat HealthBarStyle 4')
+                    else:
+                        check = run_console_command_by_name(char_name, f'spawnitem {reward_template_id} {random_qty}')
+                        if not check:
+                            error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
+                            add_reward_record(int(char_id), int(reward_template_id), int(random_qty),
+                                              f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
+                case 'provisioner':
+                    current_favor = get_favor(char_id, reward_command)
+                    threshhold = int(get_bot_config(f'{reward_command}_reward_threshhold'))
+                    print(f'{reward_command} threshhold: {threshhold} current_favor = {current_favor.current_favor}')
+
+                    if int(current_favor.current_favor) >= threshhold:
+                        modify_favor(char_id, reward_command, -threshhold)
+                        thrall_to_give = provisioner_thrall()
+                        print(f"{thrall_to_give}")
+
+                        last_restart = int(get_bot_config(f'last_server_restart'))
+
+                        check_time = int(get_bot_config(f'last_thrall_spawned'))
+                        print(f'time: {int_epoch_time()} player: {char_name} check_time: {check_time} reward: {thrall_to_give}')
+                        if int(check_time) < last_restart:
+                            # Run an extra time if no thrall has been delivered since last server restart.
+                            run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {thrall_to_give}')
+                        run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {thrall_to_give}')
+                        set_bot_config(f'last_thrall_spawned', str(int_epoch_time()))
+                        display_quest_text(quest_id, 0, False, char_name,
+                                           6, f'Joined!',
+                                           f'A new follower has pledged loyalty to you!')
+                    else:
+                        continue
+
+                case 'slayer':
+                    print(f'we are in slayer reward')
+                    reroll_cost = int(get_bot_config(f'beast_slayer_reroll_cost'))
+                    reward_quantity = int(get_bot_config(f'beast_slayer_reward'))
+                    t1_favor = int(get_bot_config(f'beast_slayer_t1_favor'))
+                    t2_favor = int(get_bot_config(f'beast_slayer_t2_favor'))
+                    t3_favor = int(get_bot_config(f'beast_slayer_t3_favor'))
+
+                    current_target = get_slayer_target(character)
+                    notorious_target, notorious_multiplier = get_notoriety(current_target)
+
+                    print(f'{notorious_target} {notorious_multiplier} for grant_reward')
+
+                    reward_quantity = reward_quantity + (reroll_cost * notorious_multiplier)
+
+                    current_favor = get_favor(char_id, reward_command)
+                    if current_favor.lifetime_favor >= t3_favor:
+                        run_console_command_by_name(char_name, f'setstat HealthBarStyle 3')
+                    elif current_favor.lifetime_favor >= t2_favor:
+                        run_console_command_by_name(char_name, f'setstat HealthBarStyle 2')
+                    elif current_favor.lifetime_favor >= t1_favor:
+                        run_console_command_by_name(char_name, f'setstat HealthBarStyle 1')
+
+                    print(f'granting eld')
+                    if notorious_multiplier == 0:
+                        eld_transaction(character, f'Beast Slayer Reward', reward_quantity)
+                    else:
+                        eld_transaction(character, f'Notorious Beast Reward', reward_quantity)
+
+                    clear_notoriety(current_target)
+
+                    run_console_command_by_name(char_name, f'testFIFO 6 Reward Deposited {reward_quantity} '
+                                                           f'Decaying Eldarium ')
+
+
+        continue
+
+    return
+
+
+def eld_transaction(character, reason: str, amount: int = 0, eld_type: str = 'raw', season = CURRENT_SEASON):
+
+    if eld_type == 'bars':
+        amount = amount * 2
+        reason += f' (Bars)'
+    else:
+        reason += f' (DE)'
+
+    db_query(True, f'insert into bank_transactions (season, char_id, amount, reason, timestamp) '
+                   f'values ({season}, {character.id}, {amount}, \'{reason}\', \'{int_epoch_time()}\')')
+    db_query(True, f'insert or replace into bank (season, char_id, balance) '
+                   f'values ({season}, {character.id}, '
+                   f'( select sum(amount) from bank_transactions '
+                   f'where season = {season} and char_id = {character.id}) )')
+    new_balance = get_balance(character)
+    return new_balance
+
+
+def get_balance(character, season = CURRENT_SEASON):
+    balance = 0
+
+    results = db_query(False,
+                       f'SELECT balance from bank where char_id = {character.id} and season = {season} limit 1')
+    if results:
+        balance = int(flatten_list(results)[0])
+    return balance
+
+
+def sufficient_funds(character, debit_amount: int = 0, eld_type: str = 'raw'):
+
+    balance = int(get_balance(character))
+
+    if eld_type == 'bars':
+        debit_amount = debit_amount * 2
+
+    if balance >= debit_amount:
+        return True
+    else:
+        return False
+
+
+def killed_target(my_target, character):
+    clan = get_clan(character)
+    if clan:
+        causer_string = f'causerGuildId = {clan[0]}'
+    else:
+        causer_string = f'causerId = {character.id}'
+
+    rconResponse = runRcon(f'sql select worldTime from game_events where '
+                           f'eventType = 86 and '
+                           f'objectName = \'{my_target.target_name}\' and '
+                           f'worldTime >= {my_target.start_time} and '
+                           f'{causer_string} '
+                           f'order by worldTime desc limit 1;')
+    # print(str(rconResponse.output))
+    match = re.search(r'#0 (\d+) \|', str(rconResponse.output))
+    if match:
+        return True
+    else:
+        return False
+
+
+class SlayerTarget:
+    def __init__(self):
+        self.char_id = 0
+        self.target_name = ''
+        self.display_name = ''
+        self.start_time = 0
+
+
+def set_slayer_target(character, exclude_target: SlayerTarget = False):
+    if exclude_target:
+        where_clause = f' where target_name not like \'%{exclude_target.target_name}%\' and notoriety = 0'
+    else:
+        where_clause = f''
+
+    my_target = SlayerTarget()
+    my_target.char_id = character.id
+    my_target.start_time = int_epoch_time()
+    # randomizer = random.randint(0, int(get_bot_config('beast_slayer_target_count')))
+    query = (f'select target_name, target_display_name from beast_slayer_target_list'
+             f'{where_clause} order by notoriety desc, times_killed asc, random() limit 1')
+    query_result = db_query(False, f'{query}')
+    # print(query_result)
+    (my_target.target_name, my_target.display_name) = flatten_list(query_result)
+    db_query(True, f'insert or replace into beast_slayers '
+                   f'(char_id, season, target_name, target_display_name, start_time) '
+                   f'values ({my_target.char_id}, {CURRENT_SEASON}, \'{my_target.target_name}\', '
+                   f'\'{my_target.display_name}\', {my_target.start_time})')
+    return my_target
+
+
+def clear_slayer_target(character: Registration):
+    db_query(True, f'delete from beast_slayers where char_id = {character.id} and season = {CURRENT_SEASON}')
+    return
+
+
+def get_slayer_target(character: Registration):
+    my_target = SlayerTarget()
+    query_result = db_query(False, f'select char_id, target_name, target_display_name, start_time from beast_slayers'
+                                   f' where char_id = {character.id} and season = {CURRENT_SEASON}')
+    if query_result:
+        print(query_result)
+        (my_target.char_id, my_target.target_name,
+         my_target.display_name, my_target.start_time) = flatten_list(query_result)
+        print(f'My target {my_target}')
+        return my_target
+    else:
+        return False
+
+
+def get_notoriety(quarry: SlayerTarget):
+    # print(f'getting notoriety {quarry.target_name}')
+    query_result = db_query(False, f'select target_name, notoriety from beast_slayer_target_list '
+                                   f'where target_name like \'%{quarry.target_name}%\' limit 1')
+    # print(query_result)
+    notorious_target, notorious_multiplier = flatten_list(query_result)
+    # print(notorious_target, notorious_multiplier)
+
+    return notorious_target, int(notorious_multiplier)
+
+
+def clear_notoriety(quarry: SlayerTarget):
+    db_query(True, f'update beast_slayer_target_list set notoriety = 0 '
+                   f'where target_name like \'%{quarry.target_name}%\'')
+    query_result = db_query(False, f'select target_name, notoriety from beast_slayer_target_list '
+                                   f'where target_name like \'%{quarry.target_name}%\' limit 1')
+
+    notorious_target, notorious_multiplier = flatten_list(query_result)
+
+    return notorious_target, int(notorious_multiplier)
+
+
+def increase_notoriety(quarry: SlayerTarget):
+    db_query(True, f'update beast_slayer_target_list set notoriety = notoriety + 1 '
+                   f'where target_name like \'%{quarry.target_name}%\'')
+    query_result = db_query(False, f'select target_name, notoriety from beast_slayer_target_list '
+                                   f'where target_name like \'%{quarry.target_name}%\' limit 1')
+    notorious_target, notorious_multiplier = flatten_list(query_result)
+
+    return notorious_target, int(notorious_multiplier)
+
+def increment_killed_total(quarry: SlayerTarget):
+    db_query(True, f'update beast_slayer_target_list set times_killed = times_killed + 1 '
+                   f'where target_name like \'%{quarry.target_name}%\'')
+
+    return
+
+class TreasureTarget:
+    def __init__(self):
+        self.char_id = 0
+        self.location_id = ''
+        self.location_name = ''
+        self.start_time = 0
+
+
+def set_treasure_target(character):
+
+    my_target = TreasureTarget()
+    my_target.char_id = character.id
+    my_target.start_time = int_epoch_time()
+    # randomizer = random.randint(0, int(get_bot_config('beast_slayer_target_count')))
+    query = (f'select id, location_name from treasure_locations'
+             f' order by times_looted asc, random() limit 1')
+    query_result = db_query(False, f'{query}')
+    # print(query_result)
+    (my_target.location_id, my_target.location_name) = flatten_list(query_result)
+    db_query(True, f'insert or replace into treasure_hunters '
+                   f'(char_id, season, location_id, location_name, start_time) '
+                   f'values ({my_target.char_id}, {CURRENT_SEASON}, \'{my_target.location_id}\', '
+                   f'\'{my_target.location_name}\', {my_target.start_time})')
+    return my_target
+
+
+def clear_treasure_target(character: Registration):
+    db_query(True, f'delete from treasure_hunters where char_id = {character.id} and season = {CURRENT_SEASON}')
+    return
+
+
+def get_treasure_target(character: Registration):
+    my_target = TreasureTarget()
+    query_result = db_query(False, f'select char_id, location_id, location_name, start_time from treasure_hunters'
+                                   f' where char_id = {character.id} and season = {CURRENT_SEASON}')
+    if query_result:
+        print(query_result)
+        (my_target.char_id, my_target.location_id,
+         my_target.location_name, my_target.start_time) = flatten_list(query_result)
+        # print(f'My target {my_target}')
+        return my_target
+    else:
+        return False
+
+def increment_times_looted(target: TreasureTarget):
+    db_query(True, f'update treasure_locations set times_looted = times_looted + 1 '
+                   f'where id = {target.location_id}')
+
+    return
+
+
+def get_favor(char_id, faction):
+    favor_values = Favor()
+
+    query = db_query(False,
+                     f'select char_id, faction, current_favor, lifetime_favor from factions '
+                     f'where char_id = {char_id} '
+                     f'and faction = \'{faction}\' '
+                     f'and season = {CURRENT_SEASON} '
+                     f'limit 1')
+    # print(f'{query}')
+
+    if not query:
+        db_query(True,
+                 f'insert into factions '
+                 f'(char_id, season, faction, current_favor, lifetime_favor) '
+                 f'values ({char_id},{CURRENT_SEASON}, \'{faction}\', 0, 0)')
+        # print(f'Created faction record for {char_id} / {faction}')
+        favor_values.char_id = char_id
+        favor_values.faction = faction
+        favor_values.current_favor = 0
+        favor_values.lifetime_favor = 0
+
+        return favor_values
+
+    for record in query:
+        (favor_values.char_id,
+         favor_values.faction,
+         favor_values.current_favor,
+         favor_values.lifetime_favor) = record
+
+    return favor_values
+
+
+def provisioner_thrall():
+    thrall_to_give = ''
+    count = int(get_bot_config(f'provisioner_thrall_count'))
+    # record_id = random.randint(int(1), count)
+    results = db_query(False, f'select thrall_name from provisioner_rewards '
+                              f'order by random() limit 1')
+
+    for result in results:
+        thrall_to_give = str(result[0])
+
+    return thrall_to_give
+
+
+class Favor:
+    def __init__(self):
+        self.char_id = 0
+        self.faction = ''
+        self.current_favor = 0
+        self.lifetime_favor = 0
+
+
+class RegistrationOLD:
+    def __init__(self):
+        self.id = 0
+        self.char_name = ''
+
+    def reset(self):
+        self.__init__()

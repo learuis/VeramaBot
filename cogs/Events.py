@@ -125,7 +125,7 @@ class Events(commands.Cog):
             await ctx.reply(f'Character `{name}` must be online to teleport to an event!')
             return
         else:
-            print(f'{name} - slot {rconCharId} event TP')
+            # print(f'{name} - slot {rconCharId} event TP')
             runRcon(f'con {rconCharId} TeleportPlayer {location}')
             await ctx.reply(f'Teleported `{name}` to the event location.')
             return

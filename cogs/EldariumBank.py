@@ -2,54 +2,16 @@ import math
 
 from discord.ext import commands
 
-from cogs.Reward import add_reward_record
 from functions.common import *
 from dotenv import load_dotenv
 
+from functions.common import eld_transaction, get_balance, sufficient_funds
 from functions.externalConnections import db_query
 
 load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
-
-def get_balance(character, season = CURRENT_SEASON):
-    balance = 0
-
-    results = db_query(False,
-                       f'SELECT balance from bank where char_id = {character.id} and season = {season} limit 1')
-    if results:
-        balance = int(flatten_list(results)[0])
-    return balance
-
-def sufficient_funds(character, debit_amount: int = 0, eld_type: str = 'raw'):
-
-    balance = int(get_balance(character))
-
-    if eld_type == 'bars':
-        debit_amount = debit_amount * 2
-
-    if balance >= debit_amount:
-        return True
-    else:
-        return False
-
-def eld_transaction(character, reason: str, amount: int = 0, eld_type: str = 'raw', season = CURRENT_SEASON):
-
-    if eld_type == 'bars':
-        amount = amount * 2
-        reason += f' (Bars)'
-    else:
-        reason += f' (DE)'
-
-    db_query(True, f'insert into bank_transactions (season, char_id, amount, reason, timestamp) '
-                   f'values ({season}, {character.id}, {amount}, \'{reason}\', \'{int_epoch_time()}\')')
-    db_query(True, f'insert or replace into bank (season, char_id, balance) '
-                   f'values ({season}, {character.id}, '
-                   f'( select sum(amount) from bank_transactions '
-                   f'where season = {season} and char_id = {character.id}) )')
-    new_balance = get_balance(character)
-    return new_balance
 
 class EldariumBank(commands.Cog):
     def __init__(self, bot: commands.Bot):

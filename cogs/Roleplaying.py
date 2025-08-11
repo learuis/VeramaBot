@@ -248,9 +248,7 @@ class Roleplaying(commands.Cog):
                                   f'left join registration as reg on online.char_id = reg.game_char_id '
                                   f'where reg.season = {CURRENT_SEASON}')
 
-        if results:
-            print(f'{results}')
-        else:
+        if not results:
             outputMessage += f'None'
             return
 
