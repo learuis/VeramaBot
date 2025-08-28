@@ -6,7 +6,7 @@ from discord.ext import commands
 from functions.common import is_registered, get_bot_config, no_registered_char_reply, \
     check_channel, modify_favor, display_quest_text, grant_reward, eld_transaction, get_balance, \
     sufficient_funds, killed_target, set_slayer_target, clear_slayer_target, get_slayer_target, get_notoriety, \
-    increase_notoriety, increment_killed_total
+    increase_notoriety, increment_killed_total, grant_slayer_rewards, toggle_arachnophobia
 from dotenv import load_dotenv
 
 from functions.externalConnections import db_query
@@ -192,6 +192,40 @@ class Hunter(commands.Cog):
     #                         f'assigned on <t:{current_target.start_time}:f>.')
     #         return
 
+    @commands.command(name='arachnophobia', aliases=['nospiders'])
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
+    async def arachnophobia(self, ctx):
+        """ - Toggles arachnophobia mode.
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        output_string = 'This message should not be displayed!'
+
+        if not character:
+            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            return
+
+        arachnophobia_flag = toggle_arachnophobia(character)
+        if arachnophobia_flag:
+            output_string = (f'Arachnophobia mode `enabled` for `{character.id}`! '
+                             f'You will not be assigned to kill spiders in the Beast Slayer profession.')
+        else:
+            output_string = (f'Arachnophobia mode `disabled` for `{character.id}`! '
+                             f'You may be assigned to kill spiders in the Beast Slayer profession.')
+
+        await ctx.reply(output_string)
+        return
+
+
     @commands.command(name='verifyslaying', aliases=['verifyquarry', 'vquarry', 'slay', 'vslay'])
     @commands.check(check_channel)
     @commands.has_any_role('Outcasts')
@@ -207,7 +241,7 @@ class Hunter(commands.Cog):
 
         """
         character = is_registered(ctx.author.id)
-        outputString = ''
+        output_string = 'This message should not be displayed!'
         notorious_multiplier = 0
 
         if not character:
@@ -229,35 +263,37 @@ class Hunter(commands.Cog):
                 else:
                     display_quest_text(0, 0, False, character.char_name, 7,
                                        f'Slain', f'{current_target.display_name}')
-                grant_reward(character.id, character.char_name, 10016, 30)
-                increment_killed_total(current_target)
+                output_string = grant_slayer_rewards(character, current_target)
                 clear_slayer_target(character)
+                await ctx.reply(output_string)
+                return
             else:
                 # print(f'displaying existing quarry')
                 display_quest_text(0, 0, False, character.char_name, 6,
                                    f'Quarry:', f'{current_target.display_name}')
-
-
-        if current_target:
-            if killed_target(current_target, character):
-                reward = int(get_bot_config(f'beast_slayer_reward'))
-                reroll_cost = int(get_bot_config('beast_slayer_reroll_cost'))
-                outputString += (f'Your quarry, `{current_target.display_name}`, has been slain! '
-                                 f'You have earned '
-                                 f'`{reward+(reroll_cost*notorious_multiplier)}`decaying eldarium!\n'
-                                 f'Return to the Beast Slayer at the Profession Hub to be assigned a new Quarry.')
-                await ctx.reply(outputString)
-                return
-            else:
                 await ctx.reply(f'You have not yet slain `{current_target.display_name}` since it was '
                                 f'assigned on <t:{current_target.start_time}:f>.')
                 return
-        else:
-            await ctx.reply(f'`{character.char_name}` does not currently have a Beast Slayer Quarry! '
-                            f'Visit the Profession Hub to be assigned one.')
-            return
 
-
+        #
+        # if current_target:
+        #     if killed_target(current_target, character):
+        #         reward = int(get_bot_config(f'beast_slayer_reward'))
+        #         reroll_cost = int(get_bot_config('beast_slayer_reroll_cost'))
+        #         outputString += (f'Your quarry, `{current_target.display_name}`, has been slain! '
+        #                          f'You have earned '
+        #                          f'`{reward+(reroll_cost*notorious_multiplier)}` decaying eldarium!\n'
+        #                          f'Return to the Beast Slayer at the Profession Hub to be assigned a new Quarry.')
+        #         await ctx.reply(outputString)
+        #         return
+        #     else:
+        #         await ctx.reply(f'You have not yet slain `{current_target.display_name}` since it was '
+        #                         f'assigned on <t:{current_target.start_time}:f>.')
+        #         return
+        # else:
+        #     await ctx.reply(f'`{character.char_name}` does not currently have a Beast Slayer Quarry! '
+        #                     f'Visit the Profession Hub to be assigned one.')
+        #     return
 
 @commands.Cog.listener()
 async def setup(bot):

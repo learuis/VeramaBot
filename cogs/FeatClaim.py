@@ -67,6 +67,23 @@ class FeatClaim(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    @commands.command(name='newfeatrestore')
+    @commands.has_any_role('Admin')
+    @commands.check(check_channel)
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def newfeatrestore(self, ctx):
+        """- Restore all feats that were previously granted to you
+
+        Parameters
+        ----------
+        ctx
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        featList = get_feat_list(character.id)
+
     @commands.command(name='featrestore', aliases=['feats', 'restore', 'knowledge', 'restorefeats'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)

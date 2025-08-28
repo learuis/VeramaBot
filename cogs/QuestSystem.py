@@ -107,10 +107,10 @@ def pull_online_character_info():
                      f'where eventType = 0 order by worldTime desc limit 1')
     # print(result.output)
     result.output.pop(0)
-    print(f'server last restarted at: {result.output}')
+    # print(f'server last restarted at: {result.output}')
     match = re.search(r'(\d{10})', result.output[0])
     last_restart = int(match.group(1))
-    print(f'server last restarted at: {last_restart}')
+    # print(f'server last restarted at: {last_restart}')
     set_bot_config(f'last_server_restart', f'{last_restart}')
 
     # print(f'end char info query {int_epoch_time()}')
@@ -218,7 +218,7 @@ async def oneStepQuestUpdate(bot):
     # print(f'{int_epoch_time()}')
 
     character = RegistrationOLD()
-
+    # character = Registration()
     if int(get_bot_config(f'maintenance_flag')) == 1:
         print(f'Skipping quest loop, server in maintenance mode')
         bot.quest_running = False
@@ -243,6 +243,7 @@ async def oneStepQuestUpdate(bot):
          trigger_x, trigger_y, trigger_z, trigger_radius, target_x, target_y, target_z) = quest
 
         char_id, char_name = character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius)
+
 
         if not char_id:
             # print(f'Skipping quest {quest_id}, no one in the box')
@@ -311,7 +312,7 @@ async def oneStepQuestUpdate(bot):
                                            f'from quest_requirements where quest_id = {quest_id}')
                 for requirement in req_list:
                     (template_id, item_qty) = requirement
-                    inventoryHasItem = check_inventory(char_id, 0, template_id)
+                    inventoryHasItem, found_item_id = check_inventory(char_id, 0, template_id)
                     if inventoryHasItem >= 0:
                         consume_from_inventory(char_id, char_name, template_id, inventoryHasItem)
                     else:
@@ -337,9 +338,9 @@ async def oneStepQuestUpdate(bot):
                 # get_favor(char_id, 'VoidforgedExiles')
                 objective = get_current_objective(requirement_type, player_tier.tier)
 
-                inventoryHasItem = check_inventory(char_id, 0, objective.item_id)
+                inventoryHasItem, found_item_id = check_inventory(char_id, 0, objective.item_id)
                 if inventoryHasItem >= 0:
-                    consume_from_inventory(char_id, char_name, objective.item_id, inventoryHasItem)
+                    consume_from_inventory(char_id, char_name, found_item_id, inventoryHasItem)
                     display_quest_text(quest_id, 0, False, char_name)
                     await give_profession_xp(
                         player_tier.char_id, char_name, player_tier.profession, player_tier.tier, bot)
@@ -349,12 +350,14 @@ async def oneStepQuestUpdate(bot):
                     continue
 
                 else:
-                    display_quest_text(quest_id, 0, True, char_name)
+                    # display_quest_text(quest_id, 0, True, char_name)
+                    display_quest_text(0, 0, False, char_name,
+                                       5, 'Missing', objective.item_name)
                     print(f'Skipping quest {quest_id}/ {quest_name}, id {char_id} {char_name} '
                           f'does not have the required item {objective.item_id} / {objective.item_name}')
                     continue
             case 'Slayer':
-                print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
                 current_target = get_slayer_target(character)
                 if not current_target:
                     # print(f'character has no quarry, assigning one')
@@ -367,50 +370,63 @@ async def oneStepQuestUpdate(bot):
                     else:
                         display_quest_text(0, 0, False, char_name, 6,
                                            f'Quarry:', f'{current_target.display_name}')
+                # else:
+                #     # has a current target, check if killed
+                #     if killed_target(current_target, character):
+                #         # print(f'{current_target.display_name} has been killed by {character.char_name}')
+                #         favor_to_give = int(get_bot_config(f'slayer_favor_per_kill'))
+                #         modify_favor(char_id, 'slayer', favor_to_give)
+                #
+                #         notorious_target, notorious_multiplier = get_notoriety(current_target)
+                #         # print(f'{notorious_target} {notorious_multiplier} in killed_target')
+                #         if notorious_multiplier > 0:
+                #             display_quest_text(0, 0, False, char_name, 7,
+                #                                f'Notorious Beast Slain!', f'{current_target.display_name}')
+                #         else:
+                #             display_quest_text(0, 0, False, char_name, 7,
+                #                                f'Slain', f'{current_target.display_name}')
+                #         grant_reward(char_id, char_name, quest_id, repeatable)
+                #         clear_slayer_target(character)
                 else:
-                    # has a current target, check if killed
-                    if killed_target(current_target, character):
-                        # print(f'{current_target.display_name} has been killed by {character.char_name}')
-                        favor_to_give = int(get_bot_config(f'slayer_favor_per_kill'))
-                        modify_favor(char_id, 'slayer', favor_to_give)
-
-                        notorious_target, notorious_multiplier = get_notoriety(current_target)
-                        # print(f'{notorious_target} {notorious_multiplier} in killed_target')
-                        if notorious_multiplier > 0:
-                            display_quest_text(0, 0, False, char_name, 7,
-                                               f'Notorious Beast Slain!', f'{current_target.display_name}')
-                        else:
-                            display_quest_text(0, 0, False, char_name, 7,
-                                               f'Slain', f'{current_target.display_name}')
-                        grant_reward(char_id, char_name, quest_id, repeatable)
-                        clear_slayer_target(character)
-                    else:
-                        # print(f'displaying existing quarry')
-                        display_quest_text(0, 0, False, char_name, 6,
-                                           f'Quarry:', f'{current_target.display_name}')
+                    # print(f'displaying existing quarry')
+                    display_quest_text(0, 0, False, char_name, 6,
+                                       f'Quarry:', f'{current_target.display_name}')
                 continue
-            case 'Provisioner' | 'Ymir' | 'Zath' | 'Mitra' | 'Set' | 'Derketo' | 'Yog' | 'Jhebbal Sag':
+            case 'Provisioner' | 'Reliquarian':
                 # item_qty here is used for how many points will be awarded for the item
                 missingitem = 0
                 item_qty = 0
+                found_item_id = 0
 
                 req_list = db_query(False, f'select template_id, item_qty '
                                            f'from quest_requirements where quest_id = {quest_id}')
+                favor_list = db_query(False, f'select template_id, favor from favor_reward_values '
+                                             f'where profession = \'{requirement_type.lower()}\'')
+                favor_dict = dict(favor_list)
+                item_name_list = db_query(False, f'select template_id, item_name from favor_reward_values '
+                                             f'where profession = \'{requirement_type.lower()}\'')
+                item_name_dict = dict(item_name_list)
+                selection_string = ', '.join(str(i) for i in favor_dict.keys())
+                # print(f'{selection_string}')
                 for requirement in req_list:
-                    (template_id, item_qty) = requirement
-                    inventoryHasItem = check_inventory(char_id, 0, template_id)
+                    # (template_id, item_qty) = requirement
+                    inventoryHasItem, found_item_id = check_inventory(char_id, 0, selection_string)
+                    # print(inventoryHasItem)
+                    # print(found_item_id)
                     if inventoryHasItem >= 0:
-                        consume_from_inventory(char_id, char_name, template_id, inventoryHasItem)
+                        consume_from_inventory(char_id, char_name, found_item_id, inventoryHasItem)
                     else:
                         missingitem += 1
                         print(f'Skipping quest {quest_id}, id {char_id} {char_name} '
-                              f'does not have the required item {template_id}')
+                              f'does not have the required item {selection_string}')
                         continue
                 if missingitem == 0:
-                    display_quest_text(quest_id, 0, False, char_name)
-                    print(f'{item_qty}')
-                    modify_favor(char_id, requirement_type.lower(), item_qty)
-                    print(f'Quest {quest_id} completed by id {char_id} {char_name}')
+                    # display_quest_text(quest_id, 0, False, char_name)
+                    display_quest_text(quest_id, 0, False, char_name,
+                                       6, 'Delivered', item_name_dict.get(found_item_id))
+                    # print(f'{item_qty}')
+                    modify_favor(char_id, requirement_type.lower(), favor_dict.get(found_item_id))
+                    print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
                     add_cooldown(char_id, quest_id, repeatable)
                     grant_reward(char_id, char_name, quest_id, repeatable)
 

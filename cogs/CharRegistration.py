@@ -39,9 +39,19 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
     async def on_submit(self, interaction: discord.Interaction):
 
         charId = get_character_id(f'{self.charName}')
+        existing_character = is_registered(charId)
+        channel = interaction.guild.get_channel(SUPPORT_CHANNEL)
+
+        if existing_character:
+            if not int(existing_character.discord_id) == int(interaction.user.id):
+                # existing character is registered to someone else
+                await interaction.response.send_message(f'There is already a Season {CURRENT_SEASON} character named `{self.charName}` '
+                                                        f'registered to another player. '
+                                                        f'Please post in {channel.mention} to request a name change.',
+                                                        ephemeral=True)
+                return
 
         if not charId:
-            channel = interaction.guild.get_channel(SUPPORT_CHANNEL)
             await interaction.response.send_message(f'Could not locate a character named `{self.charName}`. '
                                                     f'If you typed your name correctly, please post in '
                                                     f'{channel.mention}', ephemeral=True)

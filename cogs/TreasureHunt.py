@@ -20,6 +20,22 @@ CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 
 treasure_location_count = int(get_bot_config('treasure_location_count'))
 
+class TreasurePortal:
+    def __init__(self):
+        self.vault_id = 0
+        self.vault_name = ''
+        self.x = 0
+        self.y = 0
+        self.z = 0
+
+    def structure_portal(self, vault_id, vault_name, x, y, z):
+        self.vault_id = vault_id
+        self.vault_name = vault_name
+        self.x = x
+        self.y = y
+        self.z = z
+        return self
+
 def choose_new_treasure_location():
     location = random.randint(int(1), treasure_location_count)
     set_bot_config(f'current_treasure_location', f'{location}')
@@ -68,7 +84,8 @@ def calculate_bonus(char_id, daily=False):
         bonus, expertise_points = get_character_expertise(char_id)
         bonusMessage += f'Expertise Bonus: `+{expertise_points*10}%` | '
 
-        if check_inventory(char_id, 2, 4196) >= 0:
+        has_item, found_item_id = check_inventory(char_id, 2, 4196)
+        if has_item >= 0:
             bonus += 10
             bonusMessage += f'Gravedigger Bonus: `+100%` | '
         else:
@@ -84,7 +101,7 @@ def calculate_bonus(char_id, daily=False):
         else:
             bonusMessage += f'Lucky Coin Bonus: `+0%`'
 
-    bonusMessage += f'\nChance to find Treasure is increased by `{bonus*10}%!`{bonus_coin}'
+    bonusMessage += f'\nChance to find Treasure for this dig was increased by `{bonus*10}%!`{bonus_coin}'
 
     return bonus, bonusMessage
 
@@ -103,11 +120,35 @@ def get_daily_eligibility(character):
 
 def treasure_portal(bonus):
     portal_chance = int(get_bot_config('treasure_portal_chance'))
+    default_portal_chance = int(get_bot_config('default_treasure_portal_chance'))
+    last_restart = int(get_bot_config('last_server_restart'))
+    portal_chance_increment = int(get_bot_config('portal_chance_increment'))
+
+    portal = TreasurePortal()
+
     portal_roll = random.randint(int(1), int(100))
+    print(f'Portal: Rolled {portal_roll}, Chance: {portal_chance}')
+
     if portal_roll <= portal_chance:
-        return True
+        portal_targets = db_query(False, f'select vault_id, vault_name, x, y, z '
+                                         f'from treasure_portal_locations where last_visited < {last_restart} '
+                                         f'order by random() limit 1 ')
+        if portal_targets:
+            portal_targets = flatten_list(portal_targets)
+            portal = portal.structure_portal(portal_targets[0], portal_targets[1], portal_targets[2],
+                                             portal_targets[3], portal_targets[4])
+            db_query(True, f'update treasure_portal_locations set last_visited = {int_epoch_time()} '
+                           f'where vault_id = {portal.vault_id}')
+            new_portal_chance = math.floor(portal_chance / 2)
+            set_bot_config('treasure_portal_chance', str(new_portal_chance))
+            return True, portal
+        else:
+            print(f'Out of treasure vaults!')
+            # set_bot_config('treasure_portal_chance', str(default_portal_chance))
+            return False, False
     else:
-        return False
+        set_bot_config('treasure_portal_chance', str(portal_chance+portal_chance_increment))
+        return False, False
 
 def grant_treasure_rewards(character, target_name, bonus, daily=False):
     reward_list = []
@@ -189,6 +230,9 @@ class TreasureHunt(commands.Cog):
         bonus = 0
         outputMessage = ''
         daily = False
+        initial_portal_chance = int(get_bot_config('treasure_portal_chance'))
+        last_server_restart = int(get_bot_config('last_server_restart'))
+        portal = TreasurePortal()
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
@@ -229,37 +273,56 @@ class TreasureHunt(commands.Cog):
 
         if nwPoint[0] <= digger_x <= sePoint[0] and nwPoint[1] <= digger_y <= sePoint[1]:
 
-            # choose_new_treasure_location()
-            increment_times_looted(treasure_target)
-            clear_treasure_target(character)
-
-            bonus, bonusMessage = calculate_bonus(character.id, daily)
-            reward_list = grant_treasure_rewards(character, target_name, bonus)
-            portal_result = treasure_portal(bonus)
+            portal_result, portal = treasure_portal(bonus)
+            updated_portal_chance = int(get_bot_config('treasure_portal_chance'))
             if portal_result:
                 print(f'Treasure Portal triggered!')
+                increment_times_looted(treasure_target)
+                clear_treasure_target(character)
+                outputMessage += f'`{character.char_name}` found a mysterious portal at `{target_name}`!\n'
+                outputMessage += f'Treasure Vault Portal Chance has been reduced to `{updated_portal_chance}%`!\n\n'
+                await ctx.reply(f'{outputMessage}')
+                run_console_command_by_name(character.char_name, f'testFIFO 7 Portal! You found a mysterious portal!')
+                run_console_command_by_name(character.char_name, f'teleportplayer {portal.x} {portal.y} {portal.z}')
+                return
+            else:
+                # choose_new_treasure_location()
+                increment_times_looted(treasure_target)
+                clear_treasure_target(character)
 
-            run_console_command_by_name(character.char_name, f'testFIFO 7 Treasure! Use v/claim to get rewards')
+                bonus, bonusMessage = calculate_bonus(character.id, daily)
+                reward_list = grant_treasure_rewards(character, target_name, bonus)
 
-            outputMessage += f'`{character.char_name}` has found the treasure hidden at `{target_name}`!\n'
-            outputMessage += f'{bonusMessage}\n\n'
-            outputMessage += f'{reward_list}'
+                run_console_command_by_name(character.char_name, f'testFIFO 7 Treasure! Use v/claim to get rewards')
 
-            print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
-                  f'TeleportPlayer {target_x} {target_y} 0\n'
-                  f'Character Coordinates: ({digger_x}, {digger_y})\n'
-                  f'{character.char_name} is within the bounds of location {target_name} ({treasure_target.location_id})\n'
-                  f'Rewards: {reward_list}')
+                outputMessage += f'`{character.char_name}` has found the treasure hidden at `{target_name}`!\n\n'
+                result = db_query(False,
+                                  f'select count(*) from treasure_portal_locations where last_visited < {last_server_restart}')
+                remaining_vaults = result[0][0]
+                if initial_portal_chance == updated_portal_chance or int(remaining_vaults) == 0:
+                    outputMessage += (f'There are no remaining treasure vaults until the next server restart.'
+                                      f' Portal chance is locked at `{updated_portal_chance}%`!\n\n')
+                else:
+                    outputMessage += f'Treasure Vault Portal Chance has increased to `{updated_portal_chance}%`!\n'
+                    outputMessage += f'`{remaining_vaults}` treasure vaults left to find until the next server restart!\n\n'
+                outputMessage += f'{bonusMessage}\n'
+                outputMessage += f'{reward_list}'
+
+                # print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
+                #       f'TeleportPlayer {target_x} {target_y} 0\n'
+                #       f'Character Coordinates: ({digger_x}, {digger_y})\n'
+                #       f'{character.char_name} is within the bounds of location {target_name} ({treasure_target.location_id})\n'
+                #       f'Rewards: {reward_list}')
 
         else:
             outputMessage += (f'{character.char_name} tried to dig up hidden treasure, but didn\'t find anything. '
                               f'Wait 1 minute and make sure you\'re at `{treasure_target.location_name}` before trying again!\n'
                               f'The bot sees your location as: `TeleportPlayer {digger_x} {digger_y} {digger_z}`')
 
-            print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
-                  f'TeleportPlayer {target_x} {target_y} 0\n'
-                  f'Character Coordinates: ({digger_x}, {digger_y})\n'
-                  f'{character.char_name} is not within the bounds of location {target_name} ({treasure_target.location_id})')
+            # print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
+            #       f'TeleportPlayer {target_x} {target_y} 0\n'
+            #       f'Character Coordinates: ({digger_x}, {digger_y})\n'
+            #       f'{character.char_name} is not within the bounds of location {target_name} ({treasure_target.location_id})')
 
         await ctx.reply(f'{outputMessage}')
 

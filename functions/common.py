@@ -7,6 +7,8 @@ import time
 import os
 import sqlite3
 
+from aiohttp.helpers import validate_etag_value
+
 from functions.externalConnections import runRcon, db_query, count_online_players, notify_all, rcon_all, multi_rcon
 from time import strftime
 from dotenv import load_dotenv
@@ -53,6 +55,9 @@ class Registration:
         self.char_name = ''
         self.discord_id = ''
 
+    def reset(self):
+        self.__init__()
+
 def update_boons(indv_boon: str = ''):
     command_prep = []
     command_list = []
@@ -98,7 +103,7 @@ def update_boons(indv_boon: str = ''):
 
 
 def check_channel(ctx):
-    whitelist = {'Admin', 'Moderator'}
+    whitelist = {'Admin', 'Moderator', 'BuildHelper'}
     roles = {role.name for role in ctx.author.roles}
     if not whitelist.isdisjoint(roles):
         #if we're a special role, no limitations on channel
@@ -212,12 +217,12 @@ def get_clan(character):
                            f'where c.id = {character.id} limit 1')
     if rconResponse.error:
         print(f'RCON error in get_clan')
-        return False
+        return False, False
     rconResponse.output.pop(0)
 
     match = re.findall(r'.*^#\d*\s+(\d*)\s\|\s+(.*) \|', rconResponse.output[0])
     match = flatten_list(match)
-    print(match)
+    # print(match)
     if not match:
         return False, False
 
@@ -617,11 +622,15 @@ def consume_from_inventory(char_id, char_name, template_id, item_slot=-1):
 def check_inventory(owner_id, inv_type, template_id):
     matched_template_id = 0
     slot = -1
-    print(f'we are checking inventory of {owner_id} {inv_type} {template_id}')
+    # print(f'we are checking inventory of {owner_id} {inv_type} {template_id}')
 
-    results = runRcon(f'sql select item_id, template_id from item_inventory '
-                      f'where owner_id = {owner_id} and inv_type = {inv_type} '
-                      f'and template_id in ({template_id}) limit 1')
+    query = (f'sql select item_id, template_id from item_inventory '
+             f'where owner_id = {owner_id} and inv_type = {inv_type} '
+             f'and template_id in ({template_id}) limit 1')
+    # print(query)
+
+    results = runRcon(f'{query}')
+    # print(results.output)
     if results.error:
         print(f'RCON error received in check_inventory')
         return False
@@ -629,8 +638,8 @@ def check_inventory(owner_id, inv_type, template_id):
     if results.output:
         results.output.pop(0)
         if not results.output:
-            print(f'The required item {template_id} is missing from the inventory of {owner_id}.')
-            return slot
+            # print(f'The required item {template_id} is missing from the inventory of {owner_id}.')
+            return slot, template_id
     else:
         print(f'Should this ever happen?')
 
@@ -640,18 +649,20 @@ def check_inventory(owner_id, inv_type, template_id):
         slot = match[0]
         matched_template_id = match[1]
         try:
-            print(f'checking slot {slot}')
+            # print(f'checking slot {slot}')
             slot = int(slot)
-            print(f'checking template id {matched_template_id}')
+            # print(f'checking template id {matched_template_id}')
             matched_template_id = int(matched_template_id)
-            if matched_template_id == template_id:
+            # print(template_id)
+            # print(matched_template_id)
+            if str(matched_template_id) in str(template_id):
                 print(f'The required item {template_id} is present in the inventory of {owner_id} in slot {slot}.')
-                return slot
+                return slot, matched_template_id
         except ValueError:
             print(f'ValueError in converting slot ({slot}) or template_id ({template_id}) to int.')
-            return slot
+            return slot, template_id
 
-    return slot
+    return slot, template_id
 
 def count_inventory_qty(owner_id, inv_type, template_id):
     value = 0
@@ -923,7 +934,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                 case 'provisioner':
                     current_favor = get_favor(char_id, reward_command)
                     threshhold = int(get_bot_config(f'{reward_command}_reward_threshhold'))
-                    print(f'{reward_command} threshhold: {threshhold} current_favor = {current_favor.current_favor}')
+                    # print(f'{reward_command} threshhold: {threshhold} current_favor = {current_favor.current_favor}')
 
                     if int(current_favor.current_favor) >= threshhold:
                         modify_favor(char_id, reward_command, -threshhold)
@@ -944,9 +955,12 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                                            f'A new follower has pledged loyalty to you!')
                     else:
                         continue
+                case 'reliquarian':
+                    # already granted favor
+                    continue
 
                 case 'slayer':
-                    print(f'we are in slayer reward')
+                    # print(f'we are in slayer reward')
                     reroll_cost = int(get_bot_config(f'beast_slayer_reroll_cost'))
                     reward_quantity = int(get_bot_config(f'beast_slayer_reward'))
                     t1_favor = int(get_bot_config(f'beast_slayer_t1_favor'))
@@ -956,9 +970,23 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                     current_target = get_slayer_target(character)
                     notorious_target, notorious_multiplier = get_notoriety(current_target)
 
-                    print(f'{notorious_target} {notorious_multiplier} for grant_reward')
+                    # print(f'{notorious_target} {notorious_multiplier} for grant_reward')
 
                     reward_quantity = reward_quantity + (reroll_cost * notorious_multiplier)
+
+                    chance, value = slayer_bonus_item_chance(notorious_multiplier)
+                    if chance:
+                        print(f'Notoriety {notorious_multiplier} target slain, chance: {value}%, bonus item earned.')
+                        results = db_query(False, f'select item_id, item_name from treasure_rewards '
+                                                  f'where reward_category = 1 order by RANDOM() limit 1')
+                        reward_list.append(flatten_list(results))
+                        for hunt_treasure in reward_list:
+                            # print(f'{reward}')
+                            outputMessage += f'`{hunt_treasure[1]}` | '
+                            add_reward_record(int(character.id), int(hunt_treasure[0]), 1, f'Treasure Hunt: {hunt_treasure[1]}')
+
+                    else:
+                        print(f'Notoriety {notorious_multiplier} target slain, chance: {value}%, no bonus item.')
 
                     current_favor = get_favor(char_id, reward_command)
                     if current_favor.lifetime_favor >= t3_favor:
@@ -968,7 +996,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                     elif current_favor.lifetime_favor >= t1_favor:
                         run_console_command_by_name(char_name, f'setstat HealthBarStyle 1')
 
-                    print(f'granting eld')
+                    # print(f'granting eld')
                     if notorious_multiplier == 0:
                         eld_transaction(character, f'Beast Slayer Reward', reward_quantity)
                     else:
@@ -984,6 +1012,60 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
 
     return
 
+def grant_slayer_rewards(character, current_target):
+    item_list = []
+    outputString = ''
+
+    reroll_cost = int(get_bot_config(f'beast_slayer_reroll_cost'))
+    reward_quantity = int(get_bot_config(f'beast_slayer_reward'))
+    t1_favor = int(get_bot_config(f'beast_slayer_t1_favor'))
+    t2_favor = int(get_bot_config(f'beast_slayer_t2_favor'))
+    t3_favor = int(get_bot_config(f'beast_slayer_t3_favor'))
+
+    notorious_target, notorious_multiplier = get_notoriety(current_target)
+
+    reward_quantity = reward_quantity + (reroll_cost * notorious_multiplier)
+
+    current_favor = get_favor(character.id, 'slayer')
+    if current_favor.lifetime_favor >= t3_favor:
+        run_console_command_by_name(character.char_name, f'setstat HealthBarStyle 3')
+    elif current_favor.lifetime_favor >= t2_favor:
+        run_console_command_by_name(character.char_name, f'setstat HealthBarStyle 2')
+    elif current_favor.lifetime_favor >= t1_favor:
+        run_console_command_by_name(character.char_name, f'setstat HealthBarStyle 1')
+
+    # print(f'granting eld')
+    if notorious_multiplier == 0:
+        eld_transaction(character, f'Beast Slayer Reward', reward_quantity)
+    else:
+        eld_transaction(character, f'Notorious Beast Reward', reward_quantity)
+
+    chance, value = slayer_bonus_item_chance(notorious_multiplier)
+    if chance:
+        results = db_query(False, f'select item_id, item_name from treasure_rewards '
+                                  f'where reward_category = 1 order by RANDOM() limit 1')
+        item_list.append(flatten_list(results))
+        for item in item_list:
+            add_reward_record(int(character.id), int(item[0]), 1, f'Beast Slayer: {item[1]}')
+            item_string = f'You found `{item[1]}` hidden in a nearby loot cache! Use `v/claim` to receive it.\n'
+    else:
+        item_string = f'You had a `{value}%` chance to find a loot cache, but didn\'t find one this time.\n'
+
+    clear_notoriety(current_target)
+    increment_killed_total(current_target)
+
+    run_console_command_by_name(character.char_name, f'testFIFO 6 Reward Deposited {reward_quantity} '
+                                           f'Decaying Eldarium')
+
+    reward = int(get_bot_config(f'beast_slayer_reward'))
+    reroll_cost = int(get_bot_config('beast_slayer_reroll_cost'))
+    outputString += (f'Your quarry, `{current_target.display_name}`, has been slain! '
+                     f'You have earned '
+                     f'`{reward + (reroll_cost * notorious_multiplier)}` decaying eldarium!\n{item_string}'
+                     f'Return to the Beast Slayer at the Profession Hub to be assigned a new Quarry.')
+    print(f'{outputString}')
+
+    return outputString
 
 def eld_transaction(character, reason: str, amount: int = 0, eld_type: str = 'raw', season = CURRENT_SEASON):
 
@@ -1027,18 +1109,20 @@ def sufficient_funds(character, debit_amount: int = 0, eld_type: str = 'raw'):
 
 
 def killed_target(my_target, character):
-    clan = get_clan(character)
-    if clan:
-        causer_string = f'causerGuildId = {clan[0]}'
+    clan_id, clan_name = get_clan(character)
+    if clan_id:
+        causer_string = f'causerGuildId = {clan_id}'
     else:
         causer_string = f'causerId = {character.id}'
 
-    rconResponse = runRcon(f'sql select worldTime from game_events where '
+    query = (f'sql select worldTime from game_events where '
                            f'eventType = 86 and '
                            f'objectName = \'{my_target.target_name}\' and '
                            f'worldTime >= {my_target.start_time} and '
                            f'{causer_string} '
-                           f'order by worldTime desc limit 1;')
+                           f'order by worldTime desc limit 1')
+
+    rconResponse = runRcon(f'{query}')
     # print(str(rconResponse.output))
     match = re.search(r'#0 (\d+) \|', str(rconResponse.output))
     if match:
@@ -1054,12 +1138,34 @@ class SlayerTarget:
         self.display_name = ''
         self.start_time = 0
 
+def has_arachnophobia(character):
+    # print(f'do we have arachnophobia? {character.id}')
+    results = db_query(False, f'select discord_id from arachnophobia where discord_id = {character.id}')
+    return True if results else False
+
+def toggle_arachnophobia(character):
+    results = db_query(False, f'select discord_id from arachnophobia where discord_id = {character.id}')
+    if results:
+        db_query(True, f'delete from arachnophobia where discord_id = {character.id}')
+        return False
+    else:
+        db_query(True, f'insert into arachnophobia (discord_id) values ({character.id})')
+        return True
 
 def set_slayer_target(character, exclude_target: SlayerTarget = False):
+    spider_string = f'target_name not like \'%spider%\''
+    where_clause = ''
+
     if exclude_target:
         where_clause = f' where target_name not like \'%{exclude_target.target_name}%\' and notoriety = 0'
-    else:
-        where_clause = f''
+
+    if has_arachnophobia(character):
+        if where_clause:
+            where_clause += f' and {spider_string}'
+        else:
+            where_clause = f' where {spider_string}'
+
+    # print(where_clause)
 
     my_target = SlayerTarget()
     my_target.char_id = character.id
@@ -1067,6 +1173,8 @@ def set_slayer_target(character, exclude_target: SlayerTarget = False):
     # randomizer = random.randint(0, int(get_bot_config('beast_slayer_target_count')))
     query = (f'select target_name, target_display_name from beast_slayer_target_list'
              f'{where_clause} order by notoriety desc, times_killed asc, random() limit 1')
+    # print(query)
+    # rconResponse = runRcon(query)
     query_result = db_query(False, f'{query}')
     # print(query_result)
     (my_target.target_name, my_target.display_name) = flatten_list(query_result)
@@ -1090,11 +1198,19 @@ def get_slayer_target(character: Registration):
         print(query_result)
         (my_target.char_id, my_target.target_name,
          my_target.display_name, my_target.start_time) = flatten_list(query_result)
-        print(f'My target {my_target}')
+        # print(f'My target {my_target}')
         return my_target
     else:
         return False
 
+def slayer_bonus_item_chance(notoriety: int):
+    notoriety_value = int(get_bot_config('notoriety_bonus_item_mult'))
+    reward_chance = 10 + ( notoriety * notoriety_value )
+    item_roll = random.randint(int(1), int(100))
+    if item_roll <= reward_chance:
+        return True, reward_chance
+    else:
+        return False, reward_chance
 
 def get_notoriety(quarry: SlayerTarget):
     # print(f'getting notoriety {quarry.target_name}')

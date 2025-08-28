@@ -128,7 +128,7 @@ class EldariumBank(commands.Cog):
         payee = is_registered(payee.id)
         if not payee:
             reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await ctx.reply(f'No character registered to {payee.mention}! Visit {reg_channel.mention}')
             return
 
         try:

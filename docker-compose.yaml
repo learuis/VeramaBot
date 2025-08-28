@@ -7,3 +7,5 @@ services:
       - data/server.env
     volumes:
       - /veramabot:/app/data
+    environment:
+      - TZ=America/New_York

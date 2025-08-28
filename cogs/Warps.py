@@ -75,21 +75,17 @@ class Warps(commands.Cog):
             await ctx.reply(f'Teleported `{name}` to {description}.')
             return
 
-    @commands.command(name='home', aliases=['stuck'])
+    @commands.command(name='home', aliases=['stuck', 'home2'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def stuck(self, ctx, option: int = 1):
-        """- Use if you're stuck in the floor. Warps you to the Sinkhole.
+        """Teleports you to your bed/bedroll. Costs 100 Decaying Eldarium
 
-        Parameters
-        ----------
-        ctx
-        option
-            1 = oldest spawn point 2 = latest spawn point
-
-        Returns
-        -------
-
+        v/home [option]
+            option 1 = oldest spawn point
+            option 2 = latest spawn point
+        v/stuck
+            teleports you to the sinkhole
         """
         coordinates = []
         character = is_registered(ctx.author.id)
@@ -128,7 +124,7 @@ class Warps(commands.Cog):
             # hex_name = hex_name.hex()
             # print(f'Char name in hex is {hex_name}')
 
-            if option == 2:
+            if option == 2 or 'home2' in ctx.invoked_with:
                 order_by = f'desc'
             else:
                 order_by = f'asc'

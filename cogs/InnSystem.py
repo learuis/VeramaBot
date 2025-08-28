@@ -32,7 +32,7 @@ class Inn:
         self.z = 0
         self.teleport_counter = 0
 
-    def structure_inn(self, inn_id, clan_id, owner_id, name, x, y, z):
+    def structure_inn(self, inn_id, clan_id, owner_id, name, x, y, z, teleport_counter):
         self.inn_id = inn_id
         self.clan_id = clan_id
         self.owner_id = owner_id
@@ -141,15 +141,18 @@ def clear_all_checkins(inn_id):
 
 def create_inn(inn):
     db_query(True, f'insert or replace into inn_locations '
-                   f'(inn_id, clan_id, owner_id, inn_name, x, y, z) values '
+                   f'(inn_id, clan_id, owner_id, inn_name, x, y, z, teleport_counter) values '
                    f'(\'{inn.inn_id}\', {inn.clan_id}, {inn.owner_id}, \'{inn.name}\', '
-                   f'\'{inn.x}\', \'{inn.y}\', \'{inn.z}\')')
+                   f'\'{inn.x}\', \'{inn.y}\', \'{inn.z}\', 0)')
 
 
 def delete_inn(inn_id):
     db_query(True, f'delete from inn_locations where inn_id = \'{inn_id}\'')
     return
 
+def increment_inn_teleport_counter(inn: Inn):
+    db_query(True, f'update inn_locations set teleport_counter = teleport_counter + 1 where inn_id = \'{inn.inn_id}\'')
+    return
 
 def encode_inn_id(clan_id):
     inn_id = hashlib.md5(str(clan_id).encode('utf-8')).hexdigest()
@@ -166,6 +169,7 @@ def inn_transaction(inn, character, cost, revenue, bonus_mult):
         final_revenue = 10
     print(final_revenue)
     eld_transaction(inn_owner, f'{character.char_name} teleported to {inn.name}', final_revenue)
+    increment_inn_teleport_counter(inn)
     return
 
 
@@ -271,7 +275,7 @@ class InnSystem(commands.Cog):
                             f'You must place any type of carpet to serve as the check-in point!')
             return
 
-        inn = inn.structure_inn(inn_id, clan_id, character.id, inn_name, x, y, z)
+        inn = inn.structure_inn(inn_id, clan_id, character.id, inn_name, x, y, z, 0)
         create_inn(inn)
 
         await ctx.reply(f'`{character.char_name}` of clan `{clan_name}` has established an inn - `{inn_name}`!\n'
@@ -413,14 +417,14 @@ class InnSystem(commands.Cog):
             # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
-        inn_list = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x, y, z from inn_locations')
+        inn_list = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x, y, z, teleport_counter from inn_locations')
         print(inn_list)
         if not inn_list:
             await ctx.reply(f'Character `{character.char_name}` is not located at an inn!')
             return
 
         for inn_record in inn_list:
-            (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z) = inn_record
+            (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.teleport_counter) = inn_record
             result_id, result_name = character_in_radius(inn.x, inn.y, inn.z, 2500, character.id)
             if result_id:
                 clan_id, clan_name = get_clan(character)
@@ -469,7 +473,7 @@ class InnSystem(commands.Cog):
             return
 
         for result in results:
-            (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z) = result
+            (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.teleport_counter) = result
             owner = get_single_registration_new(char_id=inn.owner_id)
             clan_id, clan_name = get_clan(owner)
             new_x, new_y = transform_coordinates(inn.x, inn.y)

@@ -3,6 +3,7 @@ import re
 import time
 import sqlite3
 import os
+import inspect
 
 import discord.ext.commands
 from discord.ext import commands
@@ -79,10 +80,40 @@ class Admin(commands.Cog):
         await ctx.send(rconResponse.output)
         # I could add a lookup for their account ID here also and link back to their character ID.
 
+    @commands.command(name='help_test')
+    @commands.is_owner()
+    @commands.check(check_channel)
+    async def help_test(self, ctx, command_name: str):
+        output = ''
+        title = ''
+
+        for cog in self.bot.cogs:
+            command_list = self.bot.get_cog(cog).get_commands()
+            for command in command_list:
+                if command_name.lower() == command.name.lower():
+                    title = f'**{command.name.lower()}**'
+                    output += f'{command.description}\n'
+                    signature = inspect.signature(self.bot.get_command(command.name).callback)
+                    docstring = self.bot.get_command(command.name).callback.__doc__
+                    output += f'{docstring}\n'
+                    # for name, parameter in signature.parameters.items():
+                    #     if parameter.name == 'self' or parameter.name == 'ctx':
+                    #         continue
+                    #     output += f'{parameter.name}\n{parameter}'
+                    # for key in parameter_dict:
+                    #     output+= f'**{key}**\n{parameter_dict.get(key)}\n'
+                # output += self.bot.get_command(command.name).help
+
+        embed = discord.Embed(title=f'{title}',
+                              description=f'{output}',
+                              colour=0x00b0f4)
+        await ctx.reply(embed=embed)
+        return
+
     @commands.command(name='status_prepare')
     @commands.is_owner()
     @commands.check(check_channel)
-    async def prepare(self, ctx: commands.Context):
+    async def status_prepare(self, ctx: commands.Context):
         await ctx.send(f'This message will be updated with status information!')
 
     @commands.command(name='rcon')

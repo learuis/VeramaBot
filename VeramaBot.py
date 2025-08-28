@@ -150,8 +150,12 @@ async def liveStatus():
 @tasks.loop(minutes=1)
 async def professionBoard():
 
-    channel = bot.get_channel(PROFESSION_CHANNEL)
-    message = await channel.fetch_message(PROFESSION_MESSAGE)
+    try:
+        channel = bot.get_channel(PROFESSION_CHANNEL)
+        message = await channel.fetch_message(PROFESSION_MESSAGE)
+    except discord.errors.DiscordServerError:
+        print(f'Discord error prevented profession updates.')
+        return
 
     try:
         await updateProfessionBoard(message)

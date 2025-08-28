@@ -1,3 +1,4 @@
+import math
 import sqlite3
 import re
 import os
@@ -8,7 +9,7 @@ from dotenv import load_dotenv
 
 from cogs.QuestSystem import pull_online_character_info_new
 from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id, \
-    flatten_list, get_bot_config, check_channel, no_registered_char_reply
+    flatten_list, get_bot_config, check_channel, no_registered_char_reply, get_clan
 
 from functions.externalConnections import db_query, runRcon
 
@@ -537,6 +538,67 @@ class Utilities(commands.Cog):
             await ctx.reply(f'{outputString}')
         else:
             await ctx.reply(f'No under-mesh thrall deaths found matching `{owner}`')
+
+    @commands.command(name='locateobject', aliases=['lo'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def locateobject(self, ctx, x_coord: str, y_coord: str, owner: int = None, pet = False):
+        """
+
+        Parameters
+        ----------
+        ctx
+        x_coord
+        y_coord
+        desired_size
+        confirm
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        if not owner:
+            clan_id, clan_name = get_clan(character)
+            if not clan_id:
+                clan_id = character.id
+        else:
+            clan_id = owner
+            clan_name = 'Manual'
+
+        try:
+            x = float(x_coord)
+            y = float(y_coord)
+            # size = float(desired_size)
+        except ValueError:
+            await ctx.reply(f'Coordinates must be numbers!')
+            return
+
+        if pet:
+            where_clause = ''
+        else:
+            where_clause = f'where owner_id = {clan_id} '
+
+        results = runRcon(f'sql select id, class, x, y, '
+                          f'((x - {x}) * (x - {x})) + ((y - {y}) * (y- {y})) as distance from actor_position '
+                          f'left join buildings on actor_position.id = buildings.object_id {where_clause}order by distance asc limit 1')
+        # print(f'{results.output}')
+        results.output.pop(0)
+        if not results.output:
+            await ctx.reply(f'No records found.')
+            return
+        for record in results.output:
+            # match = re.search(r'#\d+\s+(\d+)\s+[|]\s+(.+)\s+[|]\s+(\d+.\d+)\s+[|]\s+(\d+.\d+)\s+[|]\s+(\d+.\d+)', record)
+            match = re.search(r'\d+\s+(\d+)\s+[|]\s+([a-zA-Z0-9\/_\.]+)\s+[|]\s+([\-\.\d]+)\s+[|]\s+([\-\.\d]+)\s+[|]\s+([\-\.\d]+)',
+                              record)
+            print(f'{match.group(1)} {match.group(2)} {match.group(3)} {match.group(4)} {match.group(5)}')
+            object_id, class_name, x_result, y_result, distance = match.groups()
+
+        await ctx.reply(f'Found object:\nid: `{object_id}`\nclass: `{class_name}`\n'
+                        f'x-coordinate: `{x_result}`\ny-coordinate: `{y_result}`\n'
+                        f'distance: `{distance}`\nowned by: `{clan_id}` name: `{clan_name}`\n\n'
+                        f'If this is correct, run the command again, adding `confirm`')
+        return
 
     @commands.command(name='test1')
     @commands.has_any_role('Admin', 'Moderator')

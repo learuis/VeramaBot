@@ -8,7 +8,7 @@ from cogs.FeatClaim import grant_feat
 from functions.common import int_epoch_time, get_bot_config, set_bot_config, is_registered, get_single_registration, \
     flatten_list, get_rcon_id, run_console_command_by_name, get_single_registration_new, \
     no_registered_char_reply, check_channel, eld_transaction, get_balance, get_slayer_target, get_notoriety, get_favor, \
-    add_reward_record, get_treasure_target
+    add_reward_record, get_treasure_target, modify_favor
 from functions.externalConnections import db_query, runRcon
 from dotenv import load_dotenv
 
@@ -28,6 +28,13 @@ class ProfessionTier:
         self.current_experience = 0
         self.turn_ins_this_cycle = 0
 
+class MonsterWeapon:
+    def __init__(self):
+        self.type = ''
+        self.template_id = 0
+        self.item_name = ''
+        self.damage = 0
+        self.penetration = 0
 
 class ProfessionObjective:
     def __init__(self):
@@ -91,6 +98,25 @@ def get_profession_tier(char_id, profession):
 
     return player_profession_tier
 
+def select_monster_weapon(character, monster_type):
+    weapon = MonsterWeapon()
+
+    monster_type = monster_type.lower()
+    results = db_query(False, f'select type, template_id, item_name, damage, penetration from monster_weapons '
+                              f'where type = \'{monster_type}\' and template_id not in '
+                              f'( select learned_techniques.template_id from learned_techniques '
+                              f'where char_id = {character.id} and season = {CURRENT_SEASON}) order by random() limit 1')
+    if results:
+        results = flatten_list(results)
+        (weapon.type, weapon.template_id, weapon.item_name, weapon.damage, weapon.penetration) = results
+        return weapon
+    else:
+        return False
+
+def mark_technique_as_learned(character, weapon):
+    db_query(True, f'insert or replace into learned_techniques (char_id, season, type, template_id) '
+                   f'values ({character.id}, {CURRENT_SEASON}, \'{weapon.type}\', {weapon.template_id})')
+    return
 
 async def give_profession_xp(char_id, char_name, profession, tier, bot):
     profession_xp_mult = int(get_bot_config(f'{profession.casefold()}_xp_multiplier'))
@@ -281,6 +307,16 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
 
         item_id_string = ''
         item_name_string = ''
+
+    outputString += f'**Provisioner**\n`Supply Materials (All Varieties)`\n\n'
+    outputString += f'**Reliquarian**\n`Legendary Items (Most Varieties)`\n\n'
+    outputString += f'**Beast Slayer**\nVisit the Profession Hub to be assigned a quarry!\n\n'
+    outputString += f'**Treasure Hunter**\nVisit the Profession Hub to find a treasure spot!\n'
+    last_server_restart = int(get_bot_config('last_server_restart'))
+    result = db_query(False,
+                      f'select count(*) from treasure_portal_locations where last_visited < {last_server_restart}')
+    remaining_vaults = result[0][0]
+    outputString += f'There are `{remaining_vaults}` treasure vaults remaining until the next server restart.'
 
             # print(f'Updated {profession} Tier {tier}: {item_name}')
 
@@ -478,6 +514,17 @@ class Professions(commands.Cog):
                                   f'and season = {CURRENT_SEASON} order by lifetime_favor desc')
         provisioner_ranking = flatten_list(provisioner_ranking)
         for index, rank in enumerate(provisioner_ranking):
+            if int(rank) == character.id:
+                outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
+
+        reliquarian_favor = get_favor(character.id, f'reliquarian')
+        outputString += (f'`Reliquarian` - Current Favor: `{reliquarian_favor.current_favor}` | '
+                         f'Lifetime Favor: `{reliquarian_favor.lifetime_favor}`\n')
+        reliquarian_ranking = db_query(False, f'select char_id from factions '
+                                  f'where faction like \'%reliquarian%\' '
+                                  f'and season = {CURRENT_SEASON} order by lifetime_favor desc')
+        reliquarian_ranking = flatten_list(reliquarian_ranking)
+        for index, rank in enumerate(reliquarian_ranking):
             if int(rank) == character.id:
                 outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
 
@@ -1376,6 +1423,131 @@ class Professions(commands.Cog):
             await ctx.reply(f'Not enough materials to perform a ritual of bonding! '
                             f'Available decaying eldarium: `{balance}`, Needed: `{bond_cost}`')
             return
+    @commands.command(name='technique', aliases=['techniquelist'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def technique(self, ctx, monster: str = '', option: str = 'no'):
+        """ - Creates a monster weapon from a category of your choice
+
+        Parameters
+        ----------
+        ctx
+        monster
+            Which type of monster technique you want to learn
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        monster = monster.lower()
+
+        valid_groups = ['tchotcho', 'husk', 'migo', 'deepone', 'drowned', 'werewolf', 'szeth']
+        costs = {'tchotcho': int(get_bot_config('tchotcho_cost')), 'husk': int(get_bot_config('husk_cost')),
+                 'migo': int(get_bot_config('migo_cost')), 'deepone': int(get_bot_config('deepone_cost')),
+                 'drowned': int(get_bot_config('drowned_cost')), 'werewolf': int(get_bot_config('werewolf_cost')),
+                 'szeth': int(get_bot_config('szeth_cost'))}
+
+        if monster not in valid_groups:
+            group_string = '`, `'.join(valid_groups)
+            await ctx.reply(f'You must specify a valid monster type to learn a technique! Use `{group_string}`.')
+            return
+        else:
+            if 'reset' in option.lower():
+                await ctx.reply(f'Use `v/techniquereset` for this.')
+                return
+
+            if 'list' in option.lower() or 'techniquelist' in ctx.invoked_with:
+                weapon_count = db_query(False, f'select count(*) from monster_weapons where type = \'{monster}\'')
+                weapon_count = flatten_list(weapon_count)
+                weapon_list = db_query(False, f'select item_name from monster_weapons where type = \'{monster}\'')
+                weapon_list = flatten_list(weapon_list)
+                weapon_list_string = '`\n`'.join(weapon_list)
+                await ctx.reply(
+                    f'There are `{weapon_count[0]}` total `{monster}` techniques to learn.\n`{weapon_list_string}`')
+                return
+
+            cost = costs[monster]
+            favor = get_favor(character.id, 'reliquarian')
+            if favor.current_favor >= cost:
+                weapon = select_monster_weapon(character, monster)
+                if weapon:
+                    if 'confirm' in option:
+                        run_console_command_by_name(character.char_name, f'spawnitem {weapon.template_id} 1')
+                        modify_favor(character.id, 'reliquarian', -cost)
+                        mark_technique_as_learned(character, weapon)
+                        output_string = (f'You spent `{cost}` Reliquarian Favor to learn a `{monster}` technique! '
+                                        f'Remaining Favor: `{favor.current_favor-cost}`'
+                                        f'\n`{weapon.item_name}`\n'
+                                        f'Damage: `{weapon.damage}` Penetration: `{weapon.penetration}`')
+                        if weapon.template_id in [23330, 20911]:
+                            output_string += f'\n__This weapon is not capable of hitting enemies and is mostly for roleplaying.__'
+                        if weapon.template_id == 20910:
+                            output_string += (f'\n__This weapon is bugged and consumes durability unlike other '
+                                              f'monster weapons. It will break in one hit. A T5 Blacksmith can '
+                                              f'repair it to a higher durability.__')
+                        await ctx.reply(f'{output_string}')
+                        return
+                    else:
+                        await ctx.reply(f'This command will spend `{cost}` Reliquarian Favor to learn a random `{monster}` technique. '
+                                        f'If you are sure you want to do this, use `v/technique {monster} confirm`')
+                        return
+                else:
+                    await ctx.reply(f'You have already learned all the `{monster}` techniques available! '
+                                    f'If you need to learn them again, use `v/techniquereset {monster}`')
+                    return
+            else:
+                await ctx.reply(f'You do not have enough Reliquarian Favor to learn a `{monster}` technique! '
+                                f'Current favor: `{favor.current_favor}`. Needed: `{cost}`')
+                return
+
+    @commands.command(name='techniquereset', aliases=['resettechniques'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def techniquereset(self, ctx, monster: str = '', confirm: str = 'no'):
+        """
+
+        Parameters
+        ----------
+        ctx
+        monster
+        confirm
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        monster = monster.lower()
+        valid_groups = ['tchotcho', 'husk', 'migo', 'deepone', 'drowned', 'werewolf', 'szeth']
+
+        if monster not in valid_groups:
+            group_string = '`, `'.join(valid_groups)
+            await ctx.reply(f'You must specify a valid monster technique type to reset! Use `{group_string}`.')
+            return
+        else:
+            if 'confirm' in confirm.lower():
+                db_query(True, f'delete from learned_techniques '
+                               f'where char_id = {character.id} and season = {CURRENT_SEASON} and type = \'{monster}\'')
+                await ctx.reply(f'Your `{monster}` technique learning progress has been reset.')
+                return
+            else:
+                await ctx.reply(f'This command will reset your `{monster}` technique learning progress, '
+                                f'causing you to receive random techniques next time you learn one. Use this if '
+                                f'you need a duplicate copy of one you\'ve already learned. If you\'re sure you '
+                                f'want to do this, use `v/techniquereset {monster} confirm`')
+                return
+
 
     @commands.command(name='crafterlist', aliases=['professionlist', 'whocrafter'])
     @commands.has_any_role('Outcasts')

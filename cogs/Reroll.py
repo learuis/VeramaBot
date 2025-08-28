@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from functions.common import is_registered, get_rcon_id, last_season_char, get_bot_config, no_registered_char_reply, \
-    flatten_list, run_console_command_by_name, check_channel, eld_transaction, get_balance
+    flatten_list, run_console_command_by_name, check_channel, eld_transaction, get_balance, one_per_min
 
 from dotenv import load_dotenv
 
@@ -60,7 +60,7 @@ class Reroll(commands.Cog):
 
         db_query(True, f'{query_string}')
 
-        await ctx.reply(f'Granted {points_to_give} Prestige points to `{character.name}`!')
+        await ctx.reply(f'Granted {points_to_give} Prestige points to `{character.char_name}`!')
         return
 
     @commands.command(name='newgameplus', aliases=['ng+', 'newgame+'])
@@ -154,6 +154,7 @@ class Reroll(commands.Cog):
     #
     @commands.command(name='prestige')
     @commands.has_any_role('Outcasts')
+    @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
     @commands.check(check_channel)
     async def prestige(self, ctx):
         """
@@ -174,8 +175,8 @@ class Reroll(commands.Cog):
         # print(f'{character.char_name} used the prestige command.')
 
         rconCharId = get_rcon_id(character.char_name)
-        if rconCharId:
-            await ctx.reply(f'Character `{character.char_name}` must be offline to be claim prestige points!')
+        if not rconCharId:
+            await ctx.reply(f'Character `{character.char_name}` must be online to be claim prestige points!')
             return
 
         points = get_prestige_points(character)
@@ -215,7 +216,11 @@ class Reroll(commands.Cog):
                 await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You currently have undistributed points)')
                 return
         else:
-            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You currently have undistributed points)')
+            if int(undistributed_points, 16) > 100:
+                await ctx.reply(f'You must use a Potion of Bestial Memory to reset your attribute points and then '
+                                f'distribute all of the points in order to claim prestige points! '
+                                f'(You currently have negative undistributed points)')
+                return
             return
 
         if int(distributed_points, 16) > int(total_points, 16):
@@ -225,10 +230,11 @@ class Reroll(commands.Cog):
             return
 
         if distributed_points == total_points and undistributed_points == '00':
-            query = (f'sql update properties set value = x\'00000000{points:02x}000000\' '
-                     f'where object_id = {character.id} and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
+            # query = (f'sql update properties set value = x\'00000000{points:02x}000000\' '
+            #          f'where object_id = {character.id} and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
+            run_console_command_by_name(character.char_name, f'addundistributedattributepoints {points}')
             # print(query)
-            runRcon(query)
+            # runRcon(query)
             # run_console_command_by_name(character.char_name, f'addundistributedattributepoints {points}')
             # print(f'You have {get_prestige_points(character)} prestige points in total.')
             await ctx.reply(f'`{character.char_name}` claimed `{points}` extra attribute points from Prestige!.\n')
