@@ -9,7 +9,7 @@ from discord.ext.commands import Bot
 from discord.ext import tasks
 from dotenv import load_dotenv
 
-from cogs.Professions import updateProfessionBoard
+from cogs.Professions import updateProfessionBoard, LEADERBOARD_MESSAGE
 from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info, treasure_broadcast
 from cogs.Roleplaying import RoleplayingButton
 from cogs.Utilities import is_character_online
@@ -25,6 +25,7 @@ STATUS_MESSAGE = int(os.getenv('STATUS_MESSAGE'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 PROFESSION_CHANNEL = int(os.getenv('PROFESSION_CHANNEL'))
 PROFESSION_MESSAGE = int(os.getenv('PROFESSION_MESSAGE'))
+LEADERBOARD_MESSAGE = int(os.getenv('LEADERBOARD_MESSAGE'))
 ADMIN_LOG_CHANNEL = int(os.getenv('ADMIN_LOG_CHANNEL'))
 LOBBY_CHANNEL = int(os.getenv('LOBBY_CHANNEL'))
 
@@ -153,12 +154,13 @@ async def professionBoard():
     try:
         channel = bot.get_channel(PROFESSION_CHANNEL)
         message = await channel.fetch_message(PROFESSION_MESSAGE)
+        leaderboard_message = await channel.fetch_message(LEADERBOARD_MESSAGE)
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented profession updates.')
         return
 
     try:
-        await updateProfessionBoard(message)
+        await updateProfessionBoard(message, leaderboard_message)
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented profession updates.')
         return
@@ -207,7 +209,7 @@ async def on_member_join(member):
         await channel.send(f"{member.name} - {member.mention} has joined the server!")
     channel2 = bot.get_channel(LOBBY_CHANNEL)
     if channel2 is not None:
-        await channel2.send(f"Hello {member.name} - {member.mention}! Welcome to **Band of Outcasts**! "
+        await channel2.send(f"Hello {member.name} - {member.mention}! Welcome to **Band of Outcasts**! <@&1024017048935874581>"
                             f"Please follow the server onboarding process and accept the rules here <id:customize>")
 
 @bot.event
@@ -227,7 +229,7 @@ async def on_command_error(ctx, error):
               f'{ctx.message.channel.id}.')
         channel = bot.get_channel(OUTCASTBOT_CHANNEL)
         await ctx.send(f'You do not have permission to use this command, or you cannot use that command in this '
-                       f'channel. Try {channel.mention}!')
+                       f'channel. Try {channel.mention}! SHAME {ctx.author.mention}!')
         return
     if isinstance(error, commands.errors.CommandOnCooldown):
         await ctx.send(error)

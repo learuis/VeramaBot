@@ -4,8 +4,10 @@ from datetime import date, timedelta
 
 from discord.ext import commands
 
+from cogs.TreasureHunt import get_character_expertise
 from functions.common import custom_cooldown, get_rcon_id, get_single_registration, is_registered, \
-    no_registered_char_reply, check_channel, add_reward_record
+    no_registered_char_reply, check_channel, add_reward_record, PREVIOUS_SEASON, get_kit_details, claimed_kit, \
+    record_claimed_kit, get_character_level
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
 from textwrap import wrap
 
@@ -73,6 +75,73 @@ class Rewards(commands.Cog):
         add_reward_record(int(char_id), int(itemId), int(quantity), str(reasonString))
 
         await ctx.reply(f'Added record to the claim table for {name}: {quantity} x {itemName} ({itemId})')
+
+    @commands.command(name='kit', aliases=['respec', 'starter'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def kit(self, ctx):
+        """- Claim a starter kit
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        single_claim = True
+        kit_name = f''
+        if f'starter' in ctx.invoked_with:
+            kit_name = f'veteranstarter'
+            single_claim = True
+        if 'respec' in ctx.invoked_with:
+            kit_name = f'respec'
+            single_claim = False
+
+        character = is_registered(ctx.author.id, False)
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            return
+        if kit_name  == f'veteranstarter':
+            last_season_character = is_registered(ctx.author.id, False)
+            if last_season_character:
+                already_claimed = claimed_kit(character, f'{kit_name}')
+                if already_claimed:
+                    await ctx.reply(f'You have already claimed this starter kit!')
+                    return
+                else:
+                    reward_list = get_kit_details(f'{kit_name}')
+                    if reward_list:
+                    # reward_list = [51003, 51013, 51040]
+                        for item in reward_list:
+                            add_reward_record(int(character.id), item[0], item[1], f'Starter Kit: {item[2]}')
+                        record_claimed_kit(character, f'{kit_name}')
+                        await ctx.reply(f'Starter Kit granted to `{character.char_name}`! Use `v/claim` to receive the items.')
+                        return
+                    else:
+                        await ctx.reply(f'Issue! HALP Verama')
+                        return
+            else:
+                await ctx.reply(f'Could not find a Season `{PREVIOUS_SEASON}` character registered to {ctx.author.mention}!')
+                return
+        elif kit_name == f'respec':
+            level = get_character_level(character)
+            if level < 60:
+                reward_list = get_kit_details(f'{kit_name}')
+                if reward_list:
+                    for item in reward_list:
+                        add_reward_record(int(character.id), item[0], item[1], f'Respec Potion: {item[2]}')
+                    await ctx.reply(f'Respec Potion granted to `{character.char_name}`! Use `v/claim` to receive the item.')
+                    return
+                else:
+                    await ctx.reply(f'Issue! HALP Verama')
+                    return
+            else:
+                await ctx.reply(f'Level 60 characters cannot claim free respec potions!')
+                return
+
 
     @commands.command(name='claim')
     @commands.has_any_role('Outcasts')

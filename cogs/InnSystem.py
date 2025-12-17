@@ -1,13 +1,13 @@
 import hashlib
 import os
 import re
-import math
 
 from discord.ext import commands
 from dotenv import load_dotenv
 
 from functions.common import is_registered, get_clan, flatten_list, get_rcon_id, int_epoch_time, get_bot_config, \
-    get_single_registration_new, no_registered_char_reply, check_channel, eld_transaction, get_balance
+    get_single_registration_new, no_registered_char_reply, check_channel, eld_transaction, get_balance, \
+    transform_coordinates
 from cogs.QuestSystem import character_in_radius
 from functions.externalConnections import db_query, runRcon
 
@@ -122,16 +122,6 @@ def checkin_to_inn(character, inn_id):
     db_query(True, f'insert or replace into inn_checkins (char_id, inn_id, valid_until) '
                    f'values ({character.id}, \'{inn_id}\', \'{int_epoch_time() + length}\')')
     return checkout_time
-
-def transform_coordinates(x, y):
-    x_squares = 'ABCDEFGHIJKLMNOP'
-    x = math.floor(1 + ((x + 307682) / 46500))
-    y = math.floor(1 + (-(y - 330805) / 46500))
-
-    x_square_label = x_squares[x-1]
-    y_square_label = y + 1
-    print(f'{x_square_label}{y_square_label}')
-    return x_square_label, y_square_label
 
 
 def clear_all_checkins(inn_id):
@@ -479,6 +469,71 @@ class InnSystem(commands.Cog):
             new_x, new_y = transform_coordinates(inn.x, inn.y)
             outputString += (f'`{inn.name}` - Owned by `{owner.char_name}` of `{clan_name}` '
                              f'located in `{new_x}{new_y}` at `({inn.x},{inn.y})`\n')
+
+        await ctx.reply(f'{outputString}')
+
+        return
+
+    @commands.command(name='shoplist')
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
+    async def shoplist(self, ctx, option:str = f'thrall'):
+        """ - List all thrall shops and their locations
+
+        Parameters
+        ----------
+        ctx
+        option
+            thrall | pet
+
+        Returns
+        -------
+
+        """
+        type_string = f''
+        character = is_registered(ctx.author.id)
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        if 'pet' in option or 'animal' in option:
+            type_string = f'Pet'
+            class_string = f'/Game/Systems/Building/Placeables/ThrallTrading/BP_PL_ThrallTrade_Animal.BP_PL_ThrallTrade_Animal_C'
+        elif 'thrall' in option or 'human' in option:
+            type_string = f'Thrall'
+            class_string = f'/Game/Systems/Building/Placeables/ThrallTrading/BP_PL_ThrallTrade_Humanoid.BP_PL_ThrallTrade_Humanoid_C'
+        else:
+            await ctx.reply(f'`{option}` is not a valid option. Use `thrall` or `pet`')
+            return
+
+        outputString = f'__List of Active {type_string} Shops__\n'
+        query = (f'sql select x, y, coalesce(guilds.name, characters.char_name) as owner from actor_position '
+                 f'left join buildings on actor_position.id = buildings.object_id '
+                 f'left join guilds on buildings.owner_id = guilds.guildId '
+                 f'left join characters on buildings.owner_id = characters.id '
+                 f'left join used_smart_objects on buildings.object_id = used_smart_objects.smart_object_actor_id '
+                 f'left join properties on used_smart_objects.interacting_actor_id = properties.object_id '
+                 f'where used_smart_objects.interacting_actor_id is not null '
+                 f'and class = \'{class_string}\' '
+                 f'and properties.name like \'%SourceSpawnTable%\' order by x asc, y asc, owner desc')
+        results = runRcon(query)
+        if not results:
+            await ctx.reply(f'There are no active shops right now.')
+            return
+
+        results.output.pop(0)
+        for result in results.output:
+            match = re.findall(r'#\d+\s+(.*?)\s[|]\s+(.*?)\s[|]\s+(.*)\s[|]', result)
+            x = float(match[0][0])
+            y = float(match[0][1])
+            clan = match[0][2]
+            sq_x, sq_y = transform_coordinates(x, y)
+            outputString += f'{clan} - `{sq_x}{sq_y}` ({str(round(x))}, {str(round(y))})\n'
+            #
+            # new_x, new_y = transform_coordinates(inn.x, inn.y)
+            # outputString += (f'`{inn.name}` - Owned by `{owner.char_name}` of `{clan_name}` '
+            #                  f'located in `{new_x}{new_y}` at `({inn.x},{inn.y})`\n')
 
         await ctx.reply(f'{outputString}')
 

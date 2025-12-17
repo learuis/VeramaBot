@@ -6,7 +6,7 @@ import os
 from discord import ui
 from discord.ext import commands
 from functions.common import custom_cooldown, get_character_id, is_registered, get_registration, \
-    get_member_from_userid, last_season_char, get_bot_config, check_channel
+    get_member_from_userid, last_season_char, get_bot_config, check_channel, eld_transaction, get_balance
 from datetime import date
 from dotenv import load_dotenv
 
@@ -93,7 +93,8 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                             f' to user {interaction.user.mention}.\n\nYou have been granted all emotes as a reward! '
                             f'Go to the <#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` '
                             f'while online to receive them! If you ever lose them for some reason, you can repeat '
-                            f'the command at any time.')
+                            f'the command at any time.\n\nYour Decaying Eldarium bank starts with `100` DE in it. '
+                            f'Check out the server-amenities channel for an explanation of what you can do with it!')
 
         # cur_sub.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},90212)')
 
@@ -121,6 +122,12 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
         await interaction.user.add_roles(interaction.user.guild.get_role(REG_ROLE))
 
+        character = is_registered(interaction.user.id)
+        if character:
+            balance = get_balance(character)
+            if balance == 0:
+                eld_transaction(character,f'Initial Balance',100)
+
 class CharRegistration(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
@@ -140,7 +147,7 @@ class CharRegistration(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator')
     @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def registrationForce(self, ctx, discord_user: discord.Member, name: str, funcom_id: str, game_char_id: int):
+    async def registrationForce(self, ctx, discord_user: discord.Member, name: str, funcom_id: str, game_char_id: int, season: int):
         """- Manually create a character registration record
 
         Usage: v/forcereg @user "Character Name" funcom_id game_database_id
@@ -156,6 +163,8 @@ class CharRegistration(commands.Cog):
             The Funcom ID of the user to be registered
         game_char_id
             Can be retrieved with v/rcon sql select id from characters where char_name like '%name%'
+        season
+            Which season to register the character for
 
         Returns
         -------
@@ -167,7 +176,7 @@ class CharRegistration(commands.Cog):
         cur.execute(f'insert into registration '
                     f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) '
                     f'values (\'{discord_user.id}\', \'{name}\', \'{funcom_id}\', \'{date.today()}\', '
-                    f'{CURRENT_SEASON}, {game_char_id})')
+                    f'{season}, {game_char_id})')
         con.commit()
         con.close()
 
@@ -177,10 +186,13 @@ class CharRegistration(commands.Cog):
         await ctx.invoke(self.bot.get_command('registrationlist'))
 
         channel = ctx.author.guild.get_channel(AUTOREG_CHANNEL)
-        await channel.send(f'__Season {CURRENT_SEASON} Character Name:__ {name}\n'
-                           f'__Previous Season Name:__ <none>\n'
-                           f'__Funcom ID:__ {funcom_id}\n'
-                           f'__Discord:__ {discord_user.mention}\n')
+        if season == CURRENT_SEASON:
+            await channel.send(f'__Season {CURRENT_SEASON} Character Name:__ {name}\n'
+                               f'__Previous Season Name:__ <none>\n'
+                               f'__Funcom ID:__ {funcom_id}\n'
+                               f'__Discord:__ {discord_user.mention}\n')
+        else:
+            await ctx.reply(f'Done!')
 
         await ctx.author.add_roles(ctx.author.guild.get_role(REG_ROLE))
 

@@ -358,8 +358,8 @@ class CommunityBoons(commands.Cog):
         settings_list = [['Blood (Experience Multiplier)', 'PlayerXPRateMultiplier', 'Heart of a Hero'],
                          ['Abundance (Harvest Amount)', 'HarvestAmountMultiplier', 'Tablet of Derketo'],
                          ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier', 'Skull of Yog'],
-                         ['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier', 'Everice of Ymir'],
-                         ['Finesse (Stamina Cost)', 'StaminaCostMultiplier', 'Tablet of Power'],
+                         ['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier', 'Heart of Nordheimer'],
+                         ['Finesse (Stamina Cost)', 'StaminaCostMultiplier', 'Molten Heart'],
                          ['Returning (v/home Discount)', 'BoonOfReturning', 'Eye of Set'],]
 
         #['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],

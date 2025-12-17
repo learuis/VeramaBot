@@ -8,7 +8,8 @@ from discord.ext import commands
 from cogs.QuestSystem import check_inventory, count_inventory_qty, treasure_broadcast
 from functions.common import custom_cooldown, get_bot_config, is_registered, flatten_list, set_bot_config, get_rcon_id, \
     run_console_command_by_name, get_single_registration, int_epoch_time, no_registered_char_reply, check_channel, \
-    add_reward_record, get_treasure_target, clear_treasure_target, increase_notoriety, increment_times_looted
+    add_reward_record, get_treasure_target, clear_treasure_target, increase_notoriety, increment_times_looted, \
+    eld_transaction, modify_favor
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -45,7 +46,6 @@ def update_daily_eligibility(character):
     db_query(True, f'insert or replace into daily_treasure (char_id, season, next_eligible) '
                    f'values ({character.id}, {CURRENT_SEASON}, {int_epoch_time()+64800})')
     return
-
 
 def get_character_expertise(char_id):
     bonus = 0
@@ -130,9 +130,13 @@ def treasure_portal(bonus):
     print(f'Portal: Rolled {portal_roll}, Chance: {portal_chance}')
 
     if portal_roll <= portal_chance:
-        portal_targets = db_query(False, f'select vault_id, vault_name, x, y, z '
-                                         f'from treasure_portal_locations where last_visited < {last_restart} '
-                                         f'order by random() limit 1 ')
+        # portal_targets = db_query(False, f'select vault_id, vault_name, x, y, z '
+        #                                  f'from treasure_portal_locations where last_visited < {last_restart} '
+        #                                  f'order by random() limit 1 ')
+        portal_targets = dq_query(False, f'select * from ( '
+                                         f'select vault_id, vault_name, x, y, z from treasure_portal_locations '
+                                         f'where last_visited < 1765351642 order by last_visited asc limit 4 ) '
+                                         f'order by random() limit 1')
         if portal_targets:
             portal_targets = flatten_list(portal_targets)
             portal = portal.structure_portal(portal_targets[0], portal_targets[1], portal_targets[2],
@@ -154,9 +158,17 @@ def grant_treasure_rewards(character, target_name, bonus, daily=False):
     reward_list = []
     default_reward = (11009, 'Eldarium Cache')
     alternate_reward = (80256, 'Lucky Coin')
+    eldarium_payout = 0
+    total_payout = 0
+    treasure_count = 0
+    reward_message = f''
+    treasure_eldarium_max = int(get_bot_config('treasure_eldarium_max'))
     # print(f'{character.id}')
     # print(f'{character}')
     #
+    reward_message += f'__Treasure Found__: (claim with `v/claim`)\n| '
+    # print(reward_message)
+
     for category in range(1, 5):
 
         category_chance = int(get_bot_config(f'treasure_{category}_chance'))
@@ -169,24 +181,41 @@ def grant_treasure_rewards(character, target_name, bonus, daily=False):
                                f'where reward_category = {category} order by RANDOM() limit 1')
             to_add = flatten_list(results)
             reward_list.append(to_add)
+            treasure_count += 1
         else:
             lucky_coin_chance = random.randint(int(1), int(100))
             if lucky_coin_chance <= int(get_bot_config('lucky_coin_chance')):
                 reward_list.append(alternate_reward)
             else:
-                reward_list.append(default_reward)
+                # reward_list.append(default_reward)
+                # add logic here to give bulk eldarium instead
+                # bonus / 10
+                eldarium_payout = random.randint(int(1), treasure_eldarium_max) * (5 - category) + (bonus / 10)
+                total_payout += eldarium_payout
+                reward_message += f'`Decaying Eldarium x {int(eldarium_payout)}` | '
+
     if daily:
         reward_list.append(alternate_reward)
 
-    outputMessage = f'__Treasure Found__: (claim with `v/claim`)\n| '
+    eld_transaction(character, f'Treasure Hunt', total_payout, f'raw')
 
     # print(f'{reward_list}')
     for reward in reward_list:
         # print(f'{reward}')
-        outputMessage += f'`{reward[1]}` | '
+        reward_message += f'`{reward[1]}` | '
         add_reward_record(int(character.id), int(reward[0]), 1, f'Treasure Hunt: {reward[1]}')
 
-    return outputMessage
+    # static DE
+    static_eld = int(get_bot_config('treasure_eldarium_static')) * treasure_count
+    total_payout += static_eld
+    reward_message += f'`Bonus Decaying Eldarium x {static_eld}` | '
+
+    reward_message += f'\nTotal DE Found: `{int(total_payout)}`'
+
+
+
+    print(reward_message)
+    return reward_message
 
 
 class TreasureHunt(commands.Cog):
@@ -230,6 +259,7 @@ class TreasureHunt(commands.Cog):
         bonus = 0
         outputMessage = ''
         daily = False
+        favor_to_give = 1
         initial_portal_chance = int(get_bot_config('treasure_portal_chance'))
         last_server_restart = int(get_bot_config('last_server_restart'))
         portal = TreasurePortal()
@@ -292,6 +322,7 @@ class TreasureHunt(commands.Cog):
 
                 bonus, bonusMessage = calculate_bonus(character.id, daily)
                 reward_list = grant_treasure_rewards(character, target_name, bonus)
+                modify_favor(character.id, 'treasure', favor_to_give)
 
                 run_console_command_by_name(character.char_name, f'testFIFO 7 Treasure! Use v/claim to get rewards')
 
@@ -305,7 +336,7 @@ class TreasureHunt(commands.Cog):
                 else:
                     outputMessage += f'Treasure Vault Portal Chance has increased to `{updated_portal_chance}%`!\n'
                     outputMessage += f'`{remaining_vaults}` treasure vaults left to find until the next server restart!\n\n'
-                outputMessage += f'{bonusMessage}\n'
+                outputMessage += f'{bonusMessage}\n\n'
                 outputMessage += f'{reward_list}'
 
                 # print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'

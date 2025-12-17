@@ -6,7 +6,8 @@ from discord.ext import commands
 from functions.common import is_registered, get_bot_config, no_registered_char_reply, \
     check_channel, modify_favor, display_quest_text, grant_reward, eld_transaction, get_balance, \
     sufficient_funds, killed_target, set_slayer_target, clear_slayer_target, get_slayer_target, get_notoriety, \
-    increase_notoriety, increment_killed_total, grant_slayer_rewards, toggle_arachnophobia
+    increase_notoriety, increment_killed_total, grant_slayer_rewards, toggle_arachnophobia, set_slayer_reroll_exclusion, \
+    clear_slayer_reroll
 from dotenv import load_dotenv
 
 from functions.externalConnections import db_query
@@ -60,7 +61,8 @@ class Hunter(commands.Cog):
 
             if check_balance:
                 new_balance = eld_transaction(character, reason, amount)
-                current_target = set_slayer_target(character, exclude_target)
+                set_slayer_reroll_exclusion(character, exclude_target)
+                current_target = set_slayer_target(character) #, exclude_target)
 
                 (notorious_target, notorious_multiplier) = increase_notoriety(exclude_target)
                 total_bounty = reward_quantity + (reroll_cost * notorious_multiplier)
@@ -68,8 +70,10 @@ class Hunter(commands.Cog):
                 await ctx.reply(
                     f'Consumed {abs(amount)} decaying eldarium from {character.char_name}\'s account\n'
                     f'New Balance: {new_balance}\n\n'
+                    f'You will not be assigned to slay `{exclude_target.display_name}` again until '
+                    f'it has been slain by someone else.\n\n'
                     f'`{character.char_name}` was assigned a new Beast Slayer quarry: `{current_target.display_name}`'
-                    f' on <t:{current_target.start_time}:f>'
+                    f' on <t:{current_target.start_time}:f>.'
                     f'\n\nThe bounty on `{exclude_target.display_name}` has increased to `{total_bounty}` '
                     f'decaying eldarium!')
                 return
@@ -264,6 +268,7 @@ class Hunter(commands.Cog):
                     display_quest_text(0, 0, False, character.char_name, 7,
                                        f'Slain', f'{current_target.display_name}')
                 output_string = grant_slayer_rewards(character, current_target)
+                clear_slayer_reroll(current_target)
                 clear_slayer_target(character)
                 await ctx.reply(output_string)
                 return

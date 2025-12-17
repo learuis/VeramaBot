@@ -8,7 +8,7 @@ from cogs.FeatClaim import grant_feat
 from functions.common import int_epoch_time, get_bot_config, set_bot_config, is_registered, get_single_registration, \
     flatten_list, get_rcon_id, run_console_command_by_name, get_single_registration_new, \
     no_registered_char_reply, check_channel, eld_transaction, get_balance, get_slayer_target, get_notoriety, get_favor, \
-    add_reward_record, get_treasure_target, modify_favor
+    add_reward_record, get_treasure_target, modify_favor, provisioner_swap, get_provisioner_option, get_registration
 from functions.externalConnections import db_query, runRcon
 from dotenv import load_dotenv
 
@@ -18,6 +18,7 @@ PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 PROFESSION_CHANNEL = int(os.getenv('PROFESSION_CHANNEL'))
 PROFESSION_MESSAGE = int(os.getenv('PROFESSION_MESSAGE'))
+LEADERBOARD_MESSAGE = int(os.getenv('LEADERBOARD_MESSAGE'))
 
 
 class ProfessionTier:
@@ -236,7 +237,7 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
 
     return
 
-async def updateProfessionBoard(message, displayOnly: bool = False):
+async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool = False):
     if int(get_bot_config(f'disable_professions')) == 1:
         # print(f'Skipping profession loop, server in maintenance mode')
         return False
@@ -246,8 +247,8 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     profession_community_goal = int(get_bot_config(f'profession_community_goal'))
     profession_community_goal_desc = str(get_bot_config(f'profession_community_goal_desc'))
     next_update = last_profession_update + profession_update_interval
-    profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist']
-    faction_list = ['Provisioner', 'Slayer']
+    profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist', 'Scavenger']
+    faction_list = ['Provisioner', 'Slayer', 'Treasure']
     count = 0
     item_id_string = ''
     item_name_string = ''
@@ -308,15 +309,15 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
         item_id_string = ''
         item_name_string = ''
 
-    outputString += f'**Provisioner**\n`Supply Materials (All Varieties)`\n\n'
-    outputString += f'**Reliquarian**\n`Legendary Items (Most Varieties)`\n\n'
-    outputString += f'**Beast Slayer**\nVisit the Profession Hub to be assigned a quarry!\n\n'
-    outputString += f'**Treasure Hunter**\nVisit the Profession Hub to find a treasure spot!\n'
+    # outputString += f'**Provisioner**\n`Supply Materials`\n\n'
+    # outputString += f'**Reliquarian**\n`Legendary Items`\n\n'
+    # outputString += f'**Beast Slayer**\nVisit the Profession Hub to be assigned a quarry!\n\n'
+    # outputString += f'**Treasure Hunter**\nVisit the Profession Hub to find a treasure spot!\n'
     last_server_restart = int(get_bot_config('last_server_restart'))
     result = db_query(False,
                       f'select count(*) from treasure_portal_locations where last_visited < {last_server_restart}')
     remaining_vaults = result[0][0]
-    outputString += f'There are `{remaining_vaults}` treasure vaults remaining until the next server restart.'
+    outputString += f'There are `{remaining_vaults}` open vaults'
 
             # print(f'Updated {profession} Tier {tier}: {item_name}')
 
@@ -335,73 +336,20 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     # outputString += (f'__Goal:__\n`{all_total[0]}` / `{profession_community_goal}` - '
     #                  f'{profession_community_goal_desc}\n')
 
-    # print(f'make leaderboard')
-    #LEADERBOARD COMMENT 7/11/25
-    # for item in profession_list:
-    #
-    #     query = f'select char_id, current_experience from character_progression ' \
-    #             f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' ' \
-    #             f'order by current_experience desc, char_id limit 3'
-    #     # print(f'{query}')
-    #     profession_leaders = db_query(False, f'{query}')
-    #     # print(f'{profession_leaders}')
-    #     if not profession_leaders:
-    #         continue
-    #     else:
-    #         outputString += f'\n__{item} Leaderboard:__\n| '
-    #
-    #         for character in profession_leaders:
-    #             char_details = get_registration('', int(character[0]))
-    #             char_details = flatten_list(char_details)
-    #             # print(f'{char_details}')
-    #             char_name = char_details[1]
-    #
-    #             outputString += f'`{char_name}` - `{character[1]}` | '
-    #             # print(f'outputstring is {outputString}')
-    #
-    # # print(f'{faction_list}')
-    # for faction in faction_list:
-    #     # print(f'{faction}')
-    #
-    #     query = (f'select char_id, lifetime_favor from factions where season = {CURRENT_SEASON} '
-    #              f'and faction like \'%{faction.lower()}%\' group by char_id order by lifetime_favor desc, char_id '
-    #              f'limit 3')
-    #     faction_leaders = db_query(False, f'{query}')
-    #     # print(f'{faction_leaders}')
-    #
-    #     if not faction_leaders:
-    #         continue
-    #     else:
-    #         outputString += f'\n__{faction} Leaderboard:__\n| '
-    #
-    #         for character in faction_leaders:
-    #             char_details = get_registration('', int(character[0]))
-    #             # print(char_details)
-    #             char_details = flatten_list(char_details)
-    #             # print(f'{char_details[1]}')
-    #             char_name = char_details[1]
-    #             # print(f'{char_name}')
-    #
-    #             outputString += f'`{char_name}` - `{character[1]}` | '
-    #             # print(f'outputstring is {len(outputString)} characters')
-    #
-    #         # print(f'end of loop')
-        # LEADERBOARD COMMENT 7/11/25
-
     # print(f'timestamps')
     if not displayOnly:
         set_bot_config(f'last_profession_update', current_time)
         next_update = current_time + profession_update_interval
         outputString = (f'\n\nUpdated hourly.\n'
-                         f'Updated at: <t:{current_time}> in your timezone'
-                         f'\nNext: <t:{next_update}:f> in your timezone\n\n') + outputString
+                         f'Prev: <t:{current_time}'
+                         f'\nNext: <t:{next_update}:f>\n\n') + outputString
         # outputString += (f'\n\nUpdated hourly.\n'
         #                  f'Updated at: <t:{current_time}> in your timezone'
         #                  f'\nNext: <t:{next_update}:f> in your timezone\n')
     else:
         outputString = (f'\n\nUpdated hourly.\n'
-                        f'Updated at: <t:{last_profession_update}> in your timezone'
-                        f'\nNext: <t:{next_update}:f> in your timezone\n\n') + outputString
+                        f'Prev: <t:{last_profession_update}>'
+                        f'\nNext: <t:{next_update}:f>\n\n') + outputString
         # outputString += (f'\n\nUpdated hourly.\n'
         #                  f'Updated at: <t:{last_profession_update}> in your timezone'
         #                  f'\nNext: <t:{next_update}:f> in your timezone\n')
@@ -410,8 +358,64 @@ async def updateProfessionBoard(message, displayOnly: bool = False):
     # print(f'{outputString}')
 
     await message.edit(content=f'{outputString}')
-    return True
 
+    # print(f'make leaderboard')
+    # print(f'{profession_list}')
+    leader_outputString = f''
+    for item in profession_list:
+
+        query = f'select char_id, current_experience from character_progression ' \
+                f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' ' \
+                f'order by current_experience desc, char_id limit 3'
+        # print(f'{query}')
+        profession_leaders = db_query(False, f'{query}')
+        # print(f'{profession_leaders}')
+        if not profession_leaders:
+            continue
+        else:
+            leader_outputString += f'\n__{item} Leaderboard:__\n| '
+
+            for character in profession_leaders:
+                char_details = get_registration('', int(character[0]))
+                if not char_details:
+                  char_name = f'DELETED'
+                else:
+                    char_details = flatten_list(char_details)
+                    char_name = char_details[1]
+
+                leader_outputString += f'`{char_name}` - `{character[1]}` | '
+                # print(f'outputstring is {outputString}')
+
+    # print(f'{faction_list}')
+    for faction in faction_list:
+        # print(f'{faction}')
+
+        query = (f'select char_id, lifetime_favor from factions where season = {CURRENT_SEASON} '
+                 f'and faction like \'%{faction.lower()}%\' group by char_id order by lifetime_favor desc, char_id '
+                 f'limit 3')
+        faction_leaders = db_query(False, f'{query}')
+        # print(f'{faction_leaders}')
+
+        if not faction_leaders:
+            continue
+        else:
+            leader_outputString += f'\n__{faction} Leaderboard:__\n| '
+
+            for character in faction_leaders:
+                char_details = get_registration('', int(character[0]))
+                # print(char_details)
+                if not char_details:
+                  char_name = f'DELETED'
+                else:
+                    char_details = flatten_list(char_details)
+                    char_name = char_details[1]
+
+                leader_outputString += f'`{char_name}` - `{character[1]}` | '
+                # print(f'outputstring is {len(outputString)} characters')
+
+            # print(f'end of loop')
+    await leaderboard_message.edit(content=f'{leader_outputString}')
+    return True
 
 class Professions(commands.Cog):
     def __init__(self, bot: commands.Bot):
@@ -423,7 +427,7 @@ class Professions(commands.Cog):
         await ctx.send(f'Profession Info here!')
         return
 
-    @commands.command(name='profession')
+    @commands.command(name='profession', aliases=[f'prof','professions'])
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.check(check_channel)
     async def profession(self, ctx):
@@ -437,7 +441,7 @@ class Professions(commands.Cog):
         -------
 
         """
-        profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist']
+        profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist', 'Scavenger']
         cycle_limit = int(get_bot_config(f'profession_cycle_limit'))
         outputString = ''
         target_list = []
@@ -485,7 +489,7 @@ class Professions(commands.Cog):
         outputString += f'`Beast Slayer` - Renown: `{slayer_favor.lifetime_favor}`\n'
 
         if not current_target:
-            outputString += f'`Beast Slayer` - Current Quarry: `None`'
+            outputString += f'Current Quarry: `None`'
         else:
             if current_target.char_id:
                 outputString += f'Current Quarry: `{current_target.display_name}`'
@@ -493,7 +497,7 @@ class Professions(commands.Cog):
                 if notorious_multiplier > 0:
                     outputString += f' **Notorious +{notorious_multiplier}!**'
             else:
-                outputString += f'`Beast Slayer` - Current Quarry: `None`'
+                outputString += f'`Current Quarry: `None`'
 
 
         slayer_ranking = db_query(False, f'select char_id from factions '
@@ -506,8 +510,9 @@ class Professions(commands.Cog):
                 outputString += f'\nServer-wide Ranking: `{index + 1}`\n\n'
 
         favor = get_favor(character.id, f'provisioner')
+        option = get_provisioner_option(character)
         outputString += (f'`Provisioner` - Current Favor: `{favor.current_favor} / 50` | '
-                         f'Lifetime Favor: `{favor.lifetime_favor}`\n')
+                         f'Lifetime Favor: `{favor.lifetime_favor}`\nReward Option: `{option}`\n')
 
         provisioner_ranking = db_query(False, f'select char_id from factions '
                                   f'where faction like \'%provisioner%\' '
@@ -529,19 +534,31 @@ class Professions(commands.Cog):
                 outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
 
         treasure_target = get_treasure_target(character)
+        treasure_favor = get_favor(character.id, f'treasure')
 
         if not treasure_target:
-            outputString += f'`Treasure Hunter`\nCurrent Location: `None`'
+            outputString += f'`Treasure Hunter` - Renown: `{treasure_favor.lifetime_favor}`\nCurrent Location: `None`'
         else:
             if treasure_target.char_id:
-                outputString += f'`Treasure Hunter`\nCurrent Location: `{treasure_target.location_name}`'
+                outputString += f'`Treasure Hunter` - Renown: `{treasure_favor.lifetime_favor}`\nCurrent Location: `{treasure_target.location_name}`'
             else:
-                outputString += f'`Treasure Hunter`\nCurrent Location: `None`'
+                outputString += f'`Treasure Hunter` - Renown: `{treasure_favor.lifetime_favor}`\nCurrent Location: `None`'
+        treasure_ranking = db_query(False, f'select char_id from factions '
+                                         f'where faction like \'%treasure%\' '
+                                         f'and season = {CURRENT_SEASON} order by lifetime_favor desc')
+        treasure_ranking = flatten_list(treasure_ranking)
+        for index, rank in enumerate(treasure_ranking):
+            # print(f'{index + 1} {rank}')
+            if int(rank) == character.id:
+                outputString += f'\nServer-wide Ranking: `{index + 1}`\n'
+
+        balance = get_balance(character)
+        outputString += f'\nDecaying Eldarium Balance: `{balance}`\n'
 
         last_profession_update = int(get_bot_config(f'last_profession_update'))
         profession_update_interval = int(get_bot_config(f'profession_update_interval'))
         next_update = last_profession_update + profession_update_interval
-        outputString += (f'\n\nProfession Targets Updated at: <t:{last_profession_update}> in your timezone'
+        outputString += (f'\nProfession Targets Updated at: <t:{last_profession_update}> in your timezone'
                          f'\nNext: <t:{next_update}:f> in your timezone\n')
 
         await ctx.reply(f'Profession Details for `{character.char_name}`:\n'
@@ -604,7 +621,8 @@ class Professions(commands.Cog):
         else:
             channel = ctx.author.guild.get_channel(PROFESSION_CHANNEL)
             message = await channel.fetch_message(PROFESSION_MESSAGE)
-            await updateProfessionBoard(message, True)
+            leaderboard_message = await channel.fetch_message(LEADERBOARD_MESSAGE)
+            await updateProfessionBoard(message, leaderboard_message, True)
             await ctx.reply(f'Profession display has been updated without making changes.')
 
     @commands.command(name='professionitem')
@@ -633,7 +651,7 @@ class Professions(commands.Cog):
         else:
             (char_id, char_name, discord_id) = registration
             profession = profession.capitalize()
-            profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist']
+            profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist', 'Scavenger']
 
             if 'all' in profession:
                 for profession in profession_list:
@@ -922,7 +940,7 @@ class Professions(commands.Cog):
                 f'\n`{final_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
                 f'inventory while this command is processing, or it may fail. \nNo refunds will be '
                 f'given for user error! \n\nIf you are sure you want to proceed, '
-                f'use `v/fortify {slot} confirm`')
+                f'use `v/fortify {slot} {amount} confirm`')
             return
 
         balance = get_balance(character)
@@ -1417,12 +1435,190 @@ class Professions(commands.Cog):
                                         f'setfollowerstat endurancemax 10000')
 
             await message.edit(content=f'`{character.char_name}` has performed a ritual of bonding with their pet, '
-                                       f'increasing their damage modifiers to `5.0` and endurance to `10,000`!'
+                                       f'increasing their damage modifiers to `{damage_bonus}.0` and endurance to `10,000`!'
                                        f'\nConsumed `{bond_cost}` Decaying Eldarium')
         else:
             await ctx.reply(f'Not enough materials to perform a ritual of bonding! '
                             f'Available decaying eldarium: `{balance}`, Needed: `{bond_cost}`')
             return
+
+        # for later: how to check if anyone used a humanoid
+        # select character_stats.*, substr(actor_position.class,instr(actor_position.class,'.')+1) from actor_position left join character_stats on actor_position.id = character_stats.char_id where stat_type = 1 and stat_id = 4 and stat_value > 3.0
+
+    @commands.command(name='checkbond')
+    @commands.has_any_role('Moderator')
+    @commands.check(check_channel)
+    async def checkbond(self, ctx):
+
+        results = runRcon(f'sql select character_stats.*, substr(actor_position.class,instr(actor_position.class,\'.\')+1) '
+                          f'from actor_position left join character_stats on actor_position.id = character_stats.char_id '
+                          f'where stat_type = 1 and stat_id = 4 and stat_value > 3.0')
+        if results:
+            await ctx.reply(f'{results.output}')
+        else:
+            await ctx.reply(f'No results found.')
+        return
+
+    @commands.command(name='mend')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def mend(self, ctx, amount:int = 0, confirm: str = ''):
+        """ - Heals followers
+
+        Parameters
+        ----------
+        ctx
+        amount
+            How much HP to heal
+        confirm
+            Type confirm to heal the follower
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        mend_cost = int(get_bot_config('mend_cost'))
+        mend_cap = int(get_bot_config('mend_cap'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        scavenger = get_profession_tier(character.id, f'Scavenger')
+        if not (scavenger.tier >= 4):
+            await ctx.reply(f'Only Scavengers who have achieved Tier 4 can mend followers! \n'
+                            f'Current Scavenger Tier: `T{scavenger.tier}`')
+            return
+
+        if amount <= 0:
+            await ctx.reply(f'Healing amount must be greater than `0`.')
+            return
+        elif amount > mend_cap:
+            await ctx.reply(f'Healing amount must be less than pr equal to `{mend_cap}`.')
+            return
+
+        calculated_cost = int(amount / mend_cost)
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command heal your current followers to `{amount}`. '
+                f'If you have War Party, this will heal both followers at once.\n'
+                f'\n`{calculated_cost} Decaying Eldarium` will be consumed. \n\n'
+                f'If you are sure you want to proceed, '
+                f'use `v/mend {amount} confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= calculated_cost:
+            message = await ctx.reply(f'Mending your followers, please wait... ')
+            eld_transaction(character, f'Mending Cost', -calculated_cost)
+            run_console_command_by_name(character.char_name,
+                                        f'setfollowerstat healthcurrent {amount}')
+
+            await message.edit(content=f'`{character.char_name}` mended their followers, '
+                                       f'healing them to `{amount}`!'
+                                       f'\nConsumed `{calculated_cost}` Decaying Eldarium')
+        else:
+            await ctx.reply(f'Not enough materials to mend followers! '
+                            f'Available decaying eldarium: `{balance}`, Needed: `{calculated_cost}`')
+            return
+
+    @commands.command(name='pockets')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def pockets(self, ctx, amount:int = 0, confirm: str = ''):
+        """ - Sets follower maximum inventory slots
+
+        Parameters
+        ----------
+        ctx
+        amount
+            How many inventory slots the follower will have
+        confirm
+            Type confirm to set the number of inventory slots
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        pockets_cost = int(get_bot_config('pockets_cost'))
+        pockets_cap = int(get_bot_config('pockets_cap'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        scavenger = get_profession_tier(character.id, f'Scavenger')
+        if not (scavenger.tier >= 5):
+            await ctx.reply(f'Only Scavengers who have achieved Tier 5 can add pockets to followers! \n'
+                            f'Current Scavenger Tier: `T{scavenger.tier}`')
+            return
+
+        if amount <= 0:
+            await ctx.reply(f'Number of inventory slots must be greater than `0`.')
+            return
+        elif amount > pockets_cap:
+            await ctx.reply(f'Number of inventory slots must be less than or equal to `{pockets_cap}`.')
+            return
+
+        calculated_cost = amount * pockets_cost
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command set your followers maximum number of inventory slots to `{amount}`. '
+                f'If you set this to a value higher than 20, you will not see the new slots '
+                f'until there are enough items to fill them. Rest assured, they are there.\n'
+                f'If you have War Party, this will affect both followers at once.\n'
+                f'\n`{calculated_cost} Decaying Eldarium` will be consumed. \n\n'
+                f'If you are sure you want to proceed, '
+                f'use `v/pockets {amount} confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= calculated_cost:
+            message = await ctx.reply(f'Adding pockets to your followers, please wait... ')
+            eld_transaction(character, f'Pockets Cost', -calculated_cost)
+            run_console_command_by_name(character.char_name,
+                                        f'setfollowerstat itemcontainersize {amount}')
+
+            await message.edit(content=f'`{character.char_name}` added pockets to their followers, '
+                                       f'setting their maximum inventory size to `{amount}`!'
+                                       f'\nConsumed `{calculated_cost}` Decaying Eldarium')
+        else:
+            await ctx.reply(f'Not enough materials to add pockets to your followers! '
+                            f'Available decaying eldarium: `{balance}`, Needed: `{calculated_cost}`')
+            return
+
+    @commands.command(name='provisioner')
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
+    async def provisioner(self, ctx):
+        """ - Swaps your preference for Crafters or Combatants from Provisioner Favor
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        output_string = 'This message should not be displayed!'
+
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            return
+
+        provisioner_option = provisioner_swap(character)
+
+        output_string = f'Your preference for thralls awarded from Provisioner has been switched to `{provisioner_option}`!'
+
+        await ctx.reply(output_string)
+        return
+
     @commands.command(name='technique', aliases=['techniquelist'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)

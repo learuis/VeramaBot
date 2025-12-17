@@ -3,7 +3,7 @@ from discord.ext import commands
 from cogs.Professions import get_current_objective, get_profession_tier, give_profession_xp
 from functions.common import *
 from functions.common import display_quest_text, grant_reward, killed_target, set_slayer_target, clear_slayer_target, \
-    get_slayer_target, get_notoriety, RegistrationOLD
+    get_slayer_target, get_notoriety
 from functions.externalConnections import runRcon, db_query, rcon_all
 
 
@@ -217,8 +217,8 @@ def treasure_broadcast(override=False):
 async def oneStepQuestUpdate(bot):
     # print(f'{int_epoch_time()}')
 
-    character = RegistrationOLD()
-    # character = Registration()
+    # character = RegistrationOLD()
+    character = Registration()
     if int(get_bot_config(f'maintenance_flag')) == 1:
         print(f'Skipping quest loop, server in maintenance mode')
         bot.quest_running = False
@@ -327,7 +327,7 @@ async def oneStepQuestUpdate(bot):
                     add_cooldown(char_id, quest_id, repeatable)
                     if target_x:
                         run_console_command_by_name(char_name, f'teleportplayer {target_x} {target_y} {target_z}')
-            case 'Blacksmith' | 'Armorer' | 'Archivist' | 'Tamer':
+            case 'Blacksmith' | 'Armorer' | 'Archivist' | 'Tamer' | 'Scavenger':
                 player_tier = get_profession_tier(char_id, requirement_type)
                 if player_tier.turn_ins_this_cycle >= int(get_bot_config(f'profession_cycle_limit')):
                     print(f'Skipping quest {quest_id}/ {quest_name} , id {char_id} {char_name}, at cycle limit')
@@ -358,11 +358,14 @@ async def oneStepQuestUpdate(bot):
                     continue
             case 'Slayer':
                 print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
-                current_target = get_slayer_target(character)
+                char_lookup = get_registration_by_char_id(int(char_id))
+                if not char_lookup:
+                    print(f'Unregistered character {char_id} completed quest')
+                current_target = get_slayer_target(char_lookup)
                 if not current_target:
                     # print(f'character has no quarry, assigning one')
                     # no current target, set one
-                    current_target = set_slayer_target(character)
+                    current_target = set_slayer_target(char_lookup)
                     notorious_target, notorious_multiplier = get_notoriety(current_target)
                     if notorious_multiplier > 0:
                         display_quest_text(0, 0, False, char_name, 6,

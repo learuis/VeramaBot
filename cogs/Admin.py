@@ -284,6 +284,7 @@ class Admin(commands.Cog):
                                     f'where season = {PREVIOUS_SEASON}')
 
         users = list(sum(user_list, ()))
+        new_vets = f''
 
         for user in users:
             #print(f'{user}')
@@ -296,8 +297,11 @@ class Admin(commands.Cog):
                 continue
             else:
                 print(f'{member.name} is not a veteran')
+                new_vets += f'{member.name} '
                 await member.add_roles(vet_role)
                 continue
+
+            await ctx.reply(f'New Vetarans: {new_vets}')
         return
 
     @commands.command(name='veteran', aliases=['vet', 'vets'])

@@ -34,7 +34,7 @@ class Reroll(commands.Cog):
         self.bot = bot
 
     @commands.command(name='giveprestige')
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Moderator')
     @commands.check(check_channel)
     async def giveprestige(self, ctx, discord_user: discord.Member, points_to_give: int):
         """
@@ -44,6 +44,7 @@ class Reroll(commands.Cog):
         ----------
         ctx
         discord_user
+        points_to_give
 
         Returns
         -------
@@ -54,14 +55,19 @@ class Reroll(commands.Cog):
             await ctx.reply(f'No {CURRENT_SEASON} character registered to player {discord_user.name}!')
             return
 
-        query_string = (f'insert or replace into prestige (discord_id, reason, points) values ({character.discord_id}, '
-                        f'\'Season {CURRENT_SEASON} Keystone Points\', {points_to_give})')
-        print(query_string)
+        points = get_prestige_points(character)
+        if points < int(f'prestige_cap'):
+            query_string = (f'insert or replace into prestige (discord_id, reason, points) values ({character.discord_id}, '
+                            f'\'Season {CURRENT_SEASON} Keystone Points\', {points_to_give})')
+            print(query_string)
 
-        db_query(True, f'{query_string}')
+            db_query(True, f'{query_string}')
 
-        await ctx.reply(f'Granted {points_to_give} Prestige points to `{character.char_name}`!')
-        return
+            await ctx.reply(f'Granted {points_to_give} Prestige points to `{character.char_name}`!')
+            return
+        else:
+            await ctx.reply(f'`{character.char_name}` already has the maximum number of prestige points allowd this season!')
+            return
 
     @commands.command(name='newgameplus', aliases=['ng+', 'newgame+'])
     @commands.has_any_role('Outcasts')
@@ -168,20 +174,51 @@ class Reroll(commands.Cog):
         distributed_points = ''
         undistributed_points = ''
         total_points = ''
+        outputString = ''
+        pointString = ''
         character = is_registered(ctx.author.id)
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             return
+        else:
+            message = await ctx.reply(f'Working...')
         # print(f'{character.char_name} used the prestige command.')
+
+        last_season_character = last_season_char(ctx.message.author.id)
+        if last_season_character:
+            reroll_points = int(get_bot_config(f'reroll_points'))
+            query_string = (f'insert or replace into prestige (discord_id, reason, points) values ({last_season_character.discord_id}, '
+                            f'\'Returning Player Bonus Season {PREVIOUS_SEASON} to {CURRENT_SEASON}\', {reroll_points})')
+            db_query(True, f'{query_string}')
+
+        points = get_prestige_points(character)
+
+        query_string = f'select reason, points from prestige where discord_id = \'{character.discord_id}\''
+        print(query_string)
+        result = db_query(False, f'{query_string}')
+        if result:
+            for record in result:
+                pointString += f'{record[0]} -> `{record[1]}` points\n'
+            outputString += f'{pointString}\n'
+
+        outputString += f'Please wait...\n'
+
+            # outputString = (f'{reroll_points} additional prestige points are available to {ctx.author.mention} '
+            #                 f'due to Season {PREVIOUS_SEASON} registration.\n\n')
+        await message.edit(content=f'{outputString}')
+        # else:
+        #     await ctx.reply(f'No Season {PREVIOUS_SEASON} character registered to player {ctx.author.mention}, '
+        #                     f'there are no additional prestige points to grant. ')
 
         rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:
-            await ctx.reply(f'Character `{character.char_name}` must be online to be claim prestige points!')
+            outputString += f'Character `{character.char_name}` must be online to be claim prestige points!'
+            await message.edit(content=f'{outputString}')
             return
 
-        points = get_prestige_points(character)
         if not points:
-            await ctx.reply(f'`{character.char_name}` has no prestige points to claim!\n')
+            outputString += f'`{character.char_name}` has no prestige points to claim!\n'
+            await message.edit(content=f'{outputString}')
             return
 
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
@@ -191,7 +228,8 @@ class Reroll(commands.Cog):
             distributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
             # print(f'Dist: {distributed_points}')
         else:
-            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You have not spent any points)')
+            outputString += f'You must allocate all attribute points in order to claim prestige points! (You have not spent any points)'
+            await message.edit(content=f'{outputString}')
             return
 
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
@@ -201,32 +239,41 @@ class Reroll(commands.Cog):
             total_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
             # print(f'Total: {total_points}')
         else:
-            await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You must be at least level 2)')
+            outputString += f'You must allocate all attribute points in order to claim prestige points! (You must be at least level 2)'
+            await message.edit(content=f'{outputString}')
             return
 
         results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
                           f'and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
-        # print(f'Undist result: {results.output}')
+        print(f'Undist result: {results.output}')
         results.output.pop(0)
-        # print(f'Len: {len(results.output)} Popped: {results.output}')
+        print(f'Len: {len(results.output)} Popped: {results.output}')
         if len(results.output) == 1:
             undistributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
-            # print(f'Undist: {undistributed_points}')
+            print(f'Undist: {undistributed_points}')
             if int(undistributed_points, 16) > 0:
-                await ctx.reply(f'You must allocate all attribute points in order to claim prestige points! (You currently have undistributed points)')
+                outputString += f'You must allocate all attribute points in order to claim prestige points! (You currently have undistributed points)'
+                await message.edit(content=f'{outputString}')
+                return
+        elif len(results.output) == 0:
+                outputString += f'You must allocate all attribute points in order to claim prestige points! (You currently have 1 undistributed point)'
+                await message.edit(content=f'{outputString}')
                 return
         else:
             if int(undistributed_points, 16) > 100:
-                await ctx.reply(f'You must use a Potion of Bestial Memory to reset your attribute points and then '
-                                f'distribute all of the points in order to claim prestige points! '
-                                f'(You currently have negative undistributed points)')
+                outputString += (f'You must use a Potion of Bestial Memory to reset your attribute points and then '
+                                 f'distribute all of the points in order to claim prestige points! '
+                                 f'(You currently have negative undistributed points)')
+                await message.edit(content=f'{outputString}')
                 return
+            await message.edit(content=f'This should never happen. Verama!')
             return
 
         if int(distributed_points, 16) > int(total_points, 16):
-            await ctx.reply(f'`{character.char_name}` is entitled to `{points}` total prestige points.\n\n'
-                            f'To claim them, you must use a Potion of Bestial Memory to reset your attributes '
-                            f'and then distribute all of the points!')
+            outputString += (f'`{character.char_name}` is entitled to `{points}` total prestige points.\n\n'
+                             f'To claim them, you must use a Potion of Bestial Memory to reset your attributes '
+                             f'and then distribute all of the points!')
+            await message.edit(content=f'{outputString}')
             return
 
         if distributed_points == total_points and undistributed_points == '00':
@@ -237,14 +284,15 @@ class Reroll(commands.Cog):
             # runRcon(query)
             # run_console_command_by_name(character.char_name, f'addundistributedattributepoints {points}')
             # print(f'You have {get_prestige_points(character)} prestige points in total.')
-            await ctx.reply(f'`{character.char_name}` claimed `{points}` extra attribute points from Prestige!.\n')
+            outputString += f'`{character.char_name}` claimed `{points}` extra attribute points from Prestige!.\n'
+            await message.edit(content=f'{outputString}')
             return
         return
 
     @commands.command(name='carryover')
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
-    async def carryover(self, ctx, feature: str):
+    async def carryover(self, ctx, feature: str = f'fomo'):
         """
         Transfers all custom features from your old character to your new one
 
@@ -276,6 +324,11 @@ class Reroll(commands.Cog):
                 await ctx.reply(outputString)
                 return
             else:
+                allowed_to_carryover = get_bot_config(f'allowed_to_carryover')
+                if feature.lower() not in allowed_to_carryover:
+                    await ctx.reply(f'You may not carry over `{feature.lower()}` '
+                                    f'from Season `{PREVIOUS_SEASON}` to Season `{CURRENT_SEASON}`!')
+                    return
                 match feature.lower():
                     case 'bank' | 'eldarium':
                         old_balance = get_balance(prev_character, PREVIOUS_SEASON)

@@ -4,7 +4,7 @@ import os
 from discord.ext import commands
 
 from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config, \
-    no_registered_char_reply, check_channel, eld_transaction, get_balance, sufficient_funds
+    no_registered_char_reply, check_channel, eld_transaction, get_balance, sufficient_funds, transform_coordinates
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -78,12 +78,13 @@ class Warps(commands.Cog):
     @commands.command(name='home', aliases=['stuck', 'home2'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
-    async def stuck(self, ctx, option: int = 1):
+    async def stuck(self, ctx, info: str = f''):
         """Teleports you to your bed/bedroll. Costs 100 Decaying Eldarium
 
-        v/home [option]
-            option 1 = oldest spawn point
-            option 2 = latest spawn point
+        v/home1 [info] or v/home2 [info]
+            home1 = oldest spawn point
+            home2 = latest spawn point
+            add 'info' after to see the destination before teleporting
         v/stuck
             teleports you to the sinkhole
         """
@@ -92,42 +93,33 @@ class Warps(commands.Cog):
         target_x = 0
         target_y = 0
         target_z = 0
+        balance = 0
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             # channel = self.bot.get_channel(REGHERE_CHANNEL)
             # await ctx.reply(f'No character registered to player {ctx.author.mention}! '
             #                 f'Please register here: {channel.mention} ')
-            return
+            return False
         else:
             name = character.char_name
 
         if 'home' in ctx.invoked_with:
-            location = get_bot_config('event_location')
-            if location != '0':
-                home_cost = 0
-                pass
-                # an event is active, do not charge.
-                # await ctx.reply(f'This command can only be used during an event!')
-                # return
-            else:
-                home_cost = int(get_bot_config('home_cost'))
-                if sufficient_funds(character, home_cost):
-                    eld_transaction(character, f'Teleport to Home', -home_cost)
-                    pass
-                else:
-                    balance = int(get_balance(character))
-                    await ctx.reply(f'Insufficient funds! Available decaying eldarium: {balance}. Needed: {home_cost}')
-                    return
 
             # hex_name = bytes(name, 'utf8')
             # hex_name = hex_name.hex()
             # print(f'Char name in hex is {hex_name}')
 
-            if option == 2 or 'home2' in ctx.invoked_with:
+            if 'home2' in ctx.invoked_with:
+                dest_id = f'2'
                 order_by = f'desc'
             else:
+                dest_id = f'1'
                 order_by = f'asc'
+
+            if '2' in info or '1' in info:
+                await ctx.reply(f'This command has been changed, use `v/home` or `v/home2`, add `info` to see the destination before teleporting.')
+                return False
 
             commandString = (f'sql select ap.x,ap.y,ap.z from actor_position ap '
                              f'left join properties p on ap.id = p.object_id '
@@ -169,23 +161,47 @@ class Warps(commands.Cog):
             rconCharId = get_rcon_id(character.char_name)
             if not rconCharId:
                 await ctx.reply(f'Character `{name}` must be online to be rescued!')
-                return
+                return False
             else:
-                runRcon(f'con {rconCharId} TeleportPlayer {target_x} {target_y} {target_z}')
-                # print(f'{home_cost}')
-                if home_cost != 0:
-                    await ctx.reply(f'Returned `{name}` to their spawn for {home_cost} decaying eldarium.')
-                    return
+                sq_x, sq_y = transform_coordinates(float(target_x), float(target_y))
+                if 'info' in info:
+                    await ctx.reply(f'Home Destination `{dest_id}`: `{sq_x}{sq_y}` - {target_x} {target_y} {target_z}')
+                    return False
                 else:
-                    await ctx.reply(f'Returned `{name}` to their spawn.')
-                    return
+                    runRcon(f'con {rconCharId} TeleportPlayer {target_x} {target_y} {target_z}')
+                    location = get_bot_config('event_location')
+                    if location != '0':
+                        home_cost = 0
+                        pass
+                        # an event is active, do not charge.
+                        # await ctx.reply(f'This command can only be used during an event!')
+                        # return
+                    else:
+                        home_cost = int(get_bot_config('home_cost'))
+                        if sufficient_funds(character, home_cost):
+                            balance = eld_transaction(character, f'Teleport to Home', -home_cost)
+                            pass
+                        else:
+                            balance = int(get_balance(character))
+                            await ctx.reply(
+                                f'Insufficient funds! Available decaying eldarium: {balance}. Needed: {home_cost}')
+                            return False
+                    # print(f'{home_cost}')
+                    if home_cost != 0:
+                        await ctx.reply(f'Returned `{name}` to their spawn in `{sq_x}{sq_y}` '
+                                        f'`{target_x} {target_y} {target_z}` for `{home_cost}` decaying eldarium.'
+                                        f'\nDecaying Eldarium Balance: `{balance}`')
+                        return False
+                    else:
+                        await ctx.reply(f'Returned `{name}` to their spawn in `{sq_x}{sq_y}` `{target_x} {target_y} {target_z}`')
+                        return False
         else:
             destination = get_bot_config('rescue_location')
 
             rconCharId = get_rcon_id(character.char_name)
             if not rconCharId:
                 await ctx.reply(f'Character `{name}` must be online to be rescued!')
-                return
+                return False
             else:
                 query_command = (f'select description, x, y, z from warp_locations where warp_name like '
                                  f'\'%{destination.casefold()}%\' limit 1')
@@ -196,8 +212,7 @@ class Warps(commands.Cog):
                 (description, x, y, z) = warp_entry
                 runRcon(f'con {rconCharId} TeleportPlayer {x} {y} {z}')
                 await ctx.reply(f'Rescued `{name}` from the floor, teleported to `{description}`.')
-                return
-
+                return False
 
 @commands.Cog.listener()
 async def setup(bot):

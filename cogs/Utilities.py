@@ -542,7 +542,7 @@ class Utilities(commands.Cog):
     @commands.command(name='locateobject', aliases=['lo'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
-    async def locateobject(self, ctx, x_coord: str, y_coord: str, owner: int = None, pet = False):
+    async def locateobject(self, ctx, x_coord: str, y_coord: str, owner: int = None, search:str = '', pet = False):
         """
 
         Parameters
@@ -550,8 +550,9 @@ class Utilities(commands.Cog):
         ctx
         x_coord
         y_coord
-        desired_size
-        confirm
+        owner
+        search
+        pet
 
         Returns
         -------
@@ -575,13 +576,19 @@ class Utilities(commands.Cog):
             return
 
         if pet:
-            where_clause = ''
+            where_clause = 'where class not like \'%player%\' '
+            join_clause = ''
         else:
-            where_clause = f'where owner_id = {clan_id} '
+            if search:
+                where_clause = f'where class like \'%{search}%\' and owner_id = {clan_id} '
+                join_clause = f'left join buildings on actor_position.id = buildings.object_id '
+            else:
+                where_clause = f'where owner_id = {clan_id} '
+                join_clause = f'left join buildings on actor_position.id = buildings.object_id '
 
         results = runRcon(f'sql select id, class, x, y, '
                           f'((x - {x}) * (x - {x})) + ((y - {y}) * (y- {y})) as distance from actor_position '
-                          f'left join buildings on actor_position.id = buildings.object_id {where_clause}order by distance asc limit 1')
+                          f'{join_clause}{where_clause}order by distance asc limit 1')
         # print(f'{results.output}')
         results.output.pop(0)
         if not results.output:

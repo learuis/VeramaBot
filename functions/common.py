@@ -1,4 +1,5 @@
 import datetime
+import math
 import random
 
 import discord
@@ -40,6 +41,46 @@ def add_reward_record(char_id: int, itemId: int, quantity: int, reasonString: st
     cur.execute(query)
     con.commit()
     con.close()
+
+def get_provisioner_option(character):
+
+    option = f'Combatant'
+
+    query = f'select discord_id, option from provisioner_option where discord_id = {character.discord_id}'
+    print(query)
+    results = db_query(False, f'{query}')
+    print(f'{results}')
+
+    if results:
+        for record in results:
+            option = record[1]
+        return option
+    else:
+        option = provisioner_swap(character)
+        return option
+
+
+def provisioner_swap(character):
+    option = f'Combatant'
+
+    print(f'Provisioner swapping')
+    results = db_query(False, f'select discord_id, option from provisioner_option where discord_id = {character.discord_id}')
+    print(f'{results}')
+    if results:
+        if f'Combatant' in str(results):
+            option = f'Crafter'
+            print(f'results are combatant {option}')
+        else:
+            option = f'Combatant'
+            print(f'results are Crafter{option}')
+    else:
+        option = f'Combatant'
+        print(f'no results {option}')
+
+    db_query(True, f'insert or replace into provisioner_option (discord_id, option) values ({character.discord_id},\'{option}\')')
+
+    print(f'{option}')
+    return option
 
 def get_bot_config(item: str):
     result = db_query(False, f'select value from config where item like \'%{item}%\' limit 1')
@@ -239,9 +280,37 @@ def update_registered_name(input_user, name):
     con.commit()
     con.close()
 
+def get_registration_by_char_id(character_id, last_season: bool = False):
+
+    returnValue = Registration()
+    con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+    cur = con.cursor()
+
+    if last_season:
+        query = (f'select game_char_id, character_name, discord_user from registration where game_char_id = \'{character_id}\' '
+                 f'and season = {PREVIOUS_SEASON} order by id desc limit 1')
+    else:
+        query = (f'select game_char_id, character_name, discord_user from registration where game_char_id = \'{character_id}\' '
+                 f'and season = {CURRENT_SEASON}')
+
+    cur.execute(query)
+    result = cur.fetchone()
+
+    con.close()
+
+    if result:
+        returnValue.id = result[0]
+        returnValue.char_name = result[1]
+        returnValue.discord_id = result[2]
+        print(returnValue.id, returnValue.char_name, returnValue.discord_id)
+        return returnValue
+    else:
+        return False
+
 def is_registered(discord_id: int, last_season: bool = False):
 
-    returnValue = RegistrationOLD()
+    # returnValue = RegistrationOLD()
+    returnValue = Registration()
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
@@ -280,7 +349,8 @@ async def no_registered_char_reply(bot, ctx):
 
 def last_season_char(discord_id: int):
 
-    returnValue = RegistrationOLD()
+    # returnValue = RegistrationOLD()
+    returnValue = Registration()
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
     cur = con.cursor()
 
@@ -325,8 +395,8 @@ def get_registration(char_name, char_id: int = 0):
         return False
 
 def get_single_registration_new(char_name: str = '', char_id: int = 0):
-    character = RegistrationOLD()
-
+    # character = RegistrationOLD()
+    character = Registration()
     if char_id:
         query_string = (f'select game_char_id, character_name, discord_user from registration '
                         f'where game_char_id = {char_id} and season = {CURRENT_SEASON} limit 1')
@@ -797,9 +867,11 @@ def display_quest_text(quest_id, quest_status, alt, char_name,
 
 
 def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
-    character = RegistrationOLD()
+    # character = RegistrationOLD()
+    character = Registration()
     character.id = char_id
     character.char_name = char_name
+
     print(f'Granting reward for quest {quest_id} / character {char_id}')
 
     reward_list = db_query(False, f'select reward_template_id, reward_qty, reward_feat_id, '
@@ -840,11 +912,12 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
         if reward_boon:
             print(f'Activating boon {reward_boon}')
             current_expiration = get_bot_config(f'{reward_boon}')
+            boon_interval = int(get_bot_config(f'boon_interval'))
             current_time = int_epoch_time()
             if int(current_expiration) < current_time:
-                set_bot_config(f'{reward_boon}', str(current_time + 10800))
+                set_bot_config(f'{reward_boon}', str(current_time + boon_interval))
             else:
-                set_bot_config(f'{reward_boon}', str(int(current_expiration) + 10800))
+                set_bot_config(f'{reward_boon}', str(int(current_expiration) + boon_interval))
             result = db_query(False, f'select boon_name from boon_settings '
                                      f'where setting_name = \'{reward_boon}\'')
             boon_name = flatten_list(result)[0]
@@ -936,9 +1009,16 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                     threshhold = int(get_bot_config(f'{reward_command}_reward_threshhold'))
                     # print(f'{reward_command} threshhold: {threshhold} current_favor = {current_favor.current_favor}')
 
+                    print(f'get provisioner option')
+                    char_lookup = get_registration_by_char_id(int(char_id))
+                    if not char_lookup:
+                        print(f'Unregistered character {char_id} completed quest')
+                    selected_type = get_provisioner_option(char_lookup)
+                    print(f'{selected_type}')
+
                     if int(current_favor.current_favor) >= threshhold:
                         modify_favor(char_id, reward_command, -threshhold)
-                        thrall_to_give = provisioner_thrall()
+                        thrall_to_give = provisioner_thrall(selected_type)
                         print(f"{thrall_to_give}")
 
                         last_restart = int(get_bot_config(f'last_server_restart'))
@@ -1107,6 +1187,31 @@ def sufficient_funds(character, debit_amount: int = 0, eld_type: str = 'raw'):
     else:
         return False
 
+def record_claimed_kit(character, kit_name):
+    db_query(True, f'insert or replace into claimed_kits (season, char_id, kit_name) values '
+                   f'({CURRENT_SEASON}, {character.id}, \'{kit_name}\')')
+    return
+
+def claimed_kit(character, kit_name):
+    result = db_query(False, f'select * from claimed_kits '
+                             f'where char_id = {character.id} and season = {CURRENT_SEASON} and kit_name = \'{kit_name}\'')
+    if result:
+        return True
+    else:
+        return False
+
+def get_kit_details(kit_name):
+    result = db_query(False, f'select item_id, quantity, item_name from kits '
+                             f'where kit_name = \'{kit_name}\'')
+    if result:
+        item_list = []
+        for item in result:
+            item_tuple = (item[0], item[1], item[2])
+            item_list.append(item_tuple)
+        print(item_list)
+        return item_list
+    else:
+        return False
 
 def killed_target(my_target, character):
     clan_id, clan_name = get_clan(character)
@@ -1138,26 +1243,69 @@ class SlayerTarget:
         self.display_name = ''
         self.start_time = 0
 
+def get_character_level(character):
+    level = 0
+    results = runRcon(f'sql select level from characters where id = {character.id}')
+    print(results.output)
+    if results:
+        results.output.pop(0)
+        for result in results.output:
+            match = re.search(r'\s+\d+ | [^|]*', result)
+            level = int(match[0])
+    return level
+
 def has_arachnophobia(character):
     # print(f'do we have arachnophobia? {character.id}')
-    results = db_query(False, f'select discord_id from arachnophobia where discord_id = {character.id}')
+    results = db_query(False, f'select discord_id from arachnophobia where discord_id = {character.discord_id}')
     return True if results else False
 
 def toggle_arachnophobia(character):
-    results = db_query(False, f'select discord_id from arachnophobia where discord_id = {character.id}')
+    results = db_query(False, f'select discord_id from arachnophobia where discord_id = {character.discord_id}')
     if results:
-        db_query(True, f'delete from arachnophobia where discord_id = {character.id}')
+        db_query(True, f'delete from arachnophobia where discord_id = {character.discord_id}')
         return False
     else:
-        db_query(True, f'insert into arachnophobia (discord_id) values ({character.id})')
+        db_query(True, f'insert into arachnophobia (discord_id) values ({character.discord_id})')
         return True
 
-def set_slayer_target(character, exclude_target: SlayerTarget = False):
+def set_slayer_reroll_exclusion(character, exclude_target):
+    db_query(True, f'insert or replace into beast_slayer_rerolled_targets (season, char_id, target_name) values '
+                   f'({CURRENT_SEASON}, {character.id}, \'{exclude_target.target_name}\')')
+    return
+
+def get_slayer_reroll_exclusion(character):
+    result = db_query(False, f'select target_name from beast_slayer_rerolled_targets '
+                             f'where char_id = {character.id} and season = {CURRENT_SEASON}')
+    if result:
+        target_list = []
+        for target in result:
+            target_list.append(target[0])
+        print(target_list)
+        return target_list
+    else:
+        return False
+
+def clear_slayer_reroll(target_to_remove):
+    db_query(True, f'delete from beast_slayer_rerolled_targets '
+                   f'where target_name = \'{target_to_remove.target_name}\'')
+    return
+
+def set_slayer_target(character):
     spider_string = f'target_name not like \'%spider%\''
     where_clause = ''
 
-    if exclude_target:
-        where_clause = f' where target_name not like \'%{exclude_target.target_name}%\' and notoriety = 0'
+    exclude_list = get_slayer_reroll_exclusion(character)
+    if exclude_list:
+        where_clause = f' where target_name not like '
+        for index, excluded_target in enumerate(exclude_list):
+            where_clause += f'\'%{excluded_target}\''
+            if index == len(exclude_list) - 1:
+                continue
+            else:
+                where_clause += f' and target_name not like '
+
+    # if exclude_target:
+    #     where_clause = f' where target_name not like \'%{exclude_target.target_name}%\' and notoriety = 0'
 
     if has_arachnophobia(character):
         if where_clause:
@@ -1165,7 +1313,7 @@ def set_slayer_target(character, exclude_target: SlayerTarget = False):
         else:
             where_clause = f' where {spider_string}'
 
-    # print(where_clause)
+    print(where_clause)
 
     my_target = SlayerTarget()
     my_target.char_id = character.id
@@ -1173,7 +1321,7 @@ def set_slayer_target(character, exclude_target: SlayerTarget = False):
     # randomizer = random.randint(0, int(get_bot_config('beast_slayer_target_count')))
     query = (f'select target_name, target_display_name from beast_slayer_target_list'
              f'{where_clause} order by notoriety desc, times_killed asc, random() limit 1')
-    # print(query)
+    print(query)
     # rconResponse = runRcon(query)
     query_result = db_query(False, f'{query}')
     # print(query_result)
@@ -1333,12 +1481,13 @@ def get_favor(char_id, faction):
     return favor_values
 
 
-def provisioner_thrall():
+def provisioner_thrall(selected_type):
     thrall_to_give = ''
     count = int(get_bot_config(f'provisioner_thrall_count'))
     # record_id = random.randint(int(1), count)
     results = db_query(False, f'select thrall_name from provisioner_rewards '
-                              f'order by random() limit 1')
+                              f'where thrall_type = \'{selected_type}\' order by random() limit 1')
+    print(f'random thrall results: {results}')
 
     for result in results:
         thrall_to_give = str(result[0])
@@ -1361,3 +1510,14 @@ class RegistrationOLD:
 
     def reset(self):
         self.__init__()
+
+
+def transform_coordinates(x, y):
+    x_squares = 'ABCDEFGHIJKLMNOP'
+    x = math.floor(1 + ((x + 307682) / 46500))
+    y = math.floor(1 + (-(y - 330805) / 46500))
+
+    x_square_label = x_squares[x-1]
+    y_square_label = y + 1
+    print(f'{x_square_label}{y_square_label}')
+    return x_square_label, y_square_label

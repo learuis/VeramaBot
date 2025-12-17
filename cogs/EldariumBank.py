@@ -166,7 +166,7 @@ class EldariumBank(commands.Cog):
     @commands.command(name='withdraw', aliases=['atm'])
     @commands.check(check_channel)
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
-    async def withdraw(self, ctx, amount: str = '0', eld_type: str = 'raw'):
+    async def withdraw(self, ctx, amount = '0', eld_type = 'raw'):
         """
         Eldarium bank transaction
 
@@ -185,8 +185,12 @@ class EldariumBank(commands.Cog):
         balance = 0
         amount_string = ''
 
+        if not amount or not eld_type:
+            await ctx.reply(f'Command Format:`v/withdraw <amount> <eld_type> <confirm>`')
+            return
+
         if 'raw' not in eld_type and 'bars' not in eld_type:
-            await ctx.reply(f'Error. Must specify `raw` or `bars`.')
+            await ctx.reply(f'Error. Must specify `raw` or `bars`.\nCommand Format:`v/withdraw <amount> <eld_type> <confirm>`')
             return
 
         if not character:
@@ -211,7 +215,7 @@ class EldariumBank(commands.Cog):
                     amount = 1000
 
         if amount <= 0:
-            await ctx.reply(f'Must withdraw eldarium in whole number amounts > 0!')
+            await ctx.reply(f'Must withdraw eldarium in whole number amounts > 0!\nCommand Format:`v/withdraw <amount> <eld_type> <confirm>`')
             return
         else:
             check_balance = sufficient_funds(character, abs(amount), eld_type)
