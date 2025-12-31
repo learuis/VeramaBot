@@ -15,6 +15,8 @@ from functions.common import custom_cooldown, is_registered, get_rcon_id, get_si
 from datetime import datetime
 from datetime import timezone
 from time import strftime, localtime
+from rcon.util import remove_formatting_codes
+from rcon import Console
 
 from dotenv import load_dotenv
 
@@ -671,11 +673,11 @@ class Admin(commands.Cog):
             await ctx.reply(f'Tossed `{name}` into the Volcano.')
             return
 
-    @commands.command(name='jail', aliases=['prison', 'capture'])
+    @commands.command(name='shame', aliases=['prison', 'capture', 'jail'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def jail(self, ctx, name: str):
+    async def shame(self, ctx, name: str):
         """- Sends the named player to jail
 
         Parameters
@@ -688,14 +690,13 @@ class Admin(commands.Cog):
         -------
 
         """
-
         rconCharId = get_rcon_id(name)
         if not rconCharId:
             await ctx.reply(f'Character `{name}` must be online to send to jail!')
             return
         else:
-            runRcon(f'con {rconCharId} TeleportPlayer 218110.859375 -124766.046875 -16443.873047')
-            await ctx.reply(f'Sent `{name}` to jail.')
+            run_console_command_by_name(name, f'TeleportPlayer 319908.40625 -63563.578125 -5586.727539')
+            await ctx.reply(f'Sent `{name}` to the shame chamber.')
             return
 
     @commands.command(name='offlineroom')
@@ -840,9 +841,63 @@ class Admin(commands.Cog):
 
         command = re.sub(';', '\"', command)
 
-        rconResponse = send_rcon_command(command)
+        # rconResponse = send_rcon_command(command)
+        class RconResponse:
+            def __init__(self):
+                self.output = []
+                self.error = 0
 
-        await ctx.send(rconResponse)
+            def __bool__(self):
+                return self.output != []
+
+        returnValue = RconResponse()
+
+        commandOutput = []
+        connection_failures = 0
+        command_failures = 0
+
+        while connection_failures < 6:
+            try:
+                # print(f'{RCON_HOST}:{RCON_PORT}')
+                console = Console(host='172.31.240.1', port=int(RCON_PORT), password=RCON_PASS)
+                break
+            except Exception:
+                connection_failures += 1
+
+        if connection_failures == 6:
+            returnValue.output = ['Authentication failed 5 times in a row.']
+            returnValue.error = 1
+            return returnValue
+
+        while command_failures < 6:
+            try:
+                res_body = console.command(command)
+                break
+            except Exception:
+                command_failures += 1
+                print(f'RCON Failure #{command_failures}')
+
+        if command_failures == 6:
+            returnValue.output = ['Received few bytes exception 5x in a row']
+            returnValue.error = 1
+            return returnValue
+
+        console.close()
+
+        res_body = remove_formatting_codes(res_body)
+
+        if not res_body.endswith('\n'):
+            res_body += '\n'
+
+        res_list = res_body.splitlines()
+
+        for x in res_list:
+            commandOutput.append(x)
+
+        returnValue.output = commandOutput
+
+        await ctx.reply(f'{returnValue.output}')
+        return False
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))

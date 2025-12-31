@@ -491,6 +491,10 @@ class InnSystem(commands.Cog):
 
         """
         type_string = f''
+        splitOutput = ''
+        outputList = []
+        once = True
+
         character = is_registered(ctx.author.id)
         if not character:
             await no_registered_char_reply(self.bot, ctx)
@@ -535,9 +539,37 @@ class InnSystem(commands.Cog):
             # outputString += (f'`{inn.name}` - Owned by `{owner.char_name}` of `{clan_name}` '
             #                  f'located in `{new_x}{new_y}` at `({inn.x},{inn.y})`\n')
 
-        await ctx.reply(f'{outputString}')
+        if results:
+            message = await ctx.reply(f'Working on it...')
 
+            if outputString:
+                print(len(str(outputString)))
+                if len(str(outputString)) > 1500:
+                    outputList = outputString.splitlines()
+                    for items in outputList:
+                        splitOutput += f'{str(items)}\n'
+                        if len(str(splitOutput)) > 1500:
+                            if once:
+                                once = False
+                                await message.edit(content=str(splitOutput))
+                                splitOutput = '(continued)\n'
+                            else:
+                                await ctx.send(str(splitOutput))
+                                splitOutput = '(continued)\n'
+                        else:
+                            continue
+                    await ctx.send(str(splitOutput))
+                else:
+                    await message.edit(content=f'{outputString}')
+                    return
+            return
+        else:
+            await ctx.reply(f'No results found.')
         return
+
+        # await ctx.reply(f'{outputString}')
+
+        # return
 
 @commands.Cog.listener()
 async def setup(bot):

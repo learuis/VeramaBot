@@ -15,6 +15,7 @@ from functions.externalConnections import db_delete_single_record, db_query, run
 load_dotenv('data/server.env')
 SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
 AUTOREG_CHANNEL = int(os.getenv('AUTOREG_CHANNEL'))
+REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 REG_ROLE = int(os.getenv('REG_ROLE'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
@@ -363,9 +364,9 @@ class CharRegistration(commands.Cog):
         if rconResponse.output:
             rconResponse.output.pop(0)
             for record in rconResponse.output:
-                match = re.findall(r'\s+\d+ | [^|]*', record)
-                match = [line.strip() for line in match]
-                clanList.append(match)
+                matches = re.findall(r'(?:#\d+\s+)?([^|]+)(?=\|)*', record)
+                clan = [matches[0].strip(),matches[1].strip(),matches[2].strip(),matches[3].strip(),matches[4].strip()]
+                clanList.append(clan)
 
         rconResponse = runRcon(f'sql select c.char_name, c.rank, g.name, g.guildId, c.lastTimeOnline '
                                f'from characters as c '
@@ -376,9 +377,12 @@ class CharRegistration(commands.Cog):
             rconResponse.output.pop(0)
 
             for record in rconResponse.output:
-                match = re.findall(r'\s+\d+ | [^|]*', record)
-                match = [line.strip() for line in match]
-                playerList.append(match)
+                matches = re.findall(r'(?:#\d+\s+)?([^|]+)(?=\|)*', record)
+                player = [matches[0].strip(),matches[1].strip(),matches[2].strip(),matches[3].strip(),matches[4].strip()]
+                playerList.append(player)
+                # match = re.findall(r'\s+\d+ | [^|]*', record)
+                # match = [line.strip() for line in match]
+                # playerList.append(match)
 
         if playerList:
             outputString += f'__Player name matches:__\n'
@@ -415,6 +419,12 @@ class CharRegistration(commands.Cog):
                 await ctx.send(f'There are no clans, characters in clans, or empty clans that match '
                                f'your search term `{searchTerm}`.')
 
+
+    @commands.command(name='register')
+    @commands.is_owner()
+    async def register(self, ctx: commands.Context):
+        await ctx.send(f'Click the button in <#{REGHERE_CHANNEL}> to register! You may need to click it a few times.')
+        return
 
 @commands.Cog.listener()
 async def setup(bot):

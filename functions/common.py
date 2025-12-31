@@ -1298,7 +1298,7 @@ def set_slayer_target(character):
     if exclude_list:
         where_clause = f' where target_name not like '
         for index, excluded_target in enumerate(exclude_list):
-            where_clause += f'\'%{excluded_target}\''
+            where_clause += f'\'%{excluded_target}%\''
             if index == len(exclude_list) - 1:
                 continue
             else:

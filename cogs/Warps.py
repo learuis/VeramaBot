@@ -4,7 +4,8 @@ import os
 from discord.ext import commands
 
 from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config, \
-    no_registered_char_reply, check_channel, eld_transaction, get_balance, sufficient_funds, transform_coordinates
+    no_registered_char_reply, check_channel, eld_transaction, get_balance, sufficient_funds, transform_coordinates, \
+    run_console_command_by_name
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -168,7 +169,7 @@ class Warps(commands.Cog):
                     await ctx.reply(f'Home Destination `{dest_id}`: `{sq_x}{sq_y}` - {target_x} {target_y} {target_z}')
                     return False
                 else:
-                    runRcon(f'con {rconCharId} TeleportPlayer {target_x} {target_y} {target_z}')
+
                     location = get_bot_config('event_location')
                     if location != '0':
                         home_cost = 0
@@ -188,11 +189,14 @@ class Warps(commands.Cog):
                             return False
                     # print(f'{home_cost}')
                     if home_cost != 0:
+                        run_console_command_by_name(character.char_name, f'TeleportPlayer {target_x} {target_y} {target_z}')
                         await ctx.reply(f'Returned `{name}` to their spawn in `{sq_x}{sq_y}` '
                                         f'`{target_x} {target_y} {target_z}` for `{home_cost}` decaying eldarium.'
                                         f'\nDecaying Eldarium Balance: `{balance}`')
                         return False
                     else:
+                        run_console_command_by_name(character.char_name, f'TeleportPlayer {target_x} {target_y} {target_z}')
+                        # runRcon(f'con {rconCharId} TeleportPlayer {target_x} {target_y} {target_z}')
                         await ctx.reply(f'Returned `{name}` to their spawn in `{sq_x}{sq_y}` `{target_x} {target_y} {target_z}`')
                         return False
         else:
@@ -210,7 +214,7 @@ class Warps(commands.Cog):
 
                 warp_entry = flatten_list(output)
                 (description, x, y, z) = warp_entry
-                runRcon(f'con {rconCharId} TeleportPlayer {x} {y} {z}')
+                run_console_command_by_name(character.char_name, f'TeleportPlayer {target_x} {target_y} {target_z}')
                 await ctx.reply(f'Rescued `{name}` from the floor, teleported to `{description}`.')
                 return False
 

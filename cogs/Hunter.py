@@ -279,7 +279,9 @@ class Hunter(commands.Cog):
                 await ctx.reply(f'You have not yet slain `{current_target.display_name}` since it was '
                                 f'assigned on <t:{current_target.start_time}:f>.')
                 return
-
+        else:
+            await ctx.reply(f'You don\'t currently have a Beast Slayer Quarry! Visit the profession hub to be assigned one.')
+            return
         #
         # if current_target:
         #     if killed_target(current_target, character):

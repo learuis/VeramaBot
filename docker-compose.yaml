@@ -9,3 +9,4 @@ services:
       - /veramabot:/app/data
     environment:
       - TZ=America/New_York
+      - LOCALHOST_IP=ip route show | grep -i default | awk '{ print $3 }'

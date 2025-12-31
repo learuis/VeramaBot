@@ -393,6 +393,22 @@ class CommunityBoons(commands.Cog):
                 outputString += (f'Boon of {boon_name} is not currently active. '
                                  f'Turn in a `{item}` at the Profession Hub to activate it.\n')
 
+        global_xp = int(get_bot_config(f'global_profession_xp_mult'))
+        blacksmith_xp = int(get_bot_config(f'blacksmith_xp_multiplier')) * global_xp
+        armorer_xp = int(get_bot_config(f'armorer_xp_multiplier')) * global_xp
+        tamer_xp = int(get_bot_config(f'tamer_xp_multiplier')) * global_xp
+        archivist_xp = int(get_bot_config(f'archivist_xp_multiplier')) * global_xp
+        scavenger_xp = int(get_bot_config(f'scavenger_xp_multiplier')) * global_xp
+        portal_chance_increment = int(get_bot_config(f'portal_chance_increment'))
+
+        outputString += (f'\nGLOBAL Profession XP Multiplier: `x{global_xp}` (reflected in below totals)\n'
+                         f'Blacksmith XP Multiplier: `x{blacksmith_xp}`\n'
+                         f'Armorer XP Multiplier: `x{armorer_xp}`\n'
+                         f'Tamer XP Multiplier: `x{tamer_xp}`\n'
+                         f'Archivist XP Multiplier: `x{archivist_xp}`\n'
+                         f'Scavenger XP Multiplier: `x{scavenger_xp}`\n'
+                         f'Treasure Portal Chance Increment: `+{portal_chance_increment}%`\n')
+
         await ctx.reply(f'{outputString}')
 
     @commands.command(name='old_booninfo',

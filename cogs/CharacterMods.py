@@ -7,11 +7,11 @@ class CharacterMods(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name='shrink', aliases=['grow'])
+    @commands.command(name='adminshrink', aliases=['admingrow'])
     @commands.has_any_role('Admin')
     @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
-    async def small(self, ctx, discord_user: discord.Member):
+    async def adminsmall(self, ctx, discord_user: discord.Member):
         """
         Use with v/shrink or v/grow
 
@@ -26,9 +26,9 @@ class CharacterMods(commands.Cog):
 
         """
 
-        if 'shrink' in ctx.invoked_with:
+        if 'adminshrink' in ctx.invoked_with:
             size_value = f'0000403f'
-        elif 'grow' in ctx.invoked_with:
+        elif 'admingrow' in ctx.invoked_with:
             size_value = f'0000a03f'
         else:
             outputString = f'Must specify desired size. Use `v/shrink` or `v/grow`!'

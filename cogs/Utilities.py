@@ -15,6 +15,7 @@ from functions.externalConnections import db_query, runRcon
 
 load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
+SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
 
 async def is_character_online(channel):
     connected_chars = []
@@ -408,6 +409,117 @@ class Utilities(commands.Cog):
                         f'`TeleportPlayer {results[0]} {results[1]} {results[2]}`')
         return
 
+    @commands.command(name='locateobject', aliases=['lo', 'shrink'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def locateobject(self, ctx, target_object: str = None, size: float = 1.0):
+        """ - Requests a size change of a nearby object
+
+        Parameters
+        ----------
+        ctx
+        object
+
+        Returns
+        -------
+
+        """
+        x_coord = 0
+        y_coord = 0
+        search_term = f''
+        key_str = ''
+        character = is_registered(ctx.author.id)
+
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            # reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+            # await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            return
+
+        target_object = target_object.lower()
+
+        valid_options = {'map': 'BP_PL_Maproom',
+                         'vault': 'BP_PL_Chest_Vault',
+                         'stable': 'BP_PL_Crafting_Station_AnimalPen_Stables',
+                         'bigpen': 'BP_PL_Crafting_Station_AnimalPen_Tier',
+                         'smallpen': 'BP_PL_Crafting_Station_AnimalPen_Small',
+                         'wheel': 'BP_PL_CraftingStation_WheelOfPain',
+                         'plinth': 'BP_PL_Trophy_IronPlinth',
+                         't2tannertable': 'BP_PL_WorkStation_Tanner_T2_C'}
+        try:
+            search_term = valid_options[target_object]
+        except KeyError:
+            for key in valid_options:
+                key_str += f'{key}|'
+            key_str = key_str[:-1]
+            await ctx.reply(f'Invalid option. Use `v/lo {key_str}`')
+            return
+
+        try:
+            float(size)
+            if 0.3 <= size <= 1.5:
+                size = round(size,2)
+                pass
+            else:
+                await ctx.reply(f'Size must be a value between 0.3 and 1.5')
+                return
+        except ValueError:
+            await ctx.reply(f'Size must be a value between 0.3 and 1.5')
+            return
+
+        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
+        cur = con.cursor()
+
+        cur.execute(f'select x, y from online_character_info '
+                    f'where char_id = {character.id} limit 1')
+        results = cur.fetchone()
+
+        con.commit()
+        con.close()
+
+        if results:
+            x_coord, y_coord = results
+
+        clan_id, clan_name = get_clan(character)
+        if not clan_id:
+            clan_id = character.id
+            clan_name = character.char_name
+
+        where_clause = f'where class like \'%{search_term}%\' and owner_id = {clan_id} '
+        join_clause = f'left join buildings on actor_position.id = buildings.object_id '
+
+        results = runRcon(f'sql select id, class, x, y, '
+                          f'((x - {x_coord}) * (x - {x_coord})) + ((y - {y_coord}) * (y- {y_coord})) as distance from actor_position '
+                          f'{join_clause}{where_clause}order by distance asc limit 1')
+        # print(f'{results.output}')
+        results.output.pop(0)
+        if not results.output:
+            await ctx.reply(f'No matching object found.')
+            return
+        for record in results.output:
+            # match = re.search(r'#\d+\s+(\d+)\s+[|]\s+(.+)\s+[|]\s+(\d+.\d+)\s+[|]\s+(\d+.\d+)\s+[|]\s+(\d+.\d+)', record)
+            match = re.search(r'\d+\s+(\d+)\s+[|]\s+([a-zA-Z0-9\/_\.]+)\s+[|]\s+([\-\.\d]+)\s+[|]\s+([\-\.\d]+)\s+[|]\s+([\-\.\d]+)',
+                              record)
+            print(f'{match.group(1)} {match.group(2)} {match.group(3)} {match.group(4)} {match.group(5)}')
+            object_id, class_name, x_result, y_result, distance = match.groups()
+
+        sizechange_price = get_bot_config(f'sizechange_price')
+
+        await ctx.reply(f'The bot sees your location as: `{x_coord} {y_coord}`\n\n'
+                        f'**Found object:**\nid: `{object_id}`\nclass: `{class_name}`\n'
+                        f'x-coordinate: `{x_result}`\ny-coordinate: `{y_result}`\n'
+                        f'owned by: `{clan_id}` Owner Name: `{clan_name}`\n\n'
+                        f'If this is the object you want to resize, copy/paste the following template into  <#{SUPPORT_CHANNEL}> to request a size change:\n'
+                        f'```\n__Size Change Request__\nOwner: `{clan_id}` | `{character.char_name}` (`{clan_name}`)\nObject Type: `{class_name}`\n'
+                        f'Object ID: `{object_id}`\nSize: `{size}`\n\n'
+                        f'`update actor_position set sx = {size}, sy = {size}, sz = {size} where id in ({object_id});`\n'
+                        f'`v/tx <@{character.discord_id}> SizeChange {sizechange_price}` ```')
+        return
+
+        await ctx.reply(f'The bot sees your location as: '
+                        f'`TeleportPlayer {results[0]} {results[1]} {results[2]}`')
+        return
+
     @commands.command(name='clearmyquests', aliases=['questclear', 'questfix'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
@@ -539,10 +651,10 @@ class Utilities(commands.Cog):
         else:
             await ctx.reply(f'No under-mesh thrall deaths found matching `{owner}`')
 
-    @commands.command(name='locateobject', aliases=['lo'])
-    @commands.has_any_role('Outcasts')
+    @commands.command(name='adminlocateobject', aliases=['adminlo'])
+    @commands.has_any_role('Moderator')
     @commands.check(check_channel)
-    async def locateobject(self, ctx, x_coord: str, y_coord: str, owner: int = None, search:str = '', pet = False):
+    async def adminlocateobject(self, ctx, x_coord: str, y_coord: str, owner: int = None, search:str = '', pet = False):
         """
 
         Parameters
@@ -606,6 +718,44 @@ class Utilities(commands.Cog):
                         f'distance: `{distance}`\nowned by: `{clan_id}` name: `{clan_name}`\n\n'
                         f'If this is correct, run the command again, adding `confirm`')
         return
+
+    @commands.command(name='itemlookup')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
+    async def itemlookup(self, ctx, search_term: str, confirm: str = ''):
+        """
+
+        Parameters
+        ----------
+        ctx
+        search_term
+        confirm
+
+        Returns
+        -------
+
+        """
+        output_string = ''
+
+        if len(search_term) < 4:
+            if 'confirm' in confirm:
+                pass
+            else:
+                await ctx.reply(f'This may return a lot of results, are you sure? add `confirm`')
+                return
+
+        query = f'select template_id, name from cust_item_xref where name like \'%{search_term}%\''
+        output_list = db_query(False, f'{query}')
+        print(output_list)
+        if output_list:
+            for item in output_list:
+                output_string += f'`{item[0]}` `{item[1]}`\n'
+
+            await ctx.reply(f'Found `{len(output_list)}` items matching `{search_term}`.\n{output_string}')
+            return
+        else:
+            await ctx.reply(f'No results for `{search_term}` found.')
+            return
 
     @commands.command(name='test1')
     @commands.has_any_role('Admin', 'Moderator')

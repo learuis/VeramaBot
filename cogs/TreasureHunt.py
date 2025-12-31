@@ -133,9 +133,9 @@ def treasure_portal(bonus):
         # portal_targets = db_query(False, f'select vault_id, vault_name, x, y, z '
         #                                  f'from treasure_portal_locations where last_visited < {last_restart} '
         #                                  f'order by random() limit 1 ')
-        portal_targets = dq_query(False, f'select * from ( '
+        portal_targets = db_query(False, f'select * from ( '
                                          f'select vault_id, vault_name, x, y, z from treasure_portal_locations '
-                                         f'where last_visited < 1765351642 order by last_visited asc limit 4 ) '
+                                         f'where last_visited < {last_restart} order by last_visited asc limit 4 ) '
                                          f'order by random() limit 1')
         if portal_targets:
             portal_targets = flatten_list(portal_targets)
@@ -191,9 +191,10 @@ def grant_treasure_rewards(character, target_name, bonus, daily=False):
                 # add logic here to give bulk eldarium instead
                 # bonus / 10
                 eldarium_payout = random.randint(int(1), treasure_eldarium_max) * (5 - category) + (bonus / 10)
-                total_payout += eldarium_payout
+                total_payout += int(eldarium_payout)
                 reward_message += f'`Decaying Eldarium x {int(eldarium_payout)}` | '
-
+                # this causes classes to get shuffled
+                
     if daily:
         reward_list.append(alternate_reward)
 
@@ -279,7 +280,7 @@ class TreasureHunt(commands.Cog):
         # target = int(get_bot_config(f'current_treasure_location'))
         treasure_target = get_treasure_target(character)
         if not treasure_target:
-            await ctx.reply(f'You don\'t know where any treasure is buried! Visit Satiah at the Sinkhole to get a location!')
+            await ctx.reply(f'You don\'t know where any treasure is buried! Visit the Profession Hub at the Sinkhole to get a location!')
             return
 
         locs = db_query(False, f'select location_name, x, y, radius '

@@ -56,7 +56,7 @@ class Reroll(commands.Cog):
             return
 
         points = get_prestige_points(character)
-        if points < int(f'prestige_cap'):
+        if points < int(get_bot_config('prestige_cap')):
             query_string = (f'insert or replace into prestige (discord_id, reason, points) values ({character.discord_id}, '
                             f'\'Season {CURRENT_SEASON} Keystone Points\', {points_to_give})')
             print(query_string)
@@ -66,7 +66,7 @@ class Reroll(commands.Cog):
             await ctx.reply(f'Granted {points_to_give} Prestige points to `{character.char_name}`!')
             return
         else:
-            await ctx.reply(f'`{character.char_name}` already has the maximum number of prestige points allowd this season!')
+            await ctx.reply(f'`{character.char_name}` already has the maximum number of prestige points allowed this season!')
             return
 
     @commands.command(name='newgameplus', aliases=['ng+', 'newgame+'])

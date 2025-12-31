@@ -121,11 +121,12 @@ def mark_technique_as_learned(character, weapon):
 
 async def give_profession_xp(char_id, char_name, profession, tier, bot):
     profession_xp_mult = int(get_bot_config(f'{profession.casefold()}_xp_multiplier'))
+    global_profession_xp_mult = int(get_bot_config(f'global_profession_xp_mult'))
 
     if not tier:
-        earned_xp = profession_xp_mult
+        earned_xp = profession_xp_mult * global_profession_xp_mult
     else:
-        earned_xp = tier * profession_xp_mult
+        earned_xp = tier * profession_xp_mult * global_profession_xp_mult
 
     db_query(True,
              f'update character_progression set current_experience = ( '
@@ -248,7 +249,7 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
     profession_community_goal_desc = str(get_bot_config(f'profession_community_goal_desc'))
     next_update = last_profession_update + profession_update_interval
     profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist', 'Scavenger']
-    faction_list = ['Provisioner', 'Slayer', 'Treasure']
+    faction_list = ['Provisioner', 'Slayer', 'Treasure', 'Conjurer', 'Reliquarian']
     count = 0
     item_id_string = ''
     item_name_string = ''
@@ -366,7 +367,7 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
 
         query = f'select char_id, current_experience from character_progression ' \
                 f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' ' \
-                f'order by current_experience desc, char_id limit 3'
+                f'order by current_experience desc, char_id limit 5'
         # print(f'{query}')
         profession_leaders = db_query(False, f'{query}')
         # print(f'{profession_leaders}')
@@ -383,7 +384,7 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
                     char_details = flatten_list(char_details)
                     char_name = char_details[1]
 
-                leader_outputString += f'`{char_name}` - `{character[1]}` | '
+                leader_outputString += f'{char_name} - {character[1]} | '
                 # print(f'outputstring is {outputString}')
 
     # print(f'{faction_list}')
@@ -392,7 +393,7 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
 
         query = (f'select char_id, lifetime_favor from factions where season = {CURRENT_SEASON} '
                  f'and faction like \'%{faction.lower()}%\' group by char_id order by lifetime_favor desc, char_id '
-                 f'limit 3')
+                 f'limit 5')
         faction_leaders = db_query(False, f'{query}')
         # print(f'{faction_leaders}')
 
@@ -410,7 +411,7 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
                     char_details = flatten_list(char_details)
                     char_name = char_details[1]
 
-                leader_outputString += f'`{char_name}` - `{character[1]}` | '
+                leader_outputString += f'{char_name} - {character[1]} | '
                 # print(f'outputstring is {len(outputString)} characters')
 
             # print(f'end of loop')
@@ -1039,7 +1040,10 @@ class Professions(commands.Cog):
         ----------
         ctx
         enchant
-            scorpion | queen | specter
+            scorpion | queen | specter |
+            agility | encumbrance | stamina |
+            strength | health
+
         confirm
             Type confirm to enchant a weapon
 
@@ -1048,9 +1052,14 @@ class Professions(commands.Cog):
 
         """
         enchant = enchant.lower()
-        valid_enchants = ['reaper', 'queen', 'specter']
-        enchant_names = {'reaper': 'Reaper Poison', 'queen': 'Scorpion Queen Poison', 'specter': 'Specter Coating'}
-        id_mapping = {'reaper': 53201, 'queen': 53203, 'specter': 92127}
+        valid_enchants = ['reaper', 'queen', 'specter', 'agility', 'encumbrance', 'stamina', 'strength', 'health']
+        charged_enchants = ['reaper', 'queen', 'specter']
+        permanent_enchants = ['agility', 'encumbrance', 'stamina', 'strength', 'health']
+        enchant_names = {'reaper': 'Reaper Poison', 'queen': 'Scorpion Queen Poison', 'specter': 'Specter Coating',
+                         'agility': 'Bile of Agility', 'encumbrance': 'Bile of Encumbrance', 'stamina': 'Bile of Grit',
+                         'strength': 'Bile of Strength', 'health': 'Bile of Health'}
+        id_mapping = {'reaper': 53201, 'queen': 53203, 'specter': 92127, 'agility': 301, 'encumbrance': 303, 'stamina': 304,
+                         'strength': 305, 'health': 306}
 
         character = is_registered(ctx.author.id)
         enchant_cost = int(get_bot_config('enchant_cost'))
@@ -1073,26 +1082,49 @@ class Professions(commands.Cog):
         enchant_value = enchant_names[enchant]
 
         if 'confirm' not in confirm.lower():
-            await ctx.reply(
-                f'This command will apply `1000 charges of {enchant_value}` to the weapon in hotbar slot 1.'
-                f'\n`{enchant_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
-                f'inventory while this command is processing, or it may fail. \nNo refunds will be '
-                f'given for user error! \n\nIf you are sure you want to proceed, '
-                f'use `v/enchant {enchant} confirm`')
-            return
+            if enchant in charged_enchants:
+                await ctx.reply(
+                    f'This command will apply `1000 charges of {enchant_value}` to the weapon in hotbar slot 1.'
+                    f'\n`{enchant_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                    f'inventory while this command is processing, or it may fail. \nNo refunds will be '
+                    f'given for user error! \n\nIf you are sure you want to proceed, '
+                    f'use `v/enchant {enchant} confirm`')
+                return
+            elif enchant in permanent_enchants:
+                await ctx.reply(
+                    f'This command will apply `{enchant_value}` to the weapon in hotbar slot 1. This is a permanent '
+                    f'enchant that applies a food buff when the weapon is wielded. It __does not stack__ with and '
+                    f'will overwrite food buffs.'
+                    f'\n`{enchant_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                    f'inventory while this command is processing, or it may fail. \nNo refunds will be '
+                    f'given for user error! \n\nIf you are sure you want to proceed, '
+                    f'use `v/enchant {enchant} confirm`')
+                return
+            else:
+                await ctx.reply(f'This should never happen. HALP Verama!')
+                return
 
         balance = get_balance(character)
         if balance >= enchant_cost:
             message = await ctx.reply(f'Enchanting weapon in hotbar slot 1, please wait... '
                                       f'Do not move the item until the process is complete!')
             eld_transaction(character, f'Weapon Enchant Cost', -enchant_cost)
-            run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 51 1000 2')
-            run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 52 1000 2')
-            run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 50 {id_value} 2')
+            if enchant in charged_enchants:
+                run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 51 1000 2')
+                run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 52 1000 2')
+                run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 50 {id_value} 2')
+                await message.edit(content=f'`{character.char_name}` enchanted the weapon in hotbar slot 1 '
+                                           f'with `1000 charges of {enchant_value}`!\n'
+                                           f'\nConsumed `{enchant_cost}` Decaying Eldarium')
+            elif enchant in permanent_enchants:
+                run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 63 {id_value} 2')
+                await message.edit(content=f'`{character.char_name}` enchanted the weapon in hotbar slot 1 '
+                                           f'with `{enchant_value}`!\n'
+                                           f'\nConsumed `{enchant_cost}` Decaying Eldarium')
+            else:
+                await message.edit(content=f'This should never happen. HALP Verama!')
+                return
 
-            await message.edit(content=f'`{character.char_name}` enchanted the weapon in hotbar slot 1 '
-                                       f'with `1000 charges of {enchant_value}`!\n'
-                                       f'\nConsumed `{enchant_cost}` Decaying Eldarium')
         else:
             await ctx.reply(f'Not enough materials to enchant a weapon! Available decaying eldarium: `{balance}`, '
                             f'Needed: `{enchant_cost}`')
@@ -1102,18 +1134,18 @@ class Professions(commands.Cog):
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def research(self, ctx, sigil: str = '', amount: int = 0, confirm: str = ''):
-        """ - Researches a specified sigil for 100 Decaying Eldarium
+        """ - Researches a specified sigil for 200 Decaying Eldarium
 
         Parameters
         ----------
         ctx
         sigil
             bat | demon | outsider | jhil | fiend | drowned | twice-drowned | goblin |
-            gremlin | harpy | serpent | snakemen | wolf-brother | wolfmen
+            gremlin | harpy | serpent | snakemen | wolf-brother | wolfmen | all
         amount
             How many sigils to produce
         confirm
-            Type confirm to enchant a weapon
+            Type confirm to research the sigils
 
         Returns
         -------
@@ -1121,7 +1153,7 @@ class Professions(commands.Cog):
         """
         sigil = sigil.lower()
         valid_sigils = ['bat', 'demon', 'outsider', 'jhil', 'fiend', 'drowned', 'twice-drowned', 'goblin',
-                        'gremlin', 'harpy', 'serpent', 'snakemen', 'wolf-brother', 'wolfmen']
+                        'gremlin', 'harpy', 'serpent', 'snakemen', 'wolf-brother', 'wolfmen', 'all']
         sigil_names = {'bat': 'Sigil of the Bat',
                        'demon': 'Sigil of the Demon',
                        'outsider': 'Sigil of the Outsider',
@@ -1167,7 +1199,7 @@ class Professions(commands.Cog):
         if sigil not in valid_sigils:
             await ctx.reply(f'You must specify a valid sigil to research! Use `bat`, `demon`, `outsider`, `jhil`, '
                             f'`fiend`, `drowned`, `twice-drowned`, `goblin`, `gremlin`, `harpy`, `serpent`, '
-                            f'`snakemen`, `wolf-brother`, `wolfmen`')
+                            f'`snakemen`, `wolf-brother`, `wolfmen`, `all`')
             return
 
         if amount == 0:
@@ -1180,10 +1212,14 @@ class Professions(commands.Cog):
             await ctx.reply(f'You can only research sigils in whole numbers greater than zero!')
             return
 
-        id_value = id_mapping[sigil]
-        sigil_value = sigil_names[sigil]
-
-        final_cost = amount * research_cost
+        if sigil != 'all':
+            id_value = id_mapping[sigil]
+            sigil_value = sigil_names[sigil]
+            final_cost = amount * research_cost
+        else:
+            id_value = 0
+            sigil_value = 'all'
+            final_cost = amount * research_cost * len(id_mapping)
 
         if 'confirm' not in confirm.lower():
             await ctx.reply(
@@ -1196,7 +1232,11 @@ class Professions(commands.Cog):
         if balance >= final_cost:
             message = await ctx.reply(f'Researching sigils... please wait!')
             eld_transaction(character, f'Sigil Research Cost: {sigil_value}', -final_cost)
-            add_reward_record(character.id, id_value, amount, f'Archivist - Research {sigil_value}')
+            if sigil_value == 'all':
+                for sigil_name in sigil_names.keys():
+                    add_reward_record(character.id, id_mapping[sigil_name], amount, f'Archivist - Research All Sigils')
+            else:
+                add_reward_record(character.id, id_value, amount, f'Archivist - Research {sigil_value}')
 
             await message.edit(content=f'`{character.char_name}` has researched `{amount}x {sigil_value}`! '
                                        f'Use `v/claim` to receive them.'
@@ -1449,12 +1489,37 @@ class Professions(commands.Cog):
     @commands.has_any_role('Moderator')
     @commands.check(check_channel)
     async def checkbond(self, ctx):
-
-        results = runRcon(f'sql select character_stats.*, substr(actor_position.class,instr(actor_position.class,\'.\')+1) '
+        splitOutput = ''
+        once = True
+        results = runRcon(f'sql select character_stats.*, substr(actor_position.class,instr(actor_position.class,\'.\')+1) as short_class '
                           f'from actor_position left join character_stats on actor_position.id = character_stats.char_id '
                           f'where stat_type = 1 and stat_id = 4 and stat_value > 3.0')
         if results:
-            await ctx.reply(f'{results.output}')
+            message = await ctx.reply(f'Working on it...')
+            print(len(results.output))
+            print(results.output)
+            outputString = results.output
+
+            if outputString:
+                print(len(str(outputString)))
+                if len(str(outputString)) > 1500:
+                    for items in outputString:
+                        splitOutput += f'{str(items)}\n'
+                        if len(str(splitOutput)) > 1500:
+                            if once:
+                                once = False
+                                await message.edit(content=str(splitOutput))
+                                splitOutput = '(continued)\n'
+                            else:
+                                await ctx.send(str(splitOutput))
+                                splitOutput = '(continued)\n'
+                        else:
+                            continue
+                    await ctx.send(str(splitOutput))
+                else:
+                    await message.edit(content=f'{outputString}')
+                    return
+            return
         else:
             await ctx.reply(f'No results found.')
         return
@@ -1463,13 +1528,13 @@ class Professions(commands.Cog):
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def mend(self, ctx, amount:int = 0, confirm: str = ''):
-        """ - Heals followers
+        """ - Heals followers, does not modify Max HP
 
         Parameters
         ----------
         ctx
         amount
-            How much HP to heal
+            How much HP to heal (does not increase max!)
         confirm
             Type confirm to heal the follower
 
@@ -1495,7 +1560,7 @@ class Professions(commands.Cog):
             await ctx.reply(f'Healing amount must be greater than `0`.')
             return
         elif amount > mend_cap:
-            await ctx.reply(f'Healing amount must be less than pr equal to `{mend_cap}`.')
+            await ctx.reply(f'Healing amount must be less than or equal to `{mend_cap}`.')
             return
 
         calculated_cost = int(amount / mend_cost)
@@ -1504,6 +1569,7 @@ class Professions(commands.Cog):
             await ctx.reply(
                 f'This command heal your current followers to `{amount}`. '
                 f'If you have War Party, this will heal both followers at once.\n'
+                f'**This does not increase their maximum HP!**\n'
                 f'\n`{calculated_cost} Decaying Eldarium` will be consumed. \n\n'
                 f'If you are sure you want to proceed, '
                 f'use `v/mend {amount} confirm`')
@@ -1761,6 +1827,9 @@ class Professions(commands.Cog):
         """
         professioner = ProfessionTier()
         character = is_registered(ctx.author.id)
+        splitOutput = ''
+        once = True
+
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
@@ -1775,10 +1844,114 @@ class Professions(commands.Cog):
             character = get_single_registration_new(char_id=professioner.char_id)
             outputString += f'<@{character.discord_id}> - {professioner.profession} T{professioner.tier}\n'
 
-        await message.edit(content=f'{outputString}')
+        if outputString:
+            if len(outputString) > 10000:
+                await message.edit(content=f'Too many!')
+                return
+            if len(outputString) > 1800:
+                workList = outputString.splitlines()
+                for items in workList:
+                    splitOutput += f'{str(items)}\n'
+                    if len(str(splitOutput)) > 1800:
+                        if once:
+                            once = False
+                            await message.edit(content=str(splitOutput))
+                            splitOutput = '(continued)\n'
+                        else:
+                            await ctx.send(f'@silent {str(splitOutput)}')
+                            splitOutput = '(continued)\n'
+                    else:
+                        continue
+                await ctx.send(f'@silent {str(splitOutput)}')
+            else:
+                await message.edit(content=str(outputString))
+        else:
+            await message.edit(content=f'No matching entries found.')
+
+        # await message.edit(content=f'{outputString}')
 
         return
 
+    @commands.command(name='leaderboard', aliases=['lb', 'leaderboards'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def leaderboard(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+
+        profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist', 'Scavenger']
+        faction_list = ['Provisioner', 'Slayer', 'Treasure', 'Conjurer', 'Reliquarian']
+        leader_outputString = f''
+
+        for item in profession_list:
+
+            query = f'select char_id, current_experience from character_progression ' \
+                    f'where season = {CURRENT_SEASON} and profession like \'%{item}%\' ' \
+                    f'order by current_experience desc, char_id limit 5'
+            # print(f'{query}')
+            profession_leaders = db_query(False, f'{query}')
+            # print(f'{profession_leaders}')
+            if not profession_leaders:
+                continue
+            else:
+                leader_outputString += f'\n__{item} Leaderboard:__\n| '
+
+                for character in profession_leaders:
+                    char_details = get_registration('', int(character[0]))
+                    if not char_details:
+                      char_name = f'DELETED'
+                    else:
+                        char_details = flatten_list(char_details)
+                        char_name = char_details[1]
+
+                    leader_outputString += f'`{char_name}` - `{character[1]}` | '
+                    # print(f'outputstring is {outputString}')
+
+        print(len(leader_outputString))
+        await ctx.reply(f'{leader_outputString}')
+        leader_outputString = f''
+
+        # print(f'{faction_list}')
+        for faction in faction_list:
+            # print(f'{faction}')
+
+            query = (f'select char_id, lifetime_favor from factions where season = {CURRENT_SEASON} '
+                     f'and faction like \'%{faction.lower()}%\' group by char_id order by lifetime_favor desc, char_id '
+                     f'limit 5')
+            faction_leaders = db_query(False, f'{query}')
+            # print(f'{faction_leaders}')
+
+            if not faction_leaders:
+                continue
+            else:
+                leader_outputString += f'\n__{faction} Leaderboard:__\n| '
+
+                for character in faction_leaders:
+                    char_details = get_registration('', int(character[0]))
+                    # print(char_details)
+                    if not char_details:
+                      char_name = f'DELETED'
+                    else:
+                        char_details = flatten_list(char_details)
+                        char_name = char_details[1]
+
+                    leader_outputString += f'`{char_name}` - `{character[1]}` | '
+                    # print(f'outputstring is {len(outputString)} characters')
+
+                # print(f'end of loop')
+        print(len(leader_outputString))
+        await ctx.reply(f'{leader_outputString}')
+        # else:
+        #     await ctx.reply(f'{leader_outputString}')
+        #     return
 
 @commands.Cog.listener()
 async def setup(bot):
