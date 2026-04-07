@@ -140,6 +140,10 @@ def delete_inn(inn_id):
     db_query(True, f'delete from inn_locations where inn_id = \'{inn_id}\'')
     return
 
+def modify_inn(inn_id, inn_name):
+    db_query(True, f'update inn_locations set inn_name = \'{inn_name}\' where inn_id = \'{inn_id}\'')
+    return
+
 def increment_inn_teleport_counter(inn: Inn):
     db_query(True, f'update inn_locations set teleport_counter = teleport_counter + 1 where inn_id = \'{inn.inn_id}\'')
     return
@@ -166,6 +170,49 @@ def inn_transaction(inn, character, cost, revenue, bonus_mult):
 class InnSystem(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
+
+    @commands.command(name='renameinn')
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
+    async def renameinn(self, ctx, new_name: str = ''):
+        """ - Renames your inn
+
+        Parameters
+        ----------
+        ctx
+        new_name
+            The new name for the inn
+
+        Returns
+        -------
+
+        """
+
+        character = is_registered(ctx.author.id)
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        clan_id, clan_name = get_clan(character)
+        if not clan_id:
+            await ctx.reply(f'`{character.char_name}` must be in a clan to rename an inn!')
+            return
+
+        if not new_name:
+            await ctx.reply(f'Provide the new name for the inn, surrounded by "double quotes"')
+            return
+
+        inn_id = hashlib.md5(str(clan_id).encode('utf-8')).hexdigest()
+        old_inn = get_inn_details(inn_id)
+
+        if inn_id:
+            modify_inn(old_inn.inn_id,new_name)
+            await ctx.reply(f'`{old_inn.name}` owned by `{character.char_name}` has been renamed to `{new_name}`!')
+            return
+        else:
+            await ctx.reply(f'There is no inn registered to `{character.char_name}`!')
+            return
 
     @commands.command(name='closeinn')
     @commands.check(check_channel)
@@ -216,7 +263,7 @@ class InnSystem(commands.Cog):
     @commands.command(name='establishinn', aliases=['setupinn'])
     @commands.check(check_channel)
     @commands.has_any_role('Outcasts')
-    async def establishinn(self, ctx, inn_name: str):
+    async def establishinn(self, ctx, inn_name: str, *args):
         """ - Establishes an inn at your current location
 
         Parameters
@@ -224,18 +271,25 @@ class InnSystem(commands.Cog):
         ctx
         inn_name
             Name of the inn in double quotes. No special characters!
+        args
+            Surround inn name in "double quotes"!
 
         Returns
         -------
 
         """
-        inn_name = re.sub(r'[^a-zA-Z0-9 -]', '', inn_name)
-
         character = is_registered(ctx.author.id)
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
+
+        if args:
+            await ctx.reply(f'Inn names with spaces must be surrounded with "double quotes"!')
+            return
+        else:
+            inn_name = re.sub(r'[^a-zA-Z0-9 -]', '', inn_name)
+
 
         rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:

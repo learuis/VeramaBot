@@ -8,6 +8,7 @@ from discord.ext import commands
 from discord.ext.commands import Bot
 from discord.ext import tasks
 from dotenv import load_dotenv
+from datetime import datetime
 
 from cogs.Professions import updateProfessionBoard, LEADERBOARD_MESSAGE
 from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info, treasure_broadcast
@@ -137,15 +138,15 @@ async def onlineCharacterAlert():
 async def liveStatus():
 
     channel = bot.get_channel(STATUS_CHANNEL)
-    message = await channel.fetch_message(STATUS_MESSAGE)
 
     try:
+        message = await channel.fetch_message(STATUS_MESSAGE)
         await editStatus(message, bot)
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented status updates.')
         return
-    except Exception:
-        print(f'liveStatus ended with an exception')
+    except Exception as e:
+        print(f'liveStatus ended with an exception {type(e)}')
         return
 
 @tasks.loop(minutes=1)

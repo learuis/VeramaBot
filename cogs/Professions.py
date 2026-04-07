@@ -29,6 +29,12 @@ class ProfessionTier:
         self.current_experience = 0
         self.turn_ins_this_cycle = 0
 
+class SlayerTier:
+    def __init__(self):
+        self.char_id = 0
+        self.faction = ''
+        self.lifetime_favor = 0
+
 class MonsterWeapon:
     def __init__(self):
         self.type = ''
@@ -1871,6 +1877,82 @@ class Professions(commands.Cog):
         # await message.edit(content=f'{outputString}')
 
         return
+
+    @commands.command(name='healthbar', aliases=['bar'])
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def healthbar(self, ctx, option: str = None):
+        """
+        - Sets  your healthbar, specify profession or slayer
+        Parameters
+        ----------
+        ctx
+        option
+            slayer | profession
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        professioner = ProfessionTier()
+        slayer = SlayerTier()
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        if not option:
+            await ctx.reply(f'You must specify `profession` or `slayer` to set your health bar!')
+            return
+
+        if option.lower() == 'profession':
+            results = db_query(False, f'select char_id, profession, tier from character_progression '
+                                      f'where season = {CURRENT_SEASON} '
+                                      f'and tier >= 4 '
+                                      f'and char_id = {character.id} '
+                                      f'limit 1')
+            if results:
+                for result in results:
+                    (professioner.char_id, professioner.profession, professioner.tier) = result
+                run_console_command_by_name(character.char_name, f'setstat HealthBarStyle 4')
+                await ctx.reply(f'Activated Yellow Border (Profession) health bar for `{character.char_name}` successfully!')
+                return
+            else:
+                await ctx.reply(f'You are not high enough tier to activate a `{option}` health bar!')
+                return
+
+        elif option.lower() == 'slayer':
+            results = db_query(False, f'select char_id, faction, lifetime_favor from factions '
+                                      f'where season = {CURRENT_SEASON} '
+                                      f'and faction = \'slayer\' '
+                                      f'and char_id = {character.id} '
+                                      f'limit 1')
+            if results:
+                for result in results:
+                    (slayer.char_id, slayer.faction, slayer.lifetime_favor) = result
+                slayer_t1 = int(get_bot_config(f'beast_slayer_t1_favor'))
+                slayer_t2 = int(get_bot_config(f'beast_slayer_t2_favor'))
+                slayer_t3 = int(get_bot_config(f'beast_slayer_t3_favor'))
+                if int(slayer.lifetime_favor) >= slayer_t3:
+                    run_console_command_by_name(character.char_name, f'setstat HealthBarStyle 3')
+                    await ctx.reply(f'Activated 3 Skull (Slayer) health bar for `{character.char_name}` successfully!')
+                    return
+                elif int(slayer.lifetime_favor) >= slayer_t2:
+                    run_console_command_by_name(character.char_name, f'setstat HealthBarStyle 2')
+                    await ctx.reply(f'Activated 2 Skull (Slayer) health bar for `{character.char_name}` successfully!')
+                    return
+                elif int(slayer.lifetime_favor) >= slayer_t1:
+                    run_console_command_by_name(character.char_name, f'setstat HealthBarStyle 1')
+                    await ctx.reply(f'Activated 1 Skull (Slayer) health bar for `{character.char_name}` successfully!')
+                    return
+            else:
+                await ctx.reply(f'You do not have enough renown to activate a `{option}` health bar!')
+                return
+
+        else:
+            await ctx.reply(f'Invalid option selected. use `slayer` or `profession`.')
+            return
 
     @commands.command(name='leaderboard', aliases=['lb', 'leaderboards'])
     @commands.has_any_role('Outcasts')

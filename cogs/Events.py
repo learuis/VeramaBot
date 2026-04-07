@@ -6,7 +6,7 @@ import os
 import discord
 from discord.ext import commands
 from functions.common import custom_cooldown, is_registered, get_rcon_id, set_bot_config, get_bot_config, \
-    no_registered_char_reply, check_channel, flatten_list, eld_transaction, get_balance
+    no_registered_char_reply, check_channel, flatten_list, eld_transaction, get_balance, int_epoch_time
 from functions.externalConnections import runRcon, notify_all, db_query
 
 from dotenv import load_dotenv
@@ -85,10 +85,12 @@ class Events(commands.Cog):
         """
         if location == '0':
             set_bot_config('event_location', str(location))
+            set_bot_config(f'EventTeleport', f'0')
             await ctx.send(f'Event Teleport Flag has been disabled!')
         else:
             currentSetting = set_bot_config('event_location', str(location))
-            await ctx.send(f'Event Teleport Flag has been enabled, destination: {currentSetting}!')
+            set_bot_config(f'EventTeleport', f'{int_epoch_time() + 7200}')
+            await ctx.send(f'Event Teleport Flag has been enabled for `2 hours`, destination: {currentSetting}!')
 
     @commands.command(name='checkdragon')
     @commands.has_any_role('Moderator')
@@ -263,7 +265,8 @@ class Events(commands.Cog):
         """
 
         location = get_bot_config('event_location')
-        if location == '0':
+        if int(get_bot_config(f'EventTeleport')) < int_epoch_time():
+        # if location == '0':
             await ctx.reply(f'This command can only be used during an event!')
             return
 

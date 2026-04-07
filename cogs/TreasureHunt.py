@@ -304,6 +304,8 @@ class TreasureHunt(commands.Cog):
 
         if nwPoint[0] <= digger_x <= sePoint[0] and nwPoint[1] <= digger_y <= sePoint[1]:
 
+            modify_favor(character.id, 'treasure', favor_to_give)
+
             portal_result, portal = treasure_portal(bonus)
             updated_portal_chance = int(get_bot_config('treasure_portal_chance'))
             if portal_result:
@@ -323,7 +325,7 @@ class TreasureHunt(commands.Cog):
 
                 bonus, bonusMessage = calculate_bonus(character.id, daily)
                 reward_list = grant_treasure_rewards(character, target_name, bonus)
-                modify_favor(character.id, 'treasure', favor_to_give)
+
 
                 run_console_command_by_name(character.char_name, f'testFIFO 7 Treasure! Use v/claim to get rewards')
 

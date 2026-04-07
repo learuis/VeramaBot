@@ -5,7 +5,7 @@ from discord.ext import commands
 
 from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config, \
     no_registered_char_reply, check_channel, eld_transaction, get_balance, sufficient_funds, transform_coordinates, \
-    run_console_command_by_name
+    run_console_command_by_name, int_epoch_time
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -170,8 +170,9 @@ class Warps(commands.Cog):
                     return False
                 else:
 
-                    location = get_bot_config('event_location')
-                    if location != '0':
+                    # location = get_bot_config('event_location')
+                    # if location != '0':
+                    if int(get_bot_config(f'EventTeleport')) >= int_epoch_time():
                         home_cost = 0
                         pass
                         # an event is active, do not charge.
@@ -214,7 +215,7 @@ class Warps(commands.Cog):
 
                 warp_entry = flatten_list(output)
                 (description, x, y, z) = warp_entry
-                run_console_command_by_name(character.char_name, f'TeleportPlayer {target_x} {target_y} {target_z}')
+                run_console_command_by_name(character.char_name, f'TeleportPlayer {x} {y} {z}')
                 await ctx.reply(f'Rescued `{name}` from the floor, teleported to `{description}`.')
                 return False
 

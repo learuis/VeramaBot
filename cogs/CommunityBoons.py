@@ -360,7 +360,8 @@ class CommunityBoons(commands.Cog):
                          ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier', 'Skull of Yog'],
                          ['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier', 'Heart of Nordheimer'],
                          ['Finesse (Stamina Cost)', 'StaminaCostMultiplier', 'Molten Heart'],
-                         ['Returning (v/home Discount)', 'BoonOfReturning', 'Eye of Set'],]
+                         ['Returning (v/home Discount)', 'BoonOfReturning', 'Eye of Set'],
+                         ['Event Teleport', 'EventTeleport', 'N/A'],]
 
         #['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],
         #['Preservation (Item Spoil Rate)', 'ItemSpoilRateScale'],

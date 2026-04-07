@@ -303,7 +303,7 @@ class Admin(commands.Cog):
                 await member.add_roles(vet_role)
                 continue
 
-            await ctx.reply(f'New Vetarans: {new_vets}')
+            await ctx.reply(f'New Veterans: {new_vets}')
         return
 
     @commands.command(name='veteran', aliases=['vet', 'vets'])

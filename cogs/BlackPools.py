@@ -102,7 +102,7 @@ class BlackPools(commands.Cog):
                             '/Game/Systems/Building/Placeables/BP_PL_Statue_BlackPool_SilentLegion.BP_PL_Statue_BlackPool_SilentLegion_C':
                                 ['BlackPool_Boss_Silent_Legion_Warrior_Solo','BlackPool_Boss_Silent_Legion_Warrior_1',
                                  'BlackPool_Boss_Silent_Legion_Warrior_2','BlackPool_Boss_Silent_Legion_Warrior_3'],
-                            '/Game/Systems/Building/Placeables/BP_PL_Statue_BlackPool_SpiderOfLeng.BP_PL_Statue_BlackPool_SpiderOfLeng_C': 'BlackPool_Boss_SpiderOfLeng',
+                            '/Game/Systems/Building/Placeables/BP_PL_Statue_BlackPool_SpiderOfLeng.BP_PL_Statue_BlackPool_SpiderOfLeng_C': 'BlackPool_Boss_Spider_of_Leng',
                             '/Game/DLC/DLC_Siptah/Systems/Placeables/BP_VaultStatue1.BP_VaultStatue1_C': 'Wildlife_Siptah_DevolvedBatBoss',
                             '/Game/DLC/DLC_Siptah/Systems/Placeables/BP_VaultStatue2.BP_VaultStatue2_C': 'Wildlife_Siptah_DevolvedBirdBoss',
                             '/Game/DLC/DLC_Siptah/Systems/Placeables/BP_VaultStatue3.BP_VaultStatue3_C': 'Wildlife_Siptah_DevolvedDrownedBoss',

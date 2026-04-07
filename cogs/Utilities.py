@@ -75,6 +75,100 @@ class Utilities(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
+    @commands.command(name='barkeeper')
+    @commands.has_any_role('Moderator')
+    async def barkeeper(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        # query = (f'sql select \'TeleportPlayerExact \' || ap.x || \' \' || ap.y || \' \' || ap.z as TP '
+        #          f'from actor_position ap where ap.class like \'%barkeeper%\' '
+        #          f'and ( ( (x + 72484) * (x + 72484) + (y + 48923) * (y + 48923) ) <= 4000000) '
+        #          f'or ( (x + 225023) * (x + 225023) + (y + 107668) * (y + 107668) ) <= 4000000 '
+        #          f'or ( (x - 79674 ) * (x - 79674 ) + (y - 97265 ) * (y - 97265 ) ) <= 4000000 '
+        #          f'or ( (x + 97817) * (x + 97817) + (y - 16127) * (y - 16127) ) <= 4000000 '
+        #          f'or ( (x - 19780) * (x - 19780 ) + (y - 167375 ) * (y - 167375 ) ) <= 4000000 '
+        #          f'or ( (x - (-74956) ) * (x - (-74956) ) + (y - (209237) ) * (y - (209237) ) ) <= 4000000 '
+        #          f'or ( (x - (-41916) ) * (x - (-41916) ) + (y - (163761) ) * (y - (163761) ) ) <= 4000000 '
+        #          f'or ( (x - (70979) ) * (x - (70979) ) + (y - (234910) ) * (y - (234910) ) ) <= 4000000 '
+        #          f'or ( (x - (15517) ) * (x - (15517) ) + (y - (121419) ) * (y - (121419) ) ) <= 4000000 '
+        #          f'or ( (x - (81180) ) * (x - (81180) ) + (y - (172818) ) * (y - (172818) ) ) <= 4000000 '
+        #          f'or ( (x - (15730) ) * (x - (15730) ) + (y - (161356) ) * (y - (161356) ) ) <= 4000000 '
+        #          f'or ( (x - (-100212) ) * (x - (-100212) ) + (y - (24473) ) * (y - (24473) ) ) <= 4000000 '
+        #          f'or ( (x - (-14660) ) * (x - (-14660) ) + (y - (54857) ) * (y - (54857) ) ) <= 4000000 '
+        #          f'or ( (x - (-2590) ) * (x - (-2590) ) + (y - (94356) ) * (y - (94356) ) ) <= 4000000 '
+        #          f'or ( (x - (92860) ) * (x - (92860) ) + (y - (96662) ) * (y - (96662) ) ) <= 4000000 '
+        #          f'or ( (x - (92623) ) * (x - (92623) ) + (y - (140533) ) * (y - (140533) ) ) <= 4000000 '
+        #          f'or ( (x - (64504) ) * (x - (64504) ) + (y - (52837) ) * (y - (52837) ) ) <= 4000000 '
+        #          f'or ( (x - (127985) ) * (x - (127985) ) + (y - (156375) ) * (y - (156375) ) ) <= 4000000 '
+        #          f'or ( (x - (121219) ) * (x - (121219) ) + (y - (122648) ) * (y - (122648) ) ) <= 4000000 '
+        #          f'or ( (x - (180477) ) * (x - (180477) ) + (y - (102628) ) * (y - (102628) ) ) <= 4000000 '
+        #          f'or ( (x - (214243) ) * (x - (214243) ) + (y - (62534) ) * (y - (62534) ) ) <= 4000000 '
+        #          f'or ( (x - (262755) ) * (x - (262755) ) + (y - (17598) ) * (y - (17598) ) ) <= 4000000 '
+        #          f'or ( (x - (316207) ) * (x - (316207) ) + (y - (72432) ) * (y - (72432) ) ) <= 4000000 '
+        #          f'or ( (x - (-75306) ) * (x - (-75306) ) + (y - (-45341) ) * (y - (-45341) ) ) <= 4000000 '
+        #          f'or ( (x - (-162692) ) * (x - (-162692) ) + (y - (-47910) ) * (y - (-47910) ) ) <= 4000000 '
+        #          f'or ( (x - (-25704) ) * (x - (-25704) ) + (y - (-3144) ) * (y - (-3144) ) ) <= 4000000 '
+        #          f'or ( (x - (-53386) ) * (x - (-53386) ) + (y - (-17478) ) * (y - (-17478) ) ) <= 4000000 '
+        #          f'or ( (x - (-28271) ) * (x - (-28271) ) + (y - (-52575) ) * (y - (-52575) ) ) <= 4000000 '
+        #          f'or ( (x - (-218999) ) * (x - (-218999) ) + (y - (-114313) ) * (y - (-114313) ) ) <= 4000000 '
+        #          f'or ( (x - (-196341) ) * (x - (-196341) ) + (y - (-124761) ) * (y - (-124761) ) ) <= 4000000 )')
+
+        output_string = '__Found Barkeepers__\n'
+        barkeeper_list = []
+        query = (f'sql select \'TeleportPlayerExact \' || ap.x || \' \' || ap.y || \' \' || ap.z as TP '
+                 f'from actor_position ap where ap.class like \'%barkeeper%\' '
+                 f'and ( ( (x + 72484) * (x + 72484) + (y + 48923) * (y + 48923) ) <= 4000000 '
+                 f'or ( (x + 225023) * (x + 225023) + (y + 107668) * (y + 107668) ) <= 4000000 '
+                 f'or ( (x - 79674 ) * (x - 79674 ) + (y - 97265 ) * (y - 97265 ) ) <= 4000000 '
+                 f'or ( (x + 97817) * (x + 97817) + (y - 16127) * (y - 16127) ) <= 4000000 '
+                 f'or ( (x - 19780) * (x - 19780 ) + (y - 167375 ) * (y - 167375 ) ) <= 4000000 '
+                 f'or ( (x - (-74956) ) * (x - (-74956) ) + (y - (209237) ) * (y - (209237) ) ) <= 4000000 '
+                 f'or ( (x - (-41916) ) * (x - (-41916) ) + (y - (163761) ) * (y - (163761) ) ) <= 4000000 '
+                 f'or ( (x - (70979) ) * (x - (70979) ) + (y - (234910) ) * (y - (234910) ) ) <= 4000000 '
+                 f'or ( (x - (15517) ) * (x - (15517) ) + (y - (121419) ) * (y - (121419) ) ) <= 4000000 '
+                 f'or ( (x - (81180) ) * (x - (81180) ) + (y - (172818) ) * (y - (172818) ) ) <= 4000000 '
+                 f'or ( (x - (15730) ) * (x - (15730) ) + (y - (161356) ) * (y - (161356) ) ) <= 4000000 '
+                 f'or ( (x - (-100212) ) * (x - (-100212) ) + (y - (24473) ) * (y - (24473) ) ) <= 4000000 '
+                 f'or ( (x - (-14660) ) * (x - (-14660) ) + (y - (54857) ) * (y - (54857) ) ) <= 4000000 '
+                 f'or ( (x - (-2590) ) * (x - (-2590) ) + (y - (94356) ) * (y - (94356) ) ) <= 4000000 '
+                 f'or ( (x - (92860) ) * (x - (92860) ) + (y - (96662) ) * (y - (96662) ) ) <= 4000000 '
+                 f'or ( (x - (92623) ) * (x - (92623) ) + (y - (140533) ) * (y - (140533) ) ) <= 4000000 '
+                 f'or ( (x - (64504) ) * (x - (64504) ) + (y - (52837) ) * (y - (52837) ) ) <= 4000000 '
+                 f'or ( (x - (127985) ) * (x - (127985) ) + (y - (156375) ) * (y - (156375) ) ) <= 4000000 '
+                 f'or ( (x - (121219) ) * (x - (121219) ) + (y - (122648) ) * (y - (122648) ) ) <= 4000000 '
+                 f'or ( (x - (180477) ) * (x - (180477) ) + (y - (102628) ) * (y - (102628) ) ) <= 4000000 '
+                 f'or ( (x - (214243) ) * (x - (214243) ) + (y - (62534) ) * (y - (62534) ) ) <= 4000000 '
+                 f'or ( (x - (262755) ) * (x - (262755) ) + (y - (17598) ) * (y - (17598) ) ) <= 4000000 '
+                 f'or ( (x - (316207) ) * (x - (316207) ) + (y - (72432) ) * (y - (72432) ) ) <= 4000000 '
+                 f'or ( (x - (-75306) ) * (x - (-75306) ) + (y - (-45341) ) * (y - (-45341) ) ) <= 4000000 '
+                 f'or ( (x - (-162692) ) * (x - (-162692) ) + (y - (-47910) ) * (y - (-47910) ) ) <= 4000000 '
+                 f'or ( (x - (-25704) ) * (x - (-25704) ) + (y - (-3144) ) * (y - (-3144) ) ) <= 4000000 '
+                 f'or ( (x - (-53386) ) * (x - (-53386) ) + (y - (-17478) ) * (y - (-17478) ) ) <= 4000000 '
+                 f'or ( (x - (-28271) ) * (x - (-28271) ) + (y - (-52575) ) * (y - (-52575) ) ) <= 4000000 '
+                 f'or ( (x - (-218999) ) * (x - (-218999) ) + (y - (-114313) ) * (y - (-114313) ) ) <= 4000000 '
+                 f'or ( (x - (-196341) ) * (x - (-196341) ) + (y - (-124761) ) * (y - (-124761) ) ) <= 4000000 )')
+        results = runRcon(query)
+        if results.output:
+            results.output.pop(0)
+            for x in results.output:
+                match = re.search(r'\s+\d+ | [^|]*', x)
+                barkeeper_list.append(match.group(0))
+            for barkeeper in barkeeper_list:
+                output_string += f'```{barkeeper.strip()}``` \n'
+            await ctx.reply(f'{output_string}')
+        else:
+            await ctx.reply(f'No orphaned barkeepers.')
+
+        return
+
     @commands.command(name='namelookup',
                       aliases=['search', 'find'])
     @commands.has_any_role('Admin')
@@ -439,6 +533,7 @@ class Utilities(commands.Cog):
         target_object = target_object.lower()
 
         valid_options = {'map': 'BP_PL_Maproom',
+                         'maproom': 'BP_PL_Maproom',
                          'vault': 'BP_PL_Chest_Vault',
                          'stable': 'BP_PL_Crafting_Station_AnimalPen_Stables',
                          'bigpen': 'BP_PL_Crafting_Station_AnimalPen_Tier',
@@ -509,8 +604,8 @@ class Utilities(commands.Cog):
                         f'**Found object:**\nid: `{object_id}`\nclass: `{class_name}`\n'
                         f'x-coordinate: `{x_result}`\ny-coordinate: `{y_result}`\n'
                         f'owned by: `{clan_id}` Owner Name: `{clan_name}`\n\n'
-                        f'If this is the object you want to resize, copy/paste the following template into  <#{SUPPORT_CHANNEL}> to request a size change:\n'
-                        f'```\n__Size Change Request__\nOwner: `{clan_id}` | `{character.char_name}` (`{clan_name}`)\nObject Type: `{class_name}`\n'
+                        f'If this is the object you want to resize, copy/paste the following template into  <#{SUPPORT_CHANNEL}> to request a size change:')
+        await ctx.reply(f'```\n__Size Change Request__\nOwner: `{clan_id}` | `{character.char_name}` (`{clan_name}`)\nObject Type: `{class_name}`\n'
                         f'Object ID: `{object_id}`\nSize: `{size}`\n\n'
                         f'`update actor_position set sx = {size}, sy = {size}, sz = {size} where id in ({object_id});`\n'
                         f'`v/tx <@{character.discord_id}> SizeChange {sizechange_price}` ```')

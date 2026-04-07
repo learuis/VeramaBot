@@ -140,6 +140,11 @@ def update_boons(indv_boon: str = ''):
     else:
         set_bot_config('home_cost', get_bot_config('home_default_value'))
 
+    # if int(get_bot_config('EventTeleport')) >= currentTime:
+    #     set_bot_config('home_cost', get_bot_config('home_discount_value'))
+    # else:
+    #     set_bot_config('home_cost', get_bot_config('home_default_value'))
+
     return
 
 
@@ -261,6 +266,8 @@ def get_clan(character):
         return False, False
     rconResponse.output.pop(0)
 
+    if not rconResponse.output:
+        return False,False
     match = re.findall(r'.*^#\d*\s+(\d*)\s\|\s+(.*) \|', rconResponse.output[0])
     match = flatten_list(match)
     # print(match)
@@ -1296,13 +1303,23 @@ def set_slayer_target(character):
 
     exclude_list = get_slayer_reroll_exclusion(character)
     if exclude_list:
-        where_clause = f' where target_name not like '
+        # where_clause = (f' where target_name not like '
+        #                 f'( select target_name from beast_slayers order by start_time desc limit 1 ) '
+        #                 f'and target_name not like ')
+        where_clause = (f' where target_name not in '
+                        f'( select target_name from beast_slayers_assignment_log order by start_time desc limit 10 ) '
+                        f'and target_name not like ')
         for index, excluded_target in enumerate(exclude_list):
             where_clause += f'\'%{excluded_target}%\''
             if index == len(exclude_list) - 1:
                 continue
             else:
                 where_clause += f' and target_name not like '
+    else:
+        # where_clause = (f' where target_name not like '
+        #                 f'( select target_name from beast_slayers order by start_time desc limit 1 )')
+        where_clause = (f' where target_name not in '
+                        f'( select target_name from beast_slayers_assignment_log order by start_time desc limit 10)')
 
     # if exclude_target:
     #     where_clause = f' where target_name not like \'%{exclude_target.target_name}%\' and notoriety = 0'
@@ -1313,22 +1330,27 @@ def set_slayer_target(character):
         else:
             where_clause = f' where {spider_string}'
 
-    print(where_clause)
+    # print(where_clause)
 
     my_target = SlayerTarget()
     my_target.char_id = character.id
     my_target.start_time = int_epoch_time()
     # randomizer = random.randint(0, int(get_bot_config('beast_slayer_target_count')))
     query = (f'select target_name, target_display_name from beast_slayer_target_list'
-             f'{where_clause} order by notoriety desc, times_killed asc, random() limit 1')
+             # f'{where_clause} order by notoriety desc, times_killed asc, random() limit 1')
+             f'{where_clause} order by random() limit 1')
     print(query)
     # rconResponse = runRcon(query)
     query_result = db_query(False, f'{query}')
-    # print(query_result)
+    print(query_result)
     (my_target.target_name, my_target.display_name) = flatten_list(query_result)
     db_query(True, f'insert or replace into beast_slayers '
                    f'(char_id, season, target_name, target_display_name, start_time) '
                    f'values ({my_target.char_id}, {CURRENT_SEASON}, \'{my_target.target_name}\', '
+                   f'\'{my_target.display_name}\', {my_target.start_time})')
+    db_query(True, f'insert into beast_slayers_assignment_log '
+                   f'(target_name, target_display_name, start_time) '
+                   f'values (\'{my_target.target_name}\', '
                    f'\'{my_target.display_name}\', {my_target.start_time})')
     return my_target
 
