@@ -68,23 +68,23 @@ class Hunter(commands.Cog):
                 total_bounty = reward_quantity + (reroll_cost * notorious_multiplier)
 
                 await ctx.reply(
-                    f'Consumed {abs(amount)} decaying eldarium from {character.char_name}\'s account\n'
+                    f'Consumed {abs(amount)} Bronze Coins from {character.char_name}\'s account\n'
                     f'New Balance: {new_balance}\n\n'
                     f'You will not be assigned to slay `{exclude_target.display_name}` again until '
                     f'it has been slain by someone else.\n\n'
                     f'`{character.char_name}` was assigned a new Beast Slayer quarry: `{current_target.display_name}`'
                     f' on <t:{current_target.start_time}:f>.'
                     f'\n\nThe bounty on `{exclude_target.display_name}` has increased to `{total_bounty}` '
-                    f'decaying eldarium!')
+                    f'Bronze Coins!')
                 return
             else:
                 balance = int(get_balance(character))
-                await ctx.reply(f'Insufficient funds! Available decaying eldarium: {balance}')
+                await ctx.reply(f'Insufficient funds! Available Bronze Coins: {balance}')
                 return
 
         else:
             await ctx.reply(f'`{character.char_name}`\'s current quarry: `{exclude_target.display_name}`.\n\n'
-                            f'This command will clear your quarry and assign you a new one for 50 decaying eldarium. '
+                            f'This command will clear your quarry and assign you a new one for 1 Bronze Coin. '
                             f'You will not be able to claim any reward for the current quarry, even if you already '
                             f'killed it.\n\nIf you are sure want to be assigned a new quarry, '
                             f'use `v/quarry confirm`.')

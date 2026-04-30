@@ -365,7 +365,7 @@ class InnSystem(commands.Cog):
             outputString += (f'`{character.char_name}` is checked in at `{inn.name}`, '
                              # f'location `TeleportPlayer {inn.x} {inn.y} {inn.z}` \n'
                              f'\nCheckout Time: <t:{checkin.valid_until}:f> in your timezone\n'
-                             f'Cost to teleport: `{inn_teleport_cost}` Decaying Eldarium\n\n')
+                             f'Cost to teleport: `{inn_teleport_cost}` Bronze Coin\n\n')
         else:
             outputString += f'`{character.char_name}` is not checked in at any inn!\n\n'
 
@@ -424,12 +424,12 @@ class InnSystem(commands.Cog):
                     inn_transaction(inn, character, cost, revenue, bonus_mult)
                 else:
                     await ctx.reply(f'`{character.char_name}` does not have the required `{cost}` '
-                                    f'decaying eldarium to teleport to their inn room at `{inn.name}`.')
+                                    f'Bronze Coins to teleport to their inn room at `{inn.name}`.')
                     return
                 runRcon(f'con {rconCharId} TeleportPlayer {inn.x} {inn.y}, {inn.z}')
                 checkout_time = checkin_to_inn(character, inn.inn_id)
                 await ctx.reply(f'Returned `{character.char_name}` into their inn room at `{inn.name}`\n'
-                                f'`{cost}` Decaying Eldarium has been deducted from your account.\n'
+                                f'`{cost}` Bronze Coins have been deducted from your account.\n'
                                 f'Your check-in has been refreshed and now lasts until <t:{checkout_time}:f>.')
                 return
             else:

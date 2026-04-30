@@ -192,7 +192,7 @@ def grant_treasure_rewards(character, target_name, bonus, daily=False):
                 # bonus / 10
                 eldarium_payout = random.randint(int(1), treasure_eldarium_max) * (5 - category) + (bonus / 10)
                 total_payout += int(eldarium_payout)
-                reward_message += f'`Decaying Eldarium x {int(eldarium_payout)}` | '
+                reward_message += f'`Bronze Coin x {int(eldarium_payout)}` | '
                 # this causes classes to get shuffled
                 
     if daily:
@@ -209,7 +209,7 @@ def grant_treasure_rewards(character, target_name, bonus, daily=False):
     # static DE
     static_eld = int(get_bot_config('treasure_eldarium_static')) * treasure_count
     total_payout += static_eld
-    reward_message += f'`Bonus Decaying Eldarium x {static_eld}` | '
+    reward_message += f'`Bonus Bronze Coins x {static_eld}` | '
 
     reward_message += f'\nTotal DE Found: `{int(total_payout)}`'
 

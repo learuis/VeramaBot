@@ -80,7 +80,7 @@ class Warps(commands.Cog):
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def stuck(self, ctx, info: str = f''):
-        """Teleports you to your bed/bedroll. Costs 100 Decaying Eldarium
+        """Teleports you to your bed/bedroll. Costs 3 Bronze Coins
 
         v/home1 [info] or v/home2 [info]
             home1 = oldest spawn point
@@ -186,14 +186,14 @@ class Warps(commands.Cog):
                         else:
                             balance = int(get_balance(character))
                             await ctx.reply(
-                                f'Insufficient funds! Available decaying eldarium: {balance}. Needed: {home_cost}')
+                                f'Insufficient funds! Available Bronze Coins: {balance}. Needed: {home_cost}')
                             return False
                     # print(f'{home_cost}')
                     if home_cost != 0:
                         run_console_command_by_name(character.char_name, f'TeleportPlayer {target_x} {target_y} {target_z}')
                         await ctx.reply(f'Returned `{name}` to their spawn in `{sq_x}{sq_y}` '
-                                        f'`{target_x} {target_y} {target_z}` for `{home_cost}` decaying eldarium.'
-                                        f'\nDecaying Eldarium Balance: `{balance}`')
+                                        f'`{target_x} {target_y} {target_z}` for `{home_cost}` Bronze Coins.'
+                                        f'\nBronze Coin Balance: `{balance}`')
                         return False
                     else:
                         run_console_command_by_name(character.char_name, f'TeleportPlayer {target_x} {target_y} {target_z}')

@@ -560,7 +560,7 @@ class Professions(commands.Cog):
                 outputString += f'\nServer-wide Ranking: `{index + 1}`\n'
 
         balance = get_balance(character)
-        outputString += f'\nDecaying Eldarium Balance: `{balance}`\n'
+        outputString += f'\nBronze Coin Balance: `{balance}`\n'
 
         last_profession_update = int(get_bot_config(f'last_profession_update'))
         profession_update_interval = int(get_bot_config(f'profession_update_interval'))
@@ -728,7 +728,7 @@ class Professions(commands.Cog):
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def repair(self, ctx, slot: str = 'hotbar', repair_amount: int = 0, confirm: str = ''):
-        """ Modifies current and max durability for eldarium
+        """ Modifies current and max durability for Bronze Coins
 
         Parameters
         ----------
@@ -797,7 +797,7 @@ class Professions(commands.Cog):
                 f'This command will repair the item in your `{slot}` slot{slot_text} to exactly `{repair_amount}/{repair_amount}`'
                 f' durability. '
                 f'\nThe item will be considered fully repaired for the purposes of applying kits.'
-                f'\n`{int(repair_cost)} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                f'\n`{int(repair_cost)} Bronze Coins` will be consumed. \nDo not move items in your '
                 f'inventory while this command is processing, or it may fail. \nNo refunds will be '
                 f'given for user error! \n\nIf you are sure you want to proceed, '
                 f'use `v/repair {slot} {repair_amount} confirm`')
@@ -812,10 +812,10 @@ class Professions(commands.Cog):
             run_console_command_by_name(character.char_name, f'setinventoryitemfloatstat {slot_value} 8 {repair_amount} {inv_type}')
             await message.edit(content=f'`{character.char_name}` repaired the item in `{slot}` slot{slot_text} to '
                                        f'`{repair_amount}/{repair_amount}` durability.'
-                                       f'\nConsumed `{repair_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{repair_cost}` Bronze Coins')
             return
         else:
-            await ctx.reply(f'Not enough materials to repair! Available decaying eldarium: `{balance}`, '
+            await ctx.reply(f'Not enough materials to repair! Available Bronze Coins: `{balance}`, '
                             f'Needed: `{repair_cost}`')
             return
 
@@ -869,7 +869,7 @@ class Professions(commands.Cog):
                 f'This command will change the attribute scaling of the item in hotbar slot 1 to `{attribute}`'
                 f'\nIf you choose anything other than Strength or Agility, "Balanced Weapon" '
                 f'will be shown on the modified item.'
-                f'\n`{reforge_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                f'\n`{reforge_cost} Bronze Coins` will be consumed. \nDo not move items in your '
                 f'inventory while this command is processing, or it may fail. \nNo refunds will be '
                 f'given for user error! \n\nIf you are sure you want to proceed, '
                 f'use `v/reforge {attribute} confirm`')
@@ -886,10 +886,10 @@ class Professions(commands.Cog):
 
             await message.edit(content=f'`{character.char_name}` refogred the weapon in hotbar slot 1 to '
                                        f'scale using `{attribute}`.\n'
-                                       f'\nConsumed `{reforge_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{reforge_cost}` Bronze Coin')
             return
         else:
-            await ctx.reply(f'Not enough materials to reforge! Available decaying eldarium: `{balance}`, '
+            await ctx.reply(f'Not enough materials to reforge! Available Bronze Coins: `{balance}`, '
                             f'Needed: `{reforge_cost}`')
             return
 
@@ -944,7 +944,7 @@ class Professions(commands.Cog):
             await ctx.reply(
                 f'This command will set the armor value of the armor equipped in your `{slot}` '
                 f'slot to `{amount}` Armor'
-                f'\n`{final_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                f'\n`{final_cost} Bronze Coins` will be consumed. \nDo not move items in your '
                 f'inventory while this command is processing, or it may fail. \nNo refunds will be '
                 f'given for user error! \n\nIf you are sure you want to proceed, '
                 f'use `v/fortify {slot} {amount} confirm`')
@@ -961,10 +961,10 @@ class Professions(commands.Cog):
             await message.edit(content=f'`{character.char_name}` fortified the armor in '
                                        f'equipment slot `{slot}` to `{amount}` Armor!\n'
                                        f'You must re-equip the armor for it to take effect.\n'
-                                       f'\nConsumed `{final_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{final_cost}` Bronze Coins')
             return
         else:
-            await ctx.reply(f'Not enough materials to fortify! Available decaying eldarium: `{balance}`, '
+            await ctx.reply(f'Not enough materials to fortify! Available Bronze Coins: `{balance}`, '
                             f'Needed: `{final_cost}`')
             return
 
@@ -1013,7 +1013,7 @@ class Professions(commands.Cog):
             await ctx.reply(
                 f'This command will reduce the weight value of the armor equipped in your `{slot}` '
                 f'slot to `0` weight.'
-                f'\n`{trim_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                f'\n`{trim_cost} Bronze Coins` will be consumed. \nDo not move items in your '
                 f'inventory while this command is processing, or it may fail. \nNo refunds will be '
                 f'given for user error! \n\nIf you are sure you want to proceed, '
                 f'use `v/trim {slot} confirm`')
@@ -1030,9 +1030,9 @@ class Professions(commands.Cog):
             await message.edit(content=f'`{character.char_name}` trimmed weight from the armor in '
                                        f'equipment slot `{slot}` to `0`!\n'
                                        f'You must re-equip the armor for it to take effect.\n'
-                                       f'\nConsumed `{trim_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{trim_cost}` Bronze Coins')
         else:
-            await ctx.reply(f'Not enough materials to trim armor! Available decaying eldarium: `{balance}`, '
+            await ctx.reply(f'Not enough materials to trim armor! Available Bronze Coins: `{balance}`, '
                             f'Needed: `{trim_cost}`')
             return
 
@@ -1091,7 +1091,7 @@ class Professions(commands.Cog):
             if enchant in charged_enchants:
                 await ctx.reply(
                     f'This command will apply `1000 charges of {enchant_value}` to the weapon in hotbar slot 1.'
-                    f'\n`{enchant_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                    f'\n`{enchant_cost} Bronze Coins` will be consumed. \nDo not move items in your '
                     f'inventory while this command is processing, or it may fail. \nNo refunds will be '
                     f'given for user error! \n\nIf you are sure you want to proceed, '
                     f'use `v/enchant {enchant} confirm`')
@@ -1101,7 +1101,7 @@ class Professions(commands.Cog):
                     f'This command will apply `{enchant_value}` to the weapon in hotbar slot 1. This is a permanent '
                     f'enchant that applies a food buff when the weapon is wielded. It __does not stack__ with and '
                     f'will overwrite food buffs.'
-                    f'\n`{enchant_cost} Decaying Eldarium` will be consumed. \nDo not move items in your '
+                    f'\n`{enchant_cost} Bronze Coins` will be consumed. \nDo not move items in your '
                     f'inventory while this command is processing, or it may fail. \nNo refunds will be '
                     f'given for user error! \n\nIf you are sure you want to proceed, '
                     f'use `v/enchant {enchant} confirm`')
@@ -1121,18 +1121,18 @@ class Professions(commands.Cog):
                 run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 50 {id_value} 2')
                 await message.edit(content=f'`{character.char_name}` enchanted the weapon in hotbar slot 1 '
                                            f'with `1000 charges of {enchant_value}`!\n'
-                                           f'\nConsumed `{enchant_cost}` Decaying Eldarium')
+                                           f'\nConsumed `{enchant_cost}` Bronze Coins')
             elif enchant in permanent_enchants:
                 run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 63 {id_value} 2')
                 await message.edit(content=f'`{character.char_name}` enchanted the weapon in hotbar slot 1 '
                                            f'with `{enchant_value}`!\n'
-                                           f'\nConsumed `{enchant_cost}` Decaying Eldarium')
+                                           f'\nConsumed `{enchant_cost}` Bronze Coins')
             else:
                 await message.edit(content=f'This should never happen. HALP Verama!')
                 return
 
         else:
-            await ctx.reply(f'Not enough materials to enchant a weapon! Available decaying eldarium: `{balance}`, '
+            await ctx.reply(f'Not enough materials to enchant a weapon! Available Bronze Coins: `{balance}`, '
                             f'Needed: `{enchant_cost}`')
             return
 
@@ -1140,7 +1140,7 @@ class Professions(commands.Cog):
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def research(self, ctx, sigil: str = '', amount: int = 0, confirm: str = ''):
-        """ - Researches a specified sigil for 200 Decaying Eldarium
+        """ - Researches a specified sigil for 200 Bronze Coins
 
         Parameters
         ----------
@@ -1230,7 +1230,7 @@ class Professions(commands.Cog):
         if 'confirm' not in confirm.lower():
             await ctx.reply(
                 f'This command will generate `{amount}x {sigil_value}` and place them in your claim list.'
-                f'\n`{final_cost} Decaying Eldarium` will be consumed.\nIf you are sure you want to proceed, '
+                f'\n`{final_cost} Bronze Coins` will be consumed.\nIf you are sure you want to proceed, '
                 f'use `v/research {sigil} {amount} confirm`')
             return
 
@@ -1246,10 +1246,10 @@ class Professions(commands.Cog):
 
             await message.edit(content=f'`{character.char_name}` has researched `{amount}x {sigil_value}`! '
                                        f'Use `v/claim` to receive them.'
-                                       f'\nConsumed `{final_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{final_cost}` Bronze Coins')
         else:
             await ctx.reply(f'Not enough materials to research that many sigils! '
-                            f'Available decaying eldarium: `{balance}`, '
+                            f'Available Bronze Coins: `{balance}`, '
                             f'Needed: `{final_cost}`')
             return
 
@@ -1257,7 +1257,7 @@ class Professions(commands.Cog):
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def offspring(self, ctx, pet: str = '', amount: int = 0, confirm: str = ''):
-        """ - Directs your animals to produce offspring, resulting in rare siptah baby animals using decaying eldarium
+        """ - Directs your animals to produce offspring, resulting in rare siptah baby animals using Bronze Coins
 
         Parameters
         ----------
@@ -1344,7 +1344,7 @@ class Professions(commands.Cog):
         if 'confirm' not in confirm.lower():
             await ctx.reply(
                 f'This command will generate `{amount}x {pet_value}` and place them in your claim list.'
-                f'\n`{final_cost} Decaying Eldarium` will be consumed.\nIf you are sure you want to proceed, '
+                f'\n`{final_cost} Bronze Coins` will be consumed.\nIf you are sure you want to proceed, '
                 f'use `v/offspring {pet} {amount} confirm`')
             return
 
@@ -1356,10 +1356,10 @@ class Professions(commands.Cog):
 
             await message.edit(content=f'`{character.char_name}`- `{amount}x{pet_value}` was born! '
                                        f'Use `v/claim` to receive them.'
-                                       f'\nConsumed `{final_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{final_cost}` Bronze Coins')
         else:
             await ctx.reply(f'Not enough materials to produce that many offspring! '
-                            f'Available decaying eldarium: `{balance}`, '
+                            f'Available Bronze Coins: `{balance}`, '
                             f'Needed: `{final_cost}`')
             return
 
@@ -1408,7 +1408,7 @@ class Professions(commands.Cog):
             await ctx.reply(
                 f'This command grant your follower `{amount}` experience. If you have '
                 f'War Party, you can train both followers at once.\n'
-                f'\n`{final_cost} Decaying Eldarium` will be consumed. \n\n'
+                f'\n`{final_cost} Bronze Coins` will be consumed. \n\n'
                 f'If you are sure you want to proceed, use `v/train {amount} confirm`')
             return
 
@@ -1420,10 +1420,10 @@ class Professions(commands.Cog):
             run_console_command_by_name(character.char_name,f'givefollowerxp {amount}')
 
             await message.edit(content=f'`{character.char_name}`trained their followers, granting `{amount}` experience. '
-                                       f'\nConsumed `{final_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{final_cost}` Bronze Coins')
         else:
             await ctx.reply(f'Not enough materials to train that much experience! '
-                            f'Available decaying eldarium: `{balance}`, '
+                            f'Available Bronze Coins: `{balance}`, '
                             f'Needed: `{final_cost}`')
             return
 
@@ -1463,7 +1463,7 @@ class Professions(commands.Cog):
                 f'Mounts will be upgraded to `10,000` Endurance.'
                 f'Do not use this command with human followers, or you will be thrown into the volcano.\nIf you have '
                 f'War Party, you can bond with both following pets at once.\n'
-                f'\n`{bond_cost} Decaying Eldarium` will be consumed. \n\n'
+                f'\n`{bond_cost} Bronze Coins` will be consumed. \n\n'
                 f'If you are sure you want to proceed, '
                 f'use `v/animalbond confirm`')
             return
@@ -1482,10 +1482,10 @@ class Professions(commands.Cog):
 
             await message.edit(content=f'`{character.char_name}` has performed a ritual of bonding with their pet, '
                                        f'increasing their damage modifiers to `{damage_bonus}.0` and endurance to `10,000`!'
-                                       f'\nConsumed `{bond_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{bond_cost}` Bronze Coins')
         else:
             await ctx.reply(f'Not enough materials to perform a ritual of bonding! '
-                            f'Available decaying eldarium: `{balance}`, Needed: `{bond_cost}`')
+                            f'Available Bronze Coins: `{balance}`, Needed: `{bond_cost}`')
             return
 
         # for later: how to check if anyone used a humanoid
@@ -1576,7 +1576,7 @@ class Professions(commands.Cog):
                 f'This command heal your current followers to `{amount}`. '
                 f'If you have War Party, this will heal both followers at once.\n'
                 f'**This does not increase their maximum HP!**\n'
-                f'\n`{calculated_cost} Decaying Eldarium` will be consumed. \n\n'
+                f'\n`{calculated_cost} Bronze Coins` will be consumed. \n\n'
                 f'If you are sure you want to proceed, '
                 f'use `v/mend {amount} confirm`')
             return
@@ -1590,10 +1590,10 @@ class Professions(commands.Cog):
 
             await message.edit(content=f'`{character.char_name}` mended their followers, '
                                        f'healing them to `{amount}`!'
-                                       f'\nConsumed `{calculated_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{calculated_cost}` Bronze Coins')
         else:
             await ctx.reply(f'Not enough materials to mend followers! '
-                            f'Available decaying eldarium: `{balance}`, Needed: `{calculated_cost}`')
+                            f'Available Bronze Coins: `{balance}`, Needed: `{calculated_cost}`')
             return
 
     @commands.command(name='pockets')
@@ -1643,7 +1643,7 @@ class Professions(commands.Cog):
                 f'If you set this to a value higher than 20, you will not see the new slots '
                 f'until there are enough items to fill them. Rest assured, they are there.\n'
                 f'If you have War Party, this will affect both followers at once.\n'
-                f'\n`{calculated_cost} Decaying Eldarium` will be consumed. \n\n'
+                f'\n`{calculated_cost} Bronze Coins` will be consumed. \n\n'
                 f'If you are sure you want to proceed, '
                 f'use `v/pockets {amount} confirm`')
             return
@@ -1657,10 +1657,10 @@ class Professions(commands.Cog):
 
             await message.edit(content=f'`{character.char_name}` added pockets to their followers, '
                                        f'setting their maximum inventory size to `{amount}`!'
-                                       f'\nConsumed `{calculated_cost}` Decaying Eldarium')
+                                       f'\nConsumed `{calculated_cost}` Bronze Coins')
         else:
             await ctx.reply(f'Not enough materials to add pockets to your followers! '
-                            f'Available decaying eldarium: `{balance}`, Needed: `{calculated_cost}`')
+                            f'Available Bronze Coins: `{balance}`, Needed: `{calculated_cost}`')
             return
 
     @commands.command(name='provisioner')

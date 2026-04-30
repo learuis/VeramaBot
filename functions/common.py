@@ -986,14 +986,15 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                 case 'profession':
                     if tier == 0:
                         tier = 1
-                    profession_eldarium_min_mult = int(get_bot_config(f'profession_eldarium_min_mult'))
-                    profession_eldarium_min_tier_mult = int(get_bot_config(f'profession_eldarium_min_tier_mult'))
-                    profession_eldarium_max_mult = int(get_bot_config(f'profession_eldarium_max_mult'))
-                    range_min = (((tier ** 2) * profession_eldarium_min_mult) +
-                                 (tier * profession_eldarium_min_tier_mult) +
-                                 ((5 - tier) * profession_eldarium_min_tier_mult))
-                    range_max = (range_min * profession_eldarium_max_mult)
-                    random_qty = random.randint(int(range_min), int(range_max))
+                    # profession_eldarium_min_mult = int(get_bot_config(f'profession_eldarium_min_mult'))
+                    # profession_eldarium_min_tier_mult = int(get_bot_config(f'profession_eldarium_min_tier_mult'))
+                    # profession_eldarium_max_mult = int(get_bot_config(f'profession_eldarium_max_mult'))
+                    # range_min = (((tier ** 2) * profession_eldarium_min_mult) +
+                    #              (tier * profession_eldarium_min_tier_mult) +
+                    #              ((5 - tier) * profession_eldarium_min_tier_mult))
+                    # range_max = (range_min * profession_eldarium_max_mult)
+                    # random_qty = random.randint(int(range_min), int(range_max))
+                    random_qty = tier
                     # print(f'reward quantity for tier {tier}: {range_min} to {range_max}')
 
                     if int(get_bot_config(f'use_bank')) == 1:
@@ -1002,7 +1003,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                         profession_name = flatten_list(query_result)
                         eld_transaction(character, f'{profession_name[0]} Payout', random_qty)
                         run_console_command_by_name(char_name, f'testFIFO 6 Reward Deposited {random_qty} '
-                                                               f'Decaying Eldarium ')
+                                                               f'Bronze Coins ')
                         if tier >= 4:
                             run_console_command_by_name(char_name, f'setstat HealthBarStyle 4')
                     else:
@@ -1011,37 +1012,37 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                             error_timestamp = datetime.fromtimestamp(float(int_epoch_time()))
                             add_reward_record(int(char_id), int(reward_template_id), int(random_qty),
                                               f'RCON error during quest #{quest_id} reward step at {error_timestamp}')
-                case 'provisioner':
-                    current_favor = get_favor(char_id, reward_command)
-                    threshhold = int(get_bot_config(f'{reward_command}_reward_threshhold'))
-                    # print(f'{reward_command} threshhold: {threshhold} current_favor = {current_favor.current_favor}')
-
-                    print(f'get provisioner option')
-                    char_lookup = get_registration_by_char_id(int(char_id))
-                    if not char_lookup:
-                        print(f'Unregistered character {char_id} completed quest')
-                    selected_type = get_provisioner_option(char_lookup)
-                    print(f'{selected_type}')
-
-                    if int(current_favor.current_favor) >= threshhold:
-                        modify_favor(char_id, reward_command, -threshhold)
-                        thrall_to_give = provisioner_thrall(selected_type)
-                        print(f"{thrall_to_give}")
-
-                        last_restart = int(get_bot_config(f'last_server_restart'))
-
-                        check_time = int(get_bot_config(f'last_thrall_spawned'))
-                        print(f'time: {int_epoch_time()} player: {char_name} check_time: {check_time} reward: {thrall_to_give}')
-                        if int(check_time) < last_restart:
-                            # Run an extra time if no thrall has been delivered since last server restart.
-                            run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {thrall_to_give}')
-                        run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {thrall_to_give}')
-                        set_bot_config(f'last_thrall_spawned', str(int_epoch_time()))
-                        display_quest_text(quest_id, 0, False, char_name,
-                                           6, f'Joined!',
-                                           f'A new follower has pledged loyalty to you!')
-                    else:
-                        continue
+                # case 'provisioner':
+                #     current_favor = get_favor(char_id, reward_command)
+                #     threshhold = int(get_bot_config(f'{reward_command}_reward_threshhold'))
+                #     # print(f'{reward_command} threshhold: {threshhold} current_favor = {current_favor.current_favor}')
+                #
+                #     print(f'get provisioner option')
+                #     char_lookup = get_registration_by_char_id(int(char_id))
+                #     if not char_lookup:
+                #         print(f'Unregistered character {char_id} completed quest')
+                #     selected_type = get_provisioner_option(char_lookup)
+                #     print(f'{selected_type}')
+                #
+                #     if int(current_favor.current_favor) >= threshhold:
+                #         modify_favor(char_id, reward_command, -threshhold)
+                #         thrall_to_give = provisioner_thrall(selected_type)
+                #         print(f"{thrall_to_give}")
+                #
+                #         last_restart = int(get_bot_config(f'last_server_restart'))
+                #
+                #         check_time = int(get_bot_config(f'last_thrall_spawned'))
+                #         print(f'time: {int_epoch_time()} player: {char_name} check_time: {check_time} reward: {thrall_to_give}')
+                #         if int(check_time) < last_restart:
+                #             # Run an extra time if no thrall has been delivered since last server restart.
+                #             run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {thrall_to_give}')
+                #         run_console_command_by_name(char_name, f'dc spawn 1 thrall exact {thrall_to_give}')
+                #         set_bot_config(f'last_thrall_spawned', str(int_epoch_time()))
+                #         display_quest_text(quest_id, 0, False, char_name,
+                #                            6, f'Joined!',
+                #                            f'A new follower has pledged loyalty to you!')
+                #     else:
+                #         continue
                 case 'reliquarian':
                     # already granted favor
                     continue
@@ -1092,7 +1093,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                     clear_notoriety(current_target)
 
                     run_console_command_by_name(char_name, f'testFIFO 6 Reward Deposited {reward_quantity} '
-                                                           f'Decaying Eldarium ')
+                                                           f'Bronze Coins ')
 
 
         continue
@@ -1142,25 +1143,21 @@ def grant_slayer_rewards(character, current_target):
     increment_killed_total(current_target)
 
     run_console_command_by_name(character.char_name, f'testFIFO 6 Reward Deposited {reward_quantity} '
-                                           f'Decaying Eldarium')
+                                           f'Bronze Coins')
 
     reward = int(get_bot_config(f'beast_slayer_reward'))
     reroll_cost = int(get_bot_config('beast_slayer_reroll_cost'))
     outputString += (f'Your quarry, `{current_target.display_name}`, has been slain! '
                      f'You have earned '
-                     f'`{reward + (reroll_cost * notorious_multiplier)}` decaying eldarium!\n{item_string}'
+                     f'`{reward + (reroll_cost * notorious_multiplier)}` Bronze Coins!\n{item_string}'
                      f'Return to the Beast Slayer at the Profession Hub to be assigned a new Quarry.')
     print(f'{outputString}')
 
     return outputString
 
-def eld_transaction(character, reason: str, amount: int = 0, eld_type: str = 'raw', season = CURRENT_SEASON):
+def eld_transaction(character, reason: str, amount: int = 0, season = CURRENT_SEASON):
 
-    if eld_type == 'bars':
-        amount = amount * 2
-        reason += f' (Bars)'
-    else:
-        reason += f' (DE)'
+    reason += f' (BC)'
 
     db_query(True, f'insert into bank_transactions (season, char_id, amount, reason, timestamp) '
                    f'values ({season}, {character.id}, {amount}, \'{reason}\', \'{int_epoch_time()}\')')
@@ -1182,12 +1179,9 @@ def get_balance(character, season = CURRENT_SEASON):
     return balance
 
 
-def sufficient_funds(character, debit_amount: int = 0, eld_type: str = 'raw'):
+def sufficient_funds(character, debit_amount: int = 0):
 
     balance = int(get_balance(character))
-
-    if eld_type == 'bars':
-        debit_amount = debit_amount * 2
 
     if balance >= debit_amount:
         return True

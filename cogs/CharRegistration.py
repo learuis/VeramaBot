@@ -94,7 +94,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                             f' to user {interaction.user.mention}.\n\nYou have been granted all emotes as a reward! '
                             f'Go to the <#{OUTCASTBOT_CHANNEL}> channel and type `v/featrestore` '
                             f'while online to receive them! If you ever lose them for some reason, you can repeat '
-                            f'the command at any time.\n\nYour Decaying Eldarium bank starts with `100` DE in it. '
+                            f'the command at any time.\n\nYour Bronze Coin bank starts with `1` Coin in it. '
                             f'Check out the server-amenities channel for an explanation of what you can do with it!')
 
         # cur_sub.execute(f'insert or ignore into featclaim (char_id,feat_id) values ({charId},90212)')

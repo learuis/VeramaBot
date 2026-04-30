@@ -201,18 +201,18 @@ class Events(commands.Cog):
                             await message.edit(content=f'{output_string}')
                             return
                         else:
-                            output_string += f'Insufficient decaying eldarium balance! Current Balance: `{balance}` | Needed: `{dragon_cost}`'
+                            output_string += f'Insufficient Bronze Coin balance! Current Balance: `{balance}` | Needed: `{dragon_cost}`'
                             await message.edit(content=f'{output_string}')
                             return
                     else:
-                        output_string += f'Purchasing a dragon costs `{dragon_cost}` Decaying Eldarium. If you are sure you want to purchase one, use `v/dragon confirm`'
+                        output_string += f'Purchasing a dragon costs `{dragon_cost}` Bronze Coins. If you are sure you want to purchase one, use `v/dragon confirm`'
                         await message.edit(content=f'{output_string}')
                         return
         else:
             # they arent in the table yet:
             db_query(True, f'insert or replace into dragons(discord_id, dragon_type, paid, claimed) values ({character.discord_id}, \'Green\', NULL, NULL)')
             output_string = (f'You are entitled to purchase a `Green Dragon Hatchling`.\n\n'
-                             f'Purchasing a dragon costs `{dragon_cost}` Decaying Eldarium. If you are sure you want to purchase one, use `v/dragon confirm`')
+                             f'Purchasing a dragon costs `{dragon_cost}` Bronze Coins. If you are sure you want to purchase one, use `v/dragon confirm`')
             await ctx.reply(f'{output_string}')
             return
 

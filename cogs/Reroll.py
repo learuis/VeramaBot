@@ -70,7 +70,7 @@ class Reroll(commands.Cog):
             return
 
     @commands.command(name='newgameplus', aliases=['ng+', 'newgame+'])
-    @commands.has_any_role('Outcasts')
+    @commands.has_any_role('Admin')
     @commands.check(check_channel)
     async def newgameplus(self, ctx):
         """
@@ -290,7 +290,7 @@ class Reroll(commands.Cog):
         return
 
     @commands.command(name='carryover')
-    @commands.has_any_role('Outcasts')
+    @commands.has_any_role('Admin')
     @commands.check(check_channel)
     async def carryover(self, ctx, feature: str = f'fomo'):
         """
@@ -330,19 +330,19 @@ class Reroll(commands.Cog):
                                     f'from Season `{PREVIOUS_SEASON}` to Season `{CURRENT_SEASON}`!')
                     return
                 match feature.lower():
-                    case 'bank' | 'eldarium':
+                    case 'bank':
                         old_balance = get_balance(prev_character, PREVIOUS_SEASON)
                         if old_balance:
                             eld_transaction(prev_character, f'Season {PREVIOUS_SEASON} Carryover Withdrawal',
                                             -old_balance, season=PREVIOUS_SEASON)
                             eld_transaction(current_character, f'Season {PREVIOUS_SEASON} Carryover Deposit',
                                             old_balance, season=CURRENT_SEASON)
-                            await ctx.reply(f'`{old_balance}` Decaying Eldarium has been transferred from '
+                            await ctx.reply(f'`{old_balance}` Bronze Coin has been transferred from '
                                             f'Season {PREVIOUS_SEASON} character `{prev_character.char_name}` '
                                             f'to Season {CURRENT_SEASON} character `{current_character.char_name}`.\n\n')
                         else:
                             await ctx.reply(f'Season {PREVIOUS_SEASON} character `{prev_character.char_name}` has '
-                                            f'`0` Decaying Eldarium in their bank.')
+                                            f'`0` Bronze Coins in their bank.')
                             return
                     case 'fomo' | 'feats' | 'feat' | 'fomofeats':
                         db_query(True, f'insert or replace into featclaim '

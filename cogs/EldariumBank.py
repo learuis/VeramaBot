@@ -22,7 +22,7 @@ class EldariumBank(commands.Cog):
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
     async def balance(self, ctx, discord_user: discord.Member = None):
         """
-        Displays current eldarium balance
+        Displays current bronze coin balance
 
         Parameters
         ----------
@@ -45,7 +45,7 @@ class EldariumBank(commands.Cog):
             return
 
         balance = int(get_balance(character))
-        await ctx.reply(f'{character.char_name}\'s current eldarium balance: {balance}')
+        await ctx.reply(f'{character.char_name}\'s current Bronze Coin balance: {balance}')
 
     @commands.command(name='transaction', aliases=['tx'])
     @commands.has_any_role('Admin', 'Moderator')
@@ -53,7 +53,7 @@ class EldariumBank(commands.Cog):
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
     async def transaction(self, ctx, discord_user: discord.Member, reason: str, amount: int = 0):
         """
-        Eldarium bank transaction v/tx Name Reason Amount
+        Bronze Coin bank transaction v/tx Name Reason Amount
 
         Parameters
         ----------
@@ -83,25 +83,25 @@ class EldariumBank(commands.Cog):
             check_balance = sufficient_funds(character, abs(amount))
             if check_balance:
                 new_balance = eld_transaction(character, reason, amount)
-                await ctx.reply(f'Transaction complete: {amount} decaying eldarium to {character.char_name}\'s account\n'
+                await ctx.reply(f'Transaction complete: {amount} Bronze Coins to {character.char_name}\'s account\n'
                                 f'New Balance: {new_balance}')
                 return
             else:
                 balance = int(get_balance(character))
-                await ctx.reply(f'Insufficient funds! Available decaying eldarium: {balance}')
+                await ctx.reply(f'Insufficient funds! Available Bronze Coins: {balance}')
                 return
         else:
             new_balance = eld_transaction(character, reason, amount)
-            await ctx.reply(f'Transaction complete: {amount} decaying eldarium to {character.char_name}\'s account\n'
+            await ctx.reply(f'Transaction complete: {amount} Bronze Coins to {character.char_name}\'s account\n'
                             f'New Balance: {new_balance}')
             return
 
     @commands.command(name='pay', aliases=['transfer', 'sendmoney'])
     @commands.check(check_channel)
     async def pay(self, ctx, payee: discord.Member, amount: str = 0, confirm: str = ''):
-        """ - Transfers decaying eldarium to another registered player.
+        """ - Transfers Bronze Coins to another registered player.
 
-        v/pay @someone 200 bars
+        v/pay @someone 200
 
         Parameters
         ----------
@@ -117,8 +117,6 @@ class EldariumBank(commands.Cog):
         -------
 
         """
-        eld_type = f'raw'
-
         payor = is_registered(ctx.author.id)
         if not payor:
             reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
@@ -135,14 +133,14 @@ class EldariumBank(commands.Cog):
             amount = int(amount)
             print(amount)
         except ValueError:
-            await ctx.reply(f'Must transfer eldarium in whole number amounts > 0!')
+            await ctx.reply(f'Must transfer Bronze Coins in whole number amounts > 0!')
             return
 
         if amount <= 0:
-            await ctx.reply(f'Must transfer eldarium in whole number amounts > 0!')
+            await ctx.reply(f'Must transfer Bronze Coins in whole number amounts > 0!')
             return
 
-        amount_string = f'{amount} Decaying Eldarium'
+        amount_string = f'{amount} Bronze Coins'
 
         check_balance = sufficient_funds(payor, abs(amount), eld_type)
         if check_balance:
@@ -150,32 +148,30 @@ class EldariumBank(commands.Cog):
                 await ctx.reply(f'This command will transfer `{amount_string}` to `{payee.char_name}`. '
                                 f'If this is correct, add `confirm` to the end of the command to execute the transfer.')
                 return
-            new_balance = eld_transaction(payor, f'Transfer to {payee.char_name}', -amount, eld_type)
-            payee_balance = eld_transaction(payee, f'Transfer from {payor.char_name}', amount, eld_type)
+            new_balance = eld_transaction(payor, f'Transfer to {payee.char_name}', -amount)
+            payee_balance = eld_transaction(payee, f'Transfer from {payor.char_name}', amount)
 
             await ctx.reply(
                 f'Transaction complete: Transferred {amount_string} to {payee.char_name}\'s account\n'
-                f'`{payor.char_name}\'s` New Balance: {new_balance} Decaying Eldarium\n'
-                f'`{payee.char_name}\'s` New Balance: {payee_balance} Decaying Eldarium\n')
+                f'`{payor.char_name}\'s` New Balance: {new_balance} Bronze Coins\n'
+                f'`{payee.char_name}\'s` New Balance: {payee_balance} Bronze Coins\n')
             return
         else:
             balance = int(get_balance(payor))
-            await ctx.reply(f'Insufficient funds! Available decaying eldarium: {balance}')
+            await ctx.reply(f'Insufficient funds! Available Bronze Coins: {balance}')
             return
 
     @commands.command(name='withdraw', aliases=['atm'])
     @commands.check(check_channel)
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
-    async def withdraw(self, ctx, amount = '0', eld_type = 'raw'):
+    async def withdraw(self, ctx, amount = '0',):
         """
-        Eldarium bank transaction
+        Bronze Coin bank transaction
 
         Parameters
         ----------
         ctx
         amount
-        eld_type
-            raw or bars
 
         Returns
         -------
@@ -185,13 +181,10 @@ class EldariumBank(commands.Cog):
         balance = 0
         amount_string = ''
 
-        if not amount or not eld_type:
-            await ctx.reply(f'Command Format:`v/withdraw <amount> <eld_type> <confirm>`')
+        if not amount:
+            await ctx.reply(f'Command Format:`v/withdraw <amount> <confirm>`')
             return
 
-        if 'raw' not in eld_type and 'bars' not in eld_type:
-            await ctx.reply(f'Error. Must specify `raw` or `bars`.\nCommand Format:`v/withdraw <amount> <eld_type> <confirm>`')
-            return
 
         if not character:
             reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
@@ -202,12 +195,9 @@ class EldariumBank(commands.Cog):
             amount = int(amount)
         except ValueError:
             if amount == 'all':
-                if eld_type == 'raw':
-                    amount = get_balance(character)
-                elif eld_type == 'bars':
-                    amount = math.floor(get_balance(character) / 2)
+                amount = get_balance(character)
                 if amount == 0:
-                    await ctx.reply(f'You do not have enough decaying eldarium in your account to withdraw that much!')
+                    await ctx.reply(f'You do not have enough Bronze Coins in your account to withdraw that much!')
                     return
                 if amount > 1000:
                     await ctx.reply(f'Withdrawals are limited to 1,000 units of currency. '
@@ -215,82 +205,78 @@ class EldariumBank(commands.Cog):
                     amount = 1000
 
         if amount <= 0:
-            await ctx.reply(f'Must withdraw eldarium in whole number amounts > 0!\nCommand Format:`v/withdraw <amount> <eld_type> <confirm>`')
+            await ctx.reply(f'Must withdraw Bronze Coins in whole number amounts > 0!\nCommand Format:`v/withdraw <amount> <eld_type> <confirm>`')
             return
         else:
             check_balance = sufficient_funds(character, abs(amount), eld_type)
             if check_balance:
                 new_balance = eld_transaction(character, f'Withdrawal', -amount, eld_type)
-                if 'bars' in eld_type:
-                    add_reward_record(character.id, 11498, amount, f'Bank Withdrawal: Bars')
-                    amount_string = f'{amount} Eldarium Bars'
-                else:
-                    add_reward_record(character.id, 11499, amount, f'Bank Withdrawal: Raw')
-                    amount_string = f'{amount} Decaying Eldarium'
+                add_reward_record(character.id, 11499, amount, f'Bank Withdrawal: Raw')
+                amount_string = f'{amount} Bronze Coins'
 
                 await ctx.reply(
                     f'Transaction complete: Withdrew {amount_string} from {character.char_name}\'s account\n'
-                    f'New Balance: {new_balance} Decaying Eldarium\n'
+                    f'New Balance: {new_balance} Bronze Coins\n'
                     f'Use `v/claim` to collect your {amount} currency.')
                 return
             else:
                 balance = int(get_balance(character))
-                await ctx.reply(f'Insufficient funds! Available decaying eldarium: {balance}')
+                await ctx.reply(f'Insufficient funds! Available Bronze Coins: {balance}')
                 return
 
-    @commands.command(name='deposit', aliases=['bank'])
-    @commands.check(check_channel)
-    @commands.has_any_role('Admin', 'Moderator')
-    @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
-    async def deposit(self, ctx):
-        """
-        Deposits up to 100 decaying eldarium from your inventory to the bank
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        character = is_registered(ctx.author.id)
-        balance = 0
-        new_balance = 0
-        amount_deposited = 0
-
-        if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
-            return
-
-        inventory_count = count_inventory_qty(character.id, 0, 11499)
-        if inventory_count == 2:
-            await ctx.reply(f'You cannot deposit decaying eldarium in quantities of 1 or 2. Blame Funcom.')
-            return
-        if not inventory_count:
-            await ctx.reply(f'You do not have any decaying eldarium in your main inventory to deposit')
-            return
-        else:
-            message = await ctx.reply(f'Depositing {inventory_count} decaying eldarium from main inventory, '
-                                      f'please wait...')
-            consume_from_inventory(character.id, character.char_name, 11499)
-            eld_transaction(character, f'Deposit', inventory_count)
-
-        # print(f'Initial loop: {inventory_count}')
-        # while inventory_count:
-        #     eld_transaction(character, f'Deposit', inventory_count)
-        #     amount_deposited += inventory_count
-        #     consume_from_inventory(character.id, character.char_name, 11499)
-        #     inventory_count = count_inventory_qty(character.id, 0, 11499)
-        #     print(f'Continuing loop: {inventory_count}')
-        # print(f'Loop ended')
-
-        await message.edit(content=f'Transaction complete: Desposited {inventory_count} decaying eldarium '
-                           f'to {character.char_name}\'s account\n'
-                           f'New Balance: {int(get_balance(character))}\n')
-
-        return
+    # @commands.command(name='deposit', aliases=['bank'])
+    # @commands.check(check_channel)
+    # @commands.has_any_role('Admin', 'Moderator')
+    # @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
+    # async def deposit(self, ctx):
+    #     """
+    #     Deposits up to 100 decaying eldarium from your inventory to the bank
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     character = is_registered(ctx.author.id)
+    #     balance = 0
+    #     new_balance = 0
+    #     amount_deposited = 0
+    #
+    #     if not character:
+    #         reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
+    #         await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+    #         return
+    #
+    #     inventory_count = count_inventory_qty(character.id, 0, 11499)
+    #     if inventory_count == 2:
+    #         await ctx.reply(f'You cannot deposit decaying eldarium in quantities of 1 or 2. Blame Funcom.')
+    #         return
+    #     if not inventory_count:
+    #         await ctx.reply(f'You do not have any decaying eldarium in your main inventory to deposit')
+    #         return
+    #     else:
+    #         message = await ctx.reply(f'Depositing {inventory_count} decaying eldarium from main inventory, '
+    #                                   f'please wait...')
+    #         consume_from_inventory(character.id, character.char_name, 11499)
+    #         eld_transaction(character, f'Deposit', inventory_count)
+    #
+    #     # print(f'Initial loop: {inventory_count}')
+    #     # while inventory_count:
+    #     #     eld_transaction(character, f'Deposit', inventory_count)
+    #     #     amount_deposited += inventory_count
+    #     #     consume_from_inventory(character.id, character.char_name, 11499)
+    #     #     inventory_count = count_inventory_qty(character.id, 0, 11499)
+    #     #     print(f'Continuing loop: {inventory_count}')
+    #     # print(f'Loop ended')
+    #
+    #     await message.edit(content=f'Transaction complete: Desposited {inventory_count} decaying eldarium '
+    #                        f'to {character.char_name}\'s account\n'
+    #                        f'New Balance: {int(get_balance(character))}\n')
+    #
+    #     return
 
     @commands.command(name='transactiondetail', aliases=['txd'])
     @commands.has_any_role('Outcasts')
