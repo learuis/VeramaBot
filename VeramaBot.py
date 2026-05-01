@@ -54,37 +54,39 @@ async def on_ready():
     bot.add_view(RegistrationButton())
     bot.add_view(RoleplayingButton())
 
-    if not liveStatus.is_running():
-        liveStatus.start()
+    if is_docker():
+        if not liveStatus.is_running():
+            liveStatus.start()
 
-    if not onlineCharacterAlert.is_running():
-        onlineCharacterAlert.start()
+        if not onlineCharacterAlert.is_running():
+            onlineCharacterAlert.start()
 
-    if not professionBoard.is_running():
-        professionBoard.start()
+        if not professionBoard.is_running():
+            professionBoard.start()
 
-    if not onlineCharacterInfo.is_running():
-        onlineCharacterInfo.start()
+        if not onlineCharacterInfo.is_running():
+            onlineCharacterInfo.start()
 
-    if not oneStepQuestChecker.is_running():
-        oneStepQuestChecker.start()
+        if not oneStepQuestChecker.is_running():
+            oneStepQuestChecker.start()
 
-    if not placeMarkers.is_running():
-        placeMarkers.start()
+        if not placeMarkers.is_running():
+            placeMarkers.start()
 
-    if not boonChecker.is_running():
-        boonChecker.start()
+        if not boonChecker.is_running():
+            boonChecker.start()
 
-    if not fillCages.is_running():
-        fillCages.start()
-
-    # if not treasure_announcer.is_running():
-    #     treasure_announcer.start()
+        if not fillCages.is_running():
+            fillCages.start()
+    else:
+        print(f'Bot in test mode, no services are running.')
+        # if not treasure_announcer.is_running():
+        #     treasure_announcer.start()
 
     if is_docker():
-        await channel.send(f'VeramaBot PROD (use /v) started on {loadtime}.')
+        await channel.send(f'VeramaBot PROD (use v/) started on {loadtime}.')
     else:
-        await channel.send(f'VeramaBot TEST (use /vt) started on {loadtime}.')
+        await channel.send(f'VeramaBot TEST (use vt/) started on {loadtime}.')
 
 @tasks.loop(seconds=30)
 async def onlineCharacterInfo():

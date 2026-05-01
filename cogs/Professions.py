@@ -220,6 +220,14 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
             if new_tier == 5:
                 outputString += (f'**You have gained the ability to research sigils with `v/research`. '
                                  f'Use `v/help research` for an explanation.**\n')
+                outputString += f'You have unlocked the following {profession} recipes (claim with with `v/featrestore`)\n'
+
+                feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
+                                                 f'where turn_in_amount <= {turn_in_amount} and profession like \'%{profession}%\' '
+                                                 f'order by turn_in_amount desc')
+                for feat in feats_to_grant:
+                    grant_feat(char_id, char_name, feat[0])
+                    outputString += f'{feat[1]}\n'
         case 'tamer':
             if new_tier == 3:
                 outputString += (f'**You have gained the ability to breed rare offspring from animals '
@@ -230,15 +238,13 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
             if new_tier == 5:
                 outputString += (f'**You have gained the ability to train followers, granting them experience '
                                  f'with `v/train`. Use `v/help train` for an explanation.**\n')
-
-    outputString += f'You have unlocked the following {profession} recipes (claim with with `v/featrestore`)\n'
-
-    feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
-                                     f'where turn_in_amount <= {turn_in_amount} and profession like \'%{profession}%\' '
-                                     f'order by turn_in_amount desc')
-    for feat in feats_to_grant:
-        grant_feat(char_id, char_name, feat[0])
-        outputString += f'{feat[1]}\n'
+        case 'scavenger':
+            if new_tier == 4:
+                outputString += (f'**You have gained the heal followers '
+                                 f'with `v/mend`.  Use `v/help mend` for an explanation.**\n')
+            if new_tier == 5:
+                outputString += (f'**You have gained the ability to increase follower inventory size with `v/pockets`. '
+                                 f'Use `v/help pockets` for an explanation.**\n')
 
     await channel.send(f'{outputString}')
 
@@ -762,18 +768,31 @@ class Professions(commands.Cog):
             return
 
         try:
-            repair_amount = int(repair_amount)
+            repair_amount = math.floor(int(repair_amount))
         except ValueError:
-            await ctx.reply(f'You can only repair in whole number amounts greater than 1.')
+            await ctx.reply(f'You can only repair to 1 or in increments of 100 which are >= 100')
             return
 
-        repair_cost = math.floor(int(repair_amount) * eldarium_per_durability)
-        repair_amount = math.floor(int(repair_amount))
+        if repair_amount == 0:
+            await ctx.reply(f'You can only repair to 1 or in increments of 100 which are >= 100')
+            return
+        elif repair_amount % 100 == 0 or repair_amount == 1:
+            pass
+        else:
+            await ctx.reply(f'You can only repair to 1 or in increments of 100 which are >= 100')
+            return
+
+        if repair_amount == 1:
+            repair_cost = 0
+        else:
+            repair_cost = math.floor(int(repair_amount) / eldarium_per_durability)
+            repair_amount = math.floor(int(repair_amount))
 
         if slot == 'hotbar':
             slot_text = ' `1`'
             inv_type = 2
             blacksmith = get_profession_tier(character.id, f'Blacksmith')
+            repair_cost = repair_cost * 2
             if not (blacksmith.tier == 5):
                 await ctx.reply(f'Only Blacksmiths who have achieved Tier 5 can repair items on the hotbar. \n'
                                 f'Current Blacksmith Tier: `T{blacksmith.tier}`')
@@ -786,9 +805,9 @@ class Professions(commands.Cog):
                                 f'Current Armorer Tier: `T{armorer.tier}`')
                 return
 
-        if repair_cost < 1:
-            await ctx.reply(f'You can only repair in whole number amounts greater than 1.')
-            return
+        # if repair_cost < 1:
+        #     await ctx.reply(f'You can only repair in whole number amounts greater than 1.')
+        #     return
 
         slot_value = slot_mapping[slot]
 
@@ -884,9 +903,9 @@ class Professions(commands.Cog):
             run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 71 {attribute_value} 2')
             run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 72 {attribute_value} 2')
 
-            await message.edit(content=f'`{character.char_name}` refogred the weapon in hotbar slot 1 to '
+            await message.edit(content=f'`{character.char_name}` reforged the weapon in hotbar slot 1 to '
                                        f'scale using `{attribute}`.\n'
-                                       f'\nConsumed `{reforge_cost}` Bronze Coin')
+                                       f'\nConsumed `{reforge_cost}` Bronze Coins')
             return
         else:
             await ctx.reply(f'Not enough materials to reforge! Available Bronze Coins: `{balance}`, '
@@ -938,7 +957,16 @@ class Professions(commands.Cog):
         slot_value = slot_mapping[slot]
         # armor_value = armor_mapping[slot]
 
-        final_cost = amount * eldarium_per_armor
+        if amount == 0:
+            await ctx.reply(f'You can only fortify armor in increments of 50 which are >= 50.')
+            return
+        elif amount % 50 == 0:
+            pass
+        else:
+            await ctx.reply(f'You can only fortify armor in increments of 50 which are >= 50.')
+            return
+
+        final_cost = int(amount / eldarium_per_armor)
 
         if 'confirm' not in confirm.lower():
             await ctx.reply(
@@ -1060,6 +1088,7 @@ class Professions(commands.Cog):
         enchant = enchant.lower()
         valid_enchants = ['reaper', 'queen', 'specter', 'agility', 'encumbrance', 'stamina', 'strength', 'health']
         charged_enchants = ['reaper', 'queen', 'specter']
+        t5_enchants = ['queen', 'specter']
         permanent_enchants = ['agility', 'encumbrance', 'stamina', 'strength', 'health']
         enchant_names = {'reaper': 'Reaper Poison', 'queen': 'Scorpion Queen Poison', 'specter': 'Specter Coating',
                          'agility': 'Bile of Agility', 'encumbrance': 'Bile of Encumbrance', 'stamina': 'Bile of Grit',
@@ -1069,19 +1098,28 @@ class Professions(commands.Cog):
 
         character = is_registered(ctx.author.id)
         enchant_cost = int(get_bot_config('enchant_cost'))
+        enchant_charges = int(get_bot_config('enchant_charges'))
 
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
         archivist = get_profession_tier(character.id, f'Archivist')
+        if enchant in t5_enchants:
+            if not (archivist.tier >= 5):
+                await ctx.reply(f'Only Archivists who have achieved Tier 5 can enchant weapons with `{enchant_names[enchant]}`. \n'
+                                f'Current Archivist Tier: `T{archivist.tier}`')
+                return
+            else:
+                pass
         if not (archivist.tier >= 4):
             await ctx.reply(f'Only Archivists who have achieved Tier 4 can enchant weapons. \n'
                             f'Current Archivist Tier: `T{archivist.tier}`')
             return
 
         if enchant not in valid_enchants:
-            await ctx.reply(f'You must specify a valid enchant to apply! Use `reaper`, `queen`, `specter`')
+            await ctx.reply(f'You must specify a valid enchant to apply! Use `reaper`, `queen`, '
+                            f'`specter`, `agility`, `encumbrance`, `stamina`, `strength`, `health`')
             return
 
         id_value = id_mapping[enchant]
@@ -1090,7 +1128,7 @@ class Professions(commands.Cog):
         if 'confirm' not in confirm.lower():
             if enchant in charged_enchants:
                 await ctx.reply(
-                    f'This command will apply `1000 charges of {enchant_value}` to the weapon in hotbar slot 1.'
+                    f'This command will apply `{enchant_charges} charges of {enchant_value}` to the weapon in hotbar slot 1.'
                     f'\n`{enchant_cost} Bronze Coins` will be consumed. \nDo not move items in your '
                     f'inventory while this command is processing, or it may fail. \nNo refunds will be '
                     f'given for user error! \n\nIf you are sure you want to proceed, '
@@ -1116,11 +1154,11 @@ class Professions(commands.Cog):
                                       f'Do not move the item until the process is complete!')
             eld_transaction(character, f'Weapon Enchant Cost', -enchant_cost)
             if enchant in charged_enchants:
-                run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 51 1000 2')
-                run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 52 1000 2')
+                run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 51 {enchant_charges} 2')
+                run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 52 {enchant_charges} 2')
                 run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 50 {id_value} 2')
                 await message.edit(content=f'`{character.char_name}` enchanted the weapon in hotbar slot 1 '
-                                           f'with `1000 charges of {enchant_value}`!\n'
+                                           f'with `{enchant_charges} charges of {enchant_value}`!\n'
                                            f'\nConsumed `{enchant_cost}` Bronze Coins')
             elif enchant in permanent_enchants:
                 run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 63 {id_value} 2')
@@ -1136,232 +1174,232 @@ class Professions(commands.Cog):
                             f'Needed: `{enchant_cost}`')
             return
 
-    @commands.command(name='research')
-    @commands.has_any_role('Outcasts')
-    @commands.check(check_channel)
-    async def research(self, ctx, sigil: str = '', amount: int = 0, confirm: str = ''):
-        """ - Researches a specified sigil for 200 Bronze Coins
+    # @commands.command(name='research')
+    # @commands.has_any_role('Outcasts')
+    # @commands.check(check_channel)
+    # async def research(self, ctx, sigil: str = '', amount: int = 0, confirm: str = ''):
+    #     """ - Researches a specified sigil for 200 Bronze Coins
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #     sigil
+    #         bat | demon | outsider | jhil | fiend | drowned | twice-drowned | goblin |
+    #         gremlin | harpy | serpent | snakemen | wolf-brother | wolfmen | all
+    #     amount
+    #         How many sigils to produce
+    #     confirm
+    #         Type confirm to research the sigils
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     sigil = sigil.lower()
+    #     valid_sigils = ['bat', 'demon', 'outsider', 'jhil', 'fiend', 'drowned', 'twice-drowned', 'goblin',
+    #                     'gremlin', 'harpy', 'serpent', 'snakemen', 'wolf-brother', 'wolfmen', 'all']
+    #     sigil_names = {'bat': 'Sigil of the Bat',
+    #                    'demon': 'Sigil of the Demon',
+    #                    'outsider': 'Sigil of the Outsider',
+    #                    'jhil': 'Sigil of Jhils Brood',
+    #                    'fiend': 'Sigil of the Fiend',
+    #                    'drowned': 'Sigil of the Drowned',
+    #                    'twice-drowned': 'Sigil of the Twice-Drowned',
+    #                    'goblin': 'Sigil of the Goblin',
+    #                    'gremlin': 'Sigil of the Gremlin',
+    #                    'harpy': 'Sigil of the Harpy',
+    #                    'serpent': 'Sigil of the Serpent',
+    #                    'snakemen': 'Sigil of the Snakemen',
+    #                    'wolf-brother': 'Sigil of the Wolf-Brothers',
+    #                    'wolfmen': 'Sigil of the Wolfmen'}
+    #     id_mapping = {'bat': 100006,
+    #                   'demon': 100007,
+    #                   'outsider': 100014,
+    #                   'jhil': 100003,
+    #                   'fiend': 100008,
+    #                   'drowned': 100005,
+    #                   'twice-drowned': 100011,
+    #                   'goblin': 100001,
+    #                   'gremlin': 100010,
+    #                   'harpy': 100009,
+    #                   'serpent': 100013,
+    #                   'snakemen': 100002,
+    #                   'wolf-brother': 100004,
+    #                   'wolfmen': 100012}
+    #
+    #     character = is_registered(ctx.author.id)
+    #     research_cost = int(get_bot_config('research_cost'))
+    #
+    #     if not character:
+    #         await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+    #         return
+    #
+    #     archivist = get_profession_tier(character.id, f'Archivist')
+    #     if not (archivist.tier == 5):
+    #         await ctx.reply(f'Only Archivists who have achieved Tier 5 can research sigils. \n'
+    #                         f'Current Archivist Tier: `T{archivist.tier}`')
+    #         return
+    #
+    #     if sigil not in valid_sigils:
+    #         await ctx.reply(f'You must specify a valid sigil to research! Use `bat`, `demon`, `outsider`, `jhil`, '
+    #                         f'`fiend`, `drowned`, `twice-drowned`, `goblin`, `gremlin`, `harpy`, `serpent`, '
+    #                         f'`snakemen`, `wolf-brother`, `wolfmen`, `all`')
+    #         return
+    #
+    #     if amount == 0:
+    #         await ctx.reply(f'You must research at least one sigil at a time! Use `v/research {sigil} amount`')
+    #         return
+    #
+    #     try:
+    #         int(amount)
+    #     except ValueError:
+    #         await ctx.reply(f'You can only research sigils in whole numbers greater than zero!')
+    #         return
+    #
+    #     if sigil != 'all':
+    #         id_value = id_mapping[sigil]
+    #         sigil_value = sigil_names[sigil]
+    #         final_cost = amount * research_cost
+    #     else:
+    #         id_value = 0
+    #         sigil_value = 'all'
+    #         final_cost = amount * research_cost * len(id_mapping)
+    #
+    #     if 'confirm' not in confirm.lower():
+    #         await ctx.reply(
+    #             f'This command will generate `{amount}x {sigil_value}` and place them in your claim list.'
+    #             f'\n`{final_cost} Bronze Coins` will be consumed.\nIf you are sure you want to proceed, '
+    #             f'use `v/research {sigil} {amount} confirm`')
+    #         return
+    #
+    #     balance = get_balance(character)
+    #     if balance >= final_cost:
+    #         message = await ctx.reply(f'Researching sigils... please wait!')
+    #         eld_transaction(character, f'Sigil Research Cost: {sigil_value}', -final_cost)
+    #         if sigil_value == 'all':
+    #             for sigil_name in sigil_names.keys():
+    #                 add_reward_record(character.id, id_mapping[sigil_name], amount, f'Archivist - Research All Sigils')
+    #         else:
+    #             add_reward_record(character.id, id_value, amount, f'Archivist - Research {sigil_value}')
+    #
+    #         await message.edit(content=f'`{character.char_name}` has researched `{amount}x {sigil_value}`! '
+    #                                    f'Use `v/claim` to receive them.'
+    #                                    f'\nConsumed `{final_cost}` Bronze Coins')
+    #     else:
+    #         await ctx.reply(f'Not enough materials to research that many sigils! '
+    #                         f'Available Bronze Coins: `{balance}`, '
+    #                         f'Needed: `{final_cost}`')
+    #         return
 
-        Parameters
-        ----------
-        ctx
-        sigil
-            bat | demon | outsider | jhil | fiend | drowned | twice-drowned | goblin |
-            gremlin | harpy | serpent | snakemen | wolf-brother | wolfmen | all
-        amount
-            How many sigils to produce
-        confirm
-            Type confirm to research the sigils
-
-        Returns
-        -------
-
-        """
-        sigil = sigil.lower()
-        valid_sigils = ['bat', 'demon', 'outsider', 'jhil', 'fiend', 'drowned', 'twice-drowned', 'goblin',
-                        'gremlin', 'harpy', 'serpent', 'snakemen', 'wolf-brother', 'wolfmen', 'all']
-        sigil_names = {'bat': 'Sigil of the Bat',
-                       'demon': 'Sigil of the Demon',
-                       'outsider': 'Sigil of the Outsider',
-                       'jhil': 'Sigil of Jhils Brood',
-                       'fiend': 'Sigil of the Fiend',
-                       'drowned': 'Sigil of the Drowned',
-                       'twice-drowned': 'Sigil of the Twice-Drowned',
-                       'goblin': 'Sigil of the Goblin',
-                       'gremlin': 'Sigil of the Gremlin',
-                       'harpy': 'Sigil of the Harpy',
-                       'serpent': 'Sigil of the Serpent',
-                       'snakemen': 'Sigil of the Snakemen',
-                       'wolf-brother': 'Sigil of the Wolf-Brothers',
-                       'wolfmen': 'Sigil of the Wolfmen'}
-        id_mapping = {'bat': 100006,
-                      'demon': 100007,
-                      'outsider': 100014,
-                      'jhil': 100003,
-                      'fiend': 100008,
-                      'drowned': 100005,
-                      'twice-drowned': 100011,
-                      'goblin': 100001,
-                      'gremlin': 100010,
-                      'harpy': 100009,
-                      'serpent': 100013,
-                      'snakemen': 100002,
-                      'wolf-brother': 100004,
-                      'wolfmen': 100012}
-
-        character = is_registered(ctx.author.id)
-        research_cost = int(get_bot_config('research_cost'))
-
-        if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
-            return
-
-        archivist = get_profession_tier(character.id, f'Archivist')
-        if not (archivist.tier == 5):
-            await ctx.reply(f'Only Archivists who have achieved Tier 5 can research sigils. \n'
-                            f'Current Archivist Tier: `T{archivist.tier}`')
-            return
-
-        if sigil not in valid_sigils:
-            await ctx.reply(f'You must specify a valid sigil to research! Use `bat`, `demon`, `outsider`, `jhil`, '
-                            f'`fiend`, `drowned`, `twice-drowned`, `goblin`, `gremlin`, `harpy`, `serpent`, '
-                            f'`snakemen`, `wolf-brother`, `wolfmen`, `all`')
-            return
-
-        if amount == 0:
-            await ctx.reply(f'You must research at least one sigil at a time! Use `v/research {sigil} amount`')
-            return
-
-        try:
-            int(amount)
-        except ValueError:
-            await ctx.reply(f'You can only research sigils in whole numbers greater than zero!')
-            return
-
-        if sigil != 'all':
-            id_value = id_mapping[sigil]
-            sigil_value = sigil_names[sigil]
-            final_cost = amount * research_cost
-        else:
-            id_value = 0
-            sigil_value = 'all'
-            final_cost = amount * research_cost * len(id_mapping)
-
-        if 'confirm' not in confirm.lower():
-            await ctx.reply(
-                f'This command will generate `{amount}x {sigil_value}` and place them in your claim list.'
-                f'\n`{final_cost} Bronze Coins` will be consumed.\nIf you are sure you want to proceed, '
-                f'use `v/research {sigil} {amount} confirm`')
-            return
-
-        balance = get_balance(character)
-        if balance >= final_cost:
-            message = await ctx.reply(f'Researching sigils... please wait!')
-            eld_transaction(character, f'Sigil Research Cost: {sigil_value}', -final_cost)
-            if sigil_value == 'all':
-                for sigil_name in sigil_names.keys():
-                    add_reward_record(character.id, id_mapping[sigil_name], amount, f'Archivist - Research All Sigils')
-            else:
-                add_reward_record(character.id, id_value, amount, f'Archivist - Research {sigil_value}')
-
-            await message.edit(content=f'`{character.char_name}` has researched `{amount}x {sigil_value}`! '
-                                       f'Use `v/claim` to receive them.'
-                                       f'\nConsumed `{final_cost}` Bronze Coins')
-        else:
-            await ctx.reply(f'Not enough materials to research that many sigils! '
-                            f'Available Bronze Coins: `{balance}`, '
-                            f'Needed: `{final_cost}`')
-            return
-
-    @commands.command(name='offspring')
-    @commands.has_any_role('Outcasts')
-    @commands.check(check_channel)
-    async def offspring(self, ctx, pet: str = '', amount: int = 0, confirm: str = ''):
-        """ - Directs your animals to produce offspring, resulting in rare siptah baby animals using Bronze Coins
-
-        Parameters
-        ----------
-        ctx
-        pet
-            feraldog | lynx | lacerta | aardwolf | jungleclaw | siptah pelican |
-            mountain lion | turtle | tuskbeast | elephant | pup | yakith
-        amount
-            How many baby animals to produce
-        confirm
-            Type confirm to direct animals to produce offspring
-
-        Returns
-        -------
-
-        """
-        pet = pet.lower()
-        valid_pets = ['feraldog', 'lynx', 'lacerta', 'aardwolf', 'jungleclaw', 'pelican',
-                      'mountainlion', 'turtle', 'tuskbeast', 'elephant', 'pup', 'yakith']
-        pet_names = {'feraldog': 'Feral Dog Pup',
-                     'lynx': 'Island Lynx Cub',
-                     'lacerta': 'Crested Lacerta Hatchling',
-                     'aardwolf': 'Aardwolf Cub',
-                     'jungleclaw': 'Jungleclaw Cub',
-                     'pelican': 'Siptah Pelican Chick',
-                     'mountainlion': 'Mountain Lion Cub',
-                     'turtle': 'Turtle Hatchling',
-                     'tuskbeast': 'Siptah Rhinoceros Calf',
-                     'elephant': 'Antediluvian Elephant Calf',
-                     'pup': 'Playful Pup',
-                     'yakith': 'Yakith'}
-
-        pup_randomizer = random.randint(19223, 19229)
-        tuskbeast_randomizer = random.randint(19046, 19047)
-        yakith_randomizer = random.randint(19623, 19624)
-
-        id_mapping = {'feraldog': 19038,
-                      'lynx': 19039,
-                      'lacerta': 19040,
-                      'aardwolf': 19042,
-                      'jungleclaw': 19041,
-                      'pelican': 19043,
-                      'mountainlion': 19044,
-                      'turtle': 18262,
-                      'tuskbeast': int(tuskbeast_randomizer),
-                      'elephant': 19045,
-                      'pup': int(pup_randomizer),
-                      'yakith': int(yakith_randomizer)}
-
-        character = is_registered(ctx.author.id)
-        offspring_cost = int(get_bot_config('offspring_cost'))
-
-        if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
-            return
-
-        tamer = get_profession_tier(character.id, f'Tamer')
-        if not (tamer.tier >= 3):
-            await ctx.reply(f'Only Tamers who have achieved Tier 3 can direct their animals to produce offspring. \n'
-                            f'Current Tamer Tier: `T{tamer.tier}`')
-            return
-
-        if pet not in valid_pets:
-            await ctx.reply(f'You must specify a valid pet to breed! Use `feraldog`, `lynx`, `lacerta`, `aardwolf`, '
-                            f'`jungleclaw`, `pelican`, `mountainlion`, `turtle`, `tuskbeast`, `elephant`, `pup`, `yakith`')
-            return
-
-        if amount == 0:
-            await ctx.reply(f'Your animals must produce at least one offspring at a time! '
-                            f'Use `v/offspring {pet} amount`')
-            return
-
-        try:
-            int(amount)
-        except ValueError:
-            await ctx.reply(f'Your animals can only produce offspring in whole numbers greater than zero!')
-            return
-
-        id_value = id_mapping[pet]
-        pet_value = pet_names[pet]
-
-        final_cost = amount * offspring_cost
-
-        if 'confirm' not in confirm.lower():
-            await ctx.reply(
-                f'This command will generate `{amount}x {pet_value}` and place them in your claim list.'
-                f'\n`{final_cost} Bronze Coins` will be consumed.\nIf you are sure you want to proceed, '
-                f'use `v/offspring {pet} {amount} confirm`')
-            return
-
-        balance = get_balance(character)
-        if balance >= final_cost:
-            message = await ctx.reply(f'Breeding animals... please wait!')
-            eld_transaction(character, f'Produce Offpsring Cost: {pet_value}', -final_cost)
-            add_reward_record(character.id, id_value, amount, f'Tamer - Produce {pet_value}')
-
-            await message.edit(content=f'`{character.char_name}`- `{amount}x{pet_value}` was born! '
-                                       f'Use `v/claim` to receive them.'
-                                       f'\nConsumed `{final_cost}` Bronze Coins')
-        else:
-            await ctx.reply(f'Not enough materials to produce that many offspring! '
-                            f'Available Bronze Coins: `{balance}`, '
-                            f'Needed: `{final_cost}`')
-            return
+    # @commands.command(name='offspring')
+    # @commands.has_any_role('Outcasts')
+    # @commands.check(check_channel)
+    # async def offspring(self, ctx, pet: str = '', amount: int = 0, confirm: str = ''):
+    #     """ - Directs your animals to produce offspring, resulting in rare siptah baby animals using Bronze Coins
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #     pet
+    #         feraldog | lynx | lacerta | aardwolf | jungleclaw | siptah pelican |
+    #         mountain lion | turtle | tuskbeast | elephant | pup | yakith
+    #     amount
+    #         How many baby animals to produce
+    #     confirm
+    #         Type confirm to direct animals to produce offspring
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     pet = pet.lower()
+    #     valid_pets = ['feraldog', 'lynx', 'lacerta', 'aardwolf', 'jungleclaw', 'pelican',
+    #                   'mountainlion', 'turtle', 'tuskbeast', 'elephant', 'pup', 'yakith']
+    #     pet_names = {'feraldog': 'Feral Dog Pup',
+    #                  'lynx': 'Island Lynx Cub',
+    #                  'lacerta': 'Crested Lacerta Hatchling',
+    #                  'aardwolf': 'Aardwolf Cub',
+    #                  'jungleclaw': 'Jungleclaw Cub',
+    #                  'pelican': 'Siptah Pelican Chick',
+    #                  'mountainlion': 'Mountain Lion Cub',
+    #                  'turtle': 'Turtle Hatchling',
+    #                  'tuskbeast': 'Siptah Rhinoceros Calf',
+    #                  'elephant': 'Antediluvian Elephant Calf',
+    #                  'pup': 'Playful Pup',
+    #                  'yakith': 'Yakith'}
+    #
+    #     pup_randomizer = random.randint(19223, 19229)
+    #     tuskbeast_randomizer = random.randint(19046, 19047)
+    #     yakith_randomizer = random.randint(19623, 19624)
+    #
+    #     id_mapping = {'feraldog': 19038,
+    #                   'lynx': 19039,
+    #                   'lacerta': 19040,
+    #                   'aardwolf': 19042,
+    #                   'jungleclaw': 19041,
+    #                   'pelican': 19043,
+    #                   'mountainlion': 19044,
+    #                   'turtle': 18262,
+    #                   'tuskbeast': int(tuskbeast_randomizer),
+    #                   'elephant': 19045,
+    #                   'pup': int(pup_randomizer),
+    #                   'yakith': int(yakith_randomizer)}
+    #
+    #     character = is_registered(ctx.author.id)
+    #     offspring_cost = int(get_bot_config('offspring_cost'))
+    #
+    #     if not character:
+    #         await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+    #         return
+    #
+    #     tamer = get_profession_tier(character.id, f'Tamer')
+    #     if not (tamer.tier >= 3):
+    #         await ctx.reply(f'Only Tamers who have achieved Tier 3 can direct their animals to produce offspring. \n'
+    #                         f'Current Tamer Tier: `T{tamer.tier}`')
+    #         return
+    #
+    #     if pet not in valid_pets:
+    #         await ctx.reply(f'You must specify a valid pet to breed! Use `feraldog`, `lynx`, `lacerta`, `aardwolf`, '
+    #                         f'`jungleclaw`, `pelican`, `mountainlion`, `turtle`, `tuskbeast`, `elephant`, `pup`, `yakith`')
+    #         return
+    #
+    #     if amount == 0:
+    #         await ctx.reply(f'Your animals must produce at least one offspring at a time! '
+    #                         f'Use `v/offspring {pet} amount`')
+    #         return
+    #
+    #     try:
+    #         int(amount)
+    #     except ValueError:
+    #         await ctx.reply(f'Your animals can only produce offspring in whole numbers greater than zero!')
+    #         return
+    #
+    #     id_value = id_mapping[pet]
+    #     pet_value = pet_names[pet]
+    #
+    #     final_cost = amount * offspring_cost
+    #
+    #     if 'confirm' not in confirm.lower():
+    #         await ctx.reply(
+    #             f'This command will generate `{amount}x {pet_value}` and place them in your claim list.'
+    #             f'\n`{final_cost} Bronze Coins` will be consumed.\nIf you are sure you want to proceed, '
+    #             f'use `v/offspring {pet} {amount} confirm`')
+    #         return
+    #
+    #     balance = get_balance(character)
+    #     if balance >= final_cost:
+    #         message = await ctx.reply(f'Breeding animals... please wait!')
+    #         eld_transaction(character, f'Produce Offspring Cost: {pet_value}', -final_cost)
+    #         add_reward_record(character.id, id_value, amount, f'Tamer - Produce {pet_value}')
+    #
+    #         await message.edit(content=f'`{character.char_name}`- `{amount}x{pet_value}` was born! '
+    #                                    f'Use `v/claim` to receive them.'
+    #                                    f'\nConsumed `{final_cost}` Bronze Coins')
+    #     else:
+    #         await ctx.reply(f'Not enough materials to produce that many offspring! '
+    #                         f'Available Bronze Coins: `{balance}`, '
+    #                         f'Needed: `{final_cost}`')
+    #         return
 
     @commands.command(name=f'train')
     @commands.has_any_role('Outcasts')
@@ -1392,14 +1430,21 @@ class Professions(commands.Cog):
             await ctx.reply(f'Amount must be an integer!.')
             return
 
-        if amount <= 0 or amount < xp_per_eldarium:
-            await ctx.reply(f'Amount must be positive and >= {xp_per_eldarium}!.')
-            return
+
 
         tamer = get_profession_tier(character.id, f'Tamer')
-        if not (tamer.tier == 5):
-            await ctx.reply(f'Only Tamers who have achieved Tier 5 can train followers. \n'
+        if not (tamer.tier >= 4):
+            await ctx.reply(f'Only Tamers who have achieved Tier 4 can train followers. \n'
                             f'Current Tamer Tier: `T{tamer.tier}`')
+            return
+
+        if amount <= 0 or amount < xp_per_eldarium:
+            await ctx.reply(f'You can only train followers in increments of 1000 which are >= 1000.')
+            return
+        elif amount % 1000 == 0:
+            pass
+        else:
+            await ctx.reply(f'You can only train followers in increments of 1000 which are >= 1000.')
             return
 
         final_cost = math.ceil(amount / xp_per_eldarium)
@@ -1452,16 +1497,17 @@ class Professions(commands.Cog):
             return
 
         tamer = get_profession_tier(character.id, f'Tamer')
-        if not (tamer.tier >= 4):
-            await ctx.reply(f'Only Tamers who have achieved Tier 4 perform an animal bonding ritual. \n'
+        if not (tamer.tier == 5):
+            await ctx.reply(f'Only Tamers who have achieved Tier 5 can perform an animal bonding ritual. \n'
                             f'Current Tamer Tier: `T{tamer.tier}`')
             return
 
         if 'confirm' not in confirm.lower():
             await ctx.reply(
                 f'This command will set the Damage Modifier of your current pet on follow mode to `{damage_bonus}.0`. '
-                f'Mounts will be upgraded to `10,000` Endurance.'
-                f'Do not use this command with human followers, or you will be thrown into the volcano.\nIf you have '
+                f'Mounts will be upgraded to `10,000` Endurance. '
+                f'Do not use this command with human followers, or you will be thrown into the volcano.\nYou can bond '
+                f'with a pet and a horse at the same time. If you have '
                 f'War Party, you can bond with both following pets at once.\n'
                 f'\n`{bond_cost} Bronze Coins` will be consumed. \n\n'
                 f'If you are sure you want to proceed, '
@@ -1562,12 +1608,21 @@ class Professions(commands.Cog):
                             f'Current Scavenger Tier: `T{scavenger.tier}`')
             return
 
-        if amount <= 0:
-            await ctx.reply(f'Healing amount must be greater than `0`.')
+        if amount <= 0 or amount > mend_cap:
+            await ctx.reply(f'You can only heal followers in increments of 500 which are >= 500, maximum {mend_cap}!.')
             return
-        elif amount > mend_cap:
-            await ctx.reply(f'Healing amount must be less than or equal to `{mend_cap}`.')
+        elif amount % 500 == 0:
+            pass
+        else:
+            await ctx.reply(f'You can only heal followers in increments of 500 which are >= 500, maximum {mend_cap}!.')
             return
+
+        # if amount <= 0:
+        #     await ctx.reply(f'Healing amount must be greater than `0`.')
+        #     return
+        # elif amount > mend_cap:
+        #     await ctx.reply(f'Healing amount must be less than or equal to `{mend_cap}`.')
+        #     return
 
         calculated_cost = int(amount / mend_cost)
 
@@ -1663,33 +1718,33 @@ class Professions(commands.Cog):
                             f'Available Bronze Coins: `{balance}`, Needed: `{calculated_cost}`')
             return
 
-    @commands.command(name='provisioner')
-    @commands.check(check_channel)
-    @commands.has_any_role('Outcasts')
-    async def provisioner(self, ctx):
-        """ - Swaps your preference for Crafters or Combatants from Provisioner Favor
-
-        Parameters
-        ----------
-        ctx
-
-        Returns
-        -------
-
-        """
-        character = is_registered(ctx.author.id)
-        output_string = 'This message should not be displayed!'
-
-        if not character:
-            await no_registered_char_reply(self.bot, ctx)
-            return
-
-        provisioner_option = provisioner_swap(character)
-
-        output_string = f'Your preference for thralls awarded from Provisioner has been switched to `{provisioner_option}`!'
-
-        await ctx.reply(output_string)
-        return
+    # @commands.command(name='provisioner')
+    # @commands.check(check_channel)
+    # @commands.has_any_role('Outcasts')
+    # async def provisioner(self, ctx):
+    #     """ - Swaps your preference for Crafters or Combatants from Provisioner Favor
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     character = is_registered(ctx.author.id)
+    #     output_string = 'This message should not be displayed!'
+    #
+    #     if not character:
+    #         await no_registered_char_reply(self.bot, ctx)
+    #         return
+    #
+    #     provisioner_option = provisioner_swap(character)
+    #
+    #     output_string = f'Your preference for thralls awarded from Provisioner has been switched to `{provisioner_option}`!'
+    #
+    #     await ctx.reply(output_string)
+    #     return
 
     @commands.command(name='technique', aliases=['techniquelist'])
     @commands.has_any_role('Outcasts')
