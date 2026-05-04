@@ -634,8 +634,7 @@ class Utilities(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         if 'confirm' not in confirm.lower():
@@ -685,8 +684,7 @@ class Utilities(commands.Cog):
         # character = get_single_registration(name)
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         if 'confirm' not in confirm.lower():

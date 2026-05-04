@@ -197,6 +197,8 @@ class Reroll(commands.Cog):
             else:
                 pass
 
+        points = get_prestige_points(character)
+
         query_string = f'select reason, points from prestige where discord_id = \'{character.discord_id}\''
         print(query_string)
         result = db_query(False, f'{query_string}')

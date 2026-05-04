@@ -108,8 +108,7 @@ class Hunter(commands.Cog):
         outputString = '__Notorious Quarries__\n'
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         query = (f'select target_display_name, notoriety from beast_slayer_target_list '
@@ -149,8 +148,7 @@ class Hunter(commands.Cog):
         character = is_registered(user.id)
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         if 'new' in option:
@@ -214,16 +212,15 @@ class Hunter(commands.Cog):
         output_string = 'This message should not be displayed!'
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         arachnophobia_flag = toggle_arachnophobia(character)
         if arachnophobia_flag:
-            output_string = (f'Arachnophobia mode `enabled` for `{character.id}`! '
+            output_string = (f'Arachnophobia mode `enabled` for `{ctx.message.author.mention}`! '
                              f'You will not be assigned to kill spiders in the Beast Slayer profession.')
         else:
-            output_string = (f'Arachnophobia mode `disabled` for `{character.id}`! '
+            output_string = (f'Arachnophobia mode `disabled` for `{ctx.message.author.mention}`! '
                              f'You may be assigned to kill spiders in the Beast Slayer profession.')
 
         await ctx.reply(output_string)
@@ -249,8 +246,7 @@ class Hunter(commands.Cog):
         notorious_multiplier = 0
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         current_target = get_slayer_target(character)

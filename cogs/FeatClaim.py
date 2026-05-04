@@ -3,7 +3,7 @@ import os
 
 from discord.ext import commands
 from functions.common import custom_cooldown, get_rcon_id, is_registered, get_single_registration, get_bot_config, \
-    check_channel
+    check_channel, no_registered_char_reply
 from functions.externalConnections import runRcon, db_query, db_delete_single_record
 
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
@@ -106,9 +106,7 @@ class FeatClaim(commands.Cog):
         featDict = {}
 
         if not charId:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            outputString = f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}'
-            await ctx.reply(content=outputString)
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         if not get_rcon_id(charId.char_name):

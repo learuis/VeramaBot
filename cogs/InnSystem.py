@@ -354,8 +354,7 @@ class InnSystem(commands.Cog):
         character = is_registered(ctx.author.id)
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         checkin = get_checkin_details(character)
@@ -404,8 +403,7 @@ class InnSystem(commands.Cog):
         outputString = ''
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         rconCharId = get_rcon_id(character.char_name)

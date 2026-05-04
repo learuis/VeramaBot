@@ -119,8 +119,7 @@ class EldariumBank(commands.Cog):
         """
         payor = is_registered(ctx.author.id)
         if not payor:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         payee = is_registered(payee.id)
@@ -142,7 +141,7 @@ class EldariumBank(commands.Cog):
 
         amount_string = f'{amount} Bronze Coins'
 
-        check_balance = sufficient_funds(payor, abs(amount), eld_type)
+        check_balance = sufficient_funds(payor, abs(amount))
         if check_balance:
             if 'confirm' not in confirm:
                 await ctx.reply(f'This command will transfer `{amount_string}` to `{payee.char_name}`. '
@@ -185,10 +184,8 @@ class EldariumBank(commands.Cog):
             await ctx.reply(f'Command Format:`v/withdraw <amount> <confirm>`')
             return
 
-
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         try:
@@ -299,8 +296,7 @@ class EldariumBank(commands.Cog):
         character = is_registered(discord_user.id)
 
         if not character:
-            reg_channel = self.bot.get_channel(REGHERE_CHANNEL)
-            await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         results = db_query(False, f'select * from bank_transactions where char_id = {character.id}'

@@ -933,7 +933,7 @@ class Professions(commands.Cog):
         -------
 
         """
-        eldarium_per_durability = float(get_bot_config(f'eldarium_per_durability'))
+        durability_per_coin = float(get_bot_config(f'durability_per_coin'))
         valid_slots = ['hotbar', 'head', 'chest', 'hands', 'legs', 'feet']
         slot_mapping = {'hotbar': 0, 'head': 3, 'chest': 4, 'hands': 5, 'legs': 6, 'feet': 7}
         slot_text = ''
@@ -953,29 +953,29 @@ class Professions(commands.Cog):
         try:
             repair_amount = math.floor(int(repair_amount))
         except ValueError:
-            await ctx.reply(f'You can only repair to 1 or in increments of 100 which are >= 100')
+            await ctx.reply(f'You can only repair to 1 or in increments of 500 which are >= 500')
             return
 
         if repair_amount == 0:
-            await ctx.reply(f'You can only repair to 1 or in increments of 100 which are >= 100')
+            await ctx.reply(f'You can only repair to 1 or in increments of 500 which are >= 500')
             return
-        elif repair_amount % 100 == 0 or repair_amount == 1:
+        elif repair_amount % 500 == 0 or repair_amount == 1:
             pass
         else:
-            await ctx.reply(f'You can only repair to 1 or in increments of 100 which are >= 100')
+            await ctx.reply(f'You can only repair to 1 or in increments of 500 which are >= 500')
             return
 
         if repair_amount == 1:
             repair_cost = 0
         else:
-            repair_cost = math.floor(int(repair_amount) / eldarium_per_durability)
+            repair_cost = int(repair_amount) / durability_per_coin
             repair_amount = math.floor(int(repair_amount))
 
         if slot == 'hotbar':
             slot_text = ' `1`'
             inv_type = 2
             blacksmith = get_profession_tier(character.id, f'Blacksmith')
-            repair_cost = repair_cost * 2
+            repair_cost = math.floor(repair_cost * 2)
             if not (blacksmith.tier == 5):
                 await ctx.reply(f'Only Blacksmiths who have achieved Tier 5 can repair items on the hotbar. \n'
                                 f'Current Blacksmith Tier: `T{blacksmith.tier}`')
@@ -983,6 +983,7 @@ class Professions(commands.Cog):
         else:
             inv_type = 1
             armorer = get_profession_tier(character.id, f'Armorer')
+            repair_cost = math.floor(repair_cost)
             if not (armorer.tier == 5):
                 await ctx.reply(f'Only Armorers who have achieved Tier 5 can repair equipped armor. \n'
                                 f'Current Armorer Tier: `T{armorer.tier}`')
@@ -1601,7 +1602,7 @@ class Professions(commands.Cog):
 
         """
         character = is_registered(ctx.author.id)
-        xp_per_eldarium = int(get_bot_config('xp_per_eldarium'))
+        xp_per_coin = int(get_bot_config('xp_per_coin'))
 
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
@@ -1621,7 +1622,7 @@ class Professions(commands.Cog):
                             f'Current Tamer Tier: `T{tamer.tier}`')
             return
 
-        if amount <= 0 or amount < xp_per_eldarium:
+        if amount <= 0 or amount < xp_per_coin:
             await ctx.reply(f'You can only train followers in increments of 1000 which are >= 1000.')
             return
         elif amount % 1000 == 0:
@@ -1630,7 +1631,7 @@ class Professions(commands.Cog):
             await ctx.reply(f'You can only train followers in increments of 1000 which are >= 1000.')
             return
 
-        final_cost = math.ceil(amount / xp_per_eldarium)
+        final_cost = math.ceil(amount / xp_per_coin)
 
         if 'confirm' not in confirm.lower():
             await ctx.reply(

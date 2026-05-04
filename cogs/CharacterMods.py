@@ -1,6 +1,6 @@
 import discord
 from discord.ext import commands
-from functions.common import custom_cooldown, is_registered, get_rcon_id, check_channel
+from functions.common import custom_cooldown, is_registered, get_rcon_id, check_channel, no_registered_char_reply
 from functions.externalConnections import runRcon
 
 class CharacterMods(commands.Cog):
@@ -40,8 +40,7 @@ class CharacterMods(commands.Cog):
         character = is_registered(discord_user.id)
 
         if not character:
-            outputString = f'No character registered to {ctx.message.author.mention}!'
-            await message.edit(content=outputString)
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         if get_rcon_id(character.char_name):
@@ -88,8 +87,7 @@ class CharacterMods(commands.Cog):
         character = is_registered(ctx.message.author.id)
 
         if not character:
-            outputString = f'No character registered to {ctx.message.author.mention}!'
-            await message.edit(content=outputString)
+            await no_registered_char_reply(self.bot, ctx)
             return
 
         if get_rcon_id(character.char_name):

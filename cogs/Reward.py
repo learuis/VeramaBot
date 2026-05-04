@@ -104,28 +104,28 @@ class Rewards(commands.Cog):
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             return
-        if kit_name  == f'veteranstarter':
-            last_season_character = is_registered(ctx.author.id, False)
-            if last_season_character:
-                already_claimed = claimed_kit(character, f'{kit_name}')
-                if already_claimed:
-                    await ctx.reply(f'You have already claimed this starter kit!')
-                    return
-                else:
-                    reward_list = get_kit_details(f'{kit_name}')
-                    if reward_list:
-                    # reward_list = [51003, 51013, 51040]
-                        for item in reward_list:
-                            add_reward_record(int(character.id), item[0], item[1], f'Starter Kit: {item[2]}')
-                        record_claimed_kit(character, f'{kit_name}')
-                        await ctx.reply(f'Starter Kit granted to `{character.char_name}`! Use `v/claim` to receive the items.')
-                        return
-                    else:
-                        await ctx.reply(f'Issue! HALP Verama')
-                        return
-            else:
-                await ctx.reply(f'Could not find a Season `{PREVIOUS_SEASON}` character registered to {ctx.author.mention}!')
-                return
+        # if kit_name  == f'veteranstarter':
+        #     last_season_character = is_registered(ctx.author.id, False)
+        #     if last_season_character:
+        #         already_claimed = claimed_kit(character, f'{kit_name}')
+        #         if already_claimed:
+        #             await ctx.reply(f'You have already claimed this starter kit!')
+        #             return
+        #         else:
+        #             reward_list = get_kit_details(f'{kit_name}')
+        #             if reward_list:
+        #             # reward_list = [51003, 51013, 51040]
+        #                 for item in reward_list:
+        #                     add_reward_record(int(character.id), item[0], item[1], f'Starter Kit: {item[2]}')
+        #                 record_claimed_kit(character, f'{kit_name}')
+        #                 await ctx.reply(f'Starter Kit granted to `{character.char_name}`! Use `v/claim` to receive the items.')
+        #                 return
+        #             else:
+        #                 await ctx.reply(f'Issue! HALP Verama')
+        #                 return
+        #     else:
+        #         await ctx.reply(f'Could not find a Season `{PREVIOUS_SEASON}` character registered to {ctx.author.mention}!')
+        #         return
         elif kit_name == f'respec':
             level = get_character_level(character)
             if level < 60:
