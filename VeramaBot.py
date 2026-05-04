@@ -79,7 +79,15 @@ async def on_ready():
         if not fillCages.is_running():
             fillCages.start()
     else:
-        print(f'Bot in test mode, no services are running.')
+        if not professionBoard.is_running():
+            professionBoard.start()
+
+        if not onlineCharacterInfo.is_running():
+            onlineCharacterInfo.start()
+
+        if not oneStepQuestChecker.is_running():
+            oneStepQuestChecker.start()
+        print(f'Bot in test mode, limited services are running.')
         # if not treasure_announcer.is_running():
         #     treasure_announcer.start()
 

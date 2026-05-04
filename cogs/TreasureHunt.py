@@ -156,13 +156,13 @@ def treasure_portal(bonus):
 
 def grant_treasure_rewards(character, target_name, bonus, daily=False):
     reward_list = []
-    default_reward = (11009, 'Eldarium Cache')
+    # default_reward = (11009, 'Eldarium Cache')
     alternate_reward = (80256, 'Lucky Coin')
     eldarium_payout = 0
     total_payout = 0
     treasure_count = 0
     reward_message = f''
-    treasure_eldarium_max = int(get_bot_config('treasure_eldarium_max'))
+    # treasure_eldarium_max = int(get_bot_config('treasure_eldarium_max'))
     # print(f'{character.id}')
     # print(f'{character}')
     #
@@ -190,15 +190,16 @@ def grant_treasure_rewards(character, target_name, bonus, daily=False):
                 # reward_list.append(default_reward)
                 # add logic here to give bulk eldarium instead
                 # bonus / 10
-                eldarium_payout = random.randint(int(1), treasure_eldarium_max) * (5 - category) + (bonus / 10)
-                total_payout += int(eldarium_payout)
+                # eldarium_payout = random.randint(int(1), treasure_eldarium_max) * (5 - category) + (bonus / 10)
+                eldarium_payout = int(get_bot_config('treasure_eldarium_static'))
+                total_payout += eldarium_payout
                 reward_message += f'`Bronze Coin x {int(eldarium_payout)}` | '
                 # this causes classes to get shuffled
                 
     if daily:
         reward_list.append(alternate_reward)
 
-    eld_transaction(character, f'Treasure Hunt', total_payout, f'raw')
+    eld_transaction(character, f'Treasure Hunt', total_payout)
 
     # print(f'{reward_list}')
     for reward in reward_list:
@@ -206,12 +207,12 @@ def grant_treasure_rewards(character, target_name, bonus, daily=False):
         reward_message += f'`{reward[1]}` | '
         add_reward_record(int(character.id), int(reward[0]), 1, f'Treasure Hunt: {reward[1]}')
 
-    # static DE
-    static_eld = int(get_bot_config('treasure_eldarium_static')) * treasure_count
-    total_payout += static_eld
-    reward_message += f'`Bonus Bronze Coins x {static_eld}` | '
+    # # static DE
+    # static_eld = int(get_bot_config('treasure_eldarium_static')) * treasure_count
+    # total_payout += static_eld
+    # reward_message += f'`Bonus Bronze Coins x {static_eld}` | '
 
-    reward_message += f'\nTotal DE Found: `{int(total_payout)}`'
+    reward_message += f'\nTotal BC Found: `{int(total_payout)}`'
 
 
 

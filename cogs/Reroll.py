@@ -184,14 +184,18 @@ class Reroll(commands.Cog):
             message = await ctx.reply(f'Working...')
         # print(f'{character.char_name} used the prestige command.')
 
+        points = get_prestige_points(character)
+
         last_season_character = last_season_char(ctx.message.author.id)
         if last_season_character:
             reroll_points = int(get_bot_config(f'reroll_points'))
-            query_string = (f'insert or replace into prestige (discord_id, reason, points) values ({last_season_character.discord_id}, '
-                            f'\'Returning Player Bonus Season {PREVIOUS_SEASON} to {CURRENT_SEASON}\', {reroll_points})')
-            db_query(True, f'{query_string}')
-
-        points = get_prestige_points(character)
+            prestige_cap = int(get_bot_config(f'prestige_cap'))
+            if points < prestige_cap and points % 5 == 0:
+                query_string = (f'insert or replace into prestige (discord_id, reason, points) values ({last_season_character.discord_id}, '
+                                f'\'Returning Player Bonus Season {PREVIOUS_SEASON} to {CURRENT_SEASON}\', {reroll_points})')
+                db_query(True, f'{query_string}')
+            else:
+                pass
 
         query_string = f'select reason, points from prestige where discord_id = \'{character.discord_id}\''
         print(query_string)

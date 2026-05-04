@@ -8,7 +8,8 @@ from cogs.FeatClaim import grant_feat
 from functions.common import int_epoch_time, get_bot_config, set_bot_config, is_registered, get_single_registration, \
     flatten_list, get_rcon_id, run_console_command_by_name, get_single_registration_new, \
     no_registered_char_reply, check_channel, eld_transaction, get_balance, get_slayer_target, get_notoriety, get_favor, \
-    add_reward_record, get_treasure_target, modify_favor, provisioner_swap, get_provisioner_option, get_registration
+    add_reward_record, get_treasure_target, modify_favor, provisioner_swap, get_provisioner_option, get_registration, \
+    is_docker
 from functions.externalConnections import db_query, runRcon
 from dotenv import load_dotenv
 
@@ -125,14 +126,91 @@ def mark_technique_as_learned(character, weapon):
                    f'values ({character.id}, {CURRENT_SEASON}, \'{weapon.type}\', {weapon.template_id})')
     return
 
+def available_specializations(char_id):
+    t4_spec_cap = int(get_bot_config(f't4_spec_cap'))
+    t5_spec_cap = int(get_bot_config(f't5_spec_cap'))
+
+    query = f'select count(*) from specialization where char_id = {char_id} and season = {CURRENT_SEASON} and tier = 4'
+    t4_results = db_query(False, query)
+    t4_results = flatten_list(t4_results)[0]
+
+    query = f'select count(*) from specialization where char_id = {char_id} and season = {CURRENT_SEASON} and tier = 5'
+    t5_results = db_query(False, query)
+    t5_results = flatten_list(t5_results)[0]
+
+    t4_available = t4_spec_cap - t4_results
+    t5_available = t5_spec_cap - t5_results
+    print(f'available specializations:', t4_available, t5_available)
+    return t4_available, t5_available
+
+def is_specialized(char_id, profession, tier):
+    query = (f'select char_id, profession, tier '
+                     f'from specialization '
+                     f'where char_id = {char_id} '
+                     f'and profession like \'%{profession}%\' '
+                     f'and season = {CURRENT_SEASON} and tier >= {tier} '
+                     f'limit 1')
+    print(query)
+    query_output = db_query(False, query)
+    if query_output:
+        return True
+    else:
+        return False
+
+
 async def give_profession_xp(char_id, char_name, profession, tier, bot):
     profession_xp_mult = int(get_bot_config(f'{profession.casefold()}_xp_multiplier'))
     global_profession_xp_mult = int(get_bot_config(f'global_profession_xp_mult'))
+    tier_3_xp = int(get_bot_config(f'profession_t3_xp'))
+    tier_4_xp = int(get_bot_config(f'profession_t4_xp'))
+    tier_5_xp = int(get_bot_config(f'profession_t5_xp'))
+    channel = bot.get_channel(OUTCASTBOT_CHANNEL)
+    specialization_dict = {3:f'tier_4_xp', 4:f'tier_5_xp'}
 
     if not tier:
         earned_xp = profession_xp_mult * global_profession_xp_mult
     else:
         earned_xp = tier * profession_xp_mult * global_profession_xp_mult
+
+    current_results = db_query(False,
+                       f'select current_experience from character_progression '
+                       f'where char_id = {char_id} and profession like \'%{profession}%\' '
+                       f'and season = {CURRENT_SEASON} limit 1')
+    current_results = flatten_list(current_results)
+    current_xp = current_results[0]
+    print(current_xp)
+
+    if tier == 3:
+        if current_xp + earned_xp >= tier_4_xp:
+            if is_specialized(char_id, profession, tier+1):
+                pass
+            else:
+                print(f'not specialized t4')
+                query = (f'update character_progression set current_experience = {tier_4_xp}, '
+                         f'turn_ins_this_cycle = ('
+                         f'select turn_ins_this_cycle + 1 from character_progression '
+                         f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}), '
+                         f'season = {CURRENT_SEASON} '
+                         f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}')
+                db_query(True, query)
+                await channel.send(f'You cannot earn more experience as a `{profession}` until you specialize '
+                                   f'with `v/specialize {profession}`!')
+                return
+    elif tier == 4:
+        if current_xp + earned_xp >= tier_5_xp:
+            if is_specialized(char_id, profession, tier+1):
+                pass
+            else:
+                query = (f'update character_progression set current_experience = {tier_5_xp}, '
+                         f'turn_ins_this_cycle = ('
+                         f'select turn_ins_this_cycle + 1 from character_progression '
+                         f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}), '
+                         f'season = {CURRENT_SEASON} '
+                         f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}')
+                db_query(True, query)
+                await channel.send(f'You cannot earn more experience as a `{profession}` until you specialize '
+                                   f'with `v/specialize {profession}`!')
+                return
 
     db_query(True,
              f'update character_progression set current_experience = ( '
@@ -140,7 +218,7 @@ async def give_profession_xp(char_id, char_name, profession, tier, bot):
              f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}), '
              f'turn_ins_this_cycle = ('
              f'select turn_ins_this_cycle + 1 from character_progression '
-             f'where char_id = {char_id} and profession like \'%{profession}%\'),'
+             f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}), '
              f'season = {CURRENT_SEASON} '
              f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}')
     results = db_query(False,
@@ -153,7 +231,7 @@ async def give_profession_xp(char_id, char_name, profession, tier, bot):
 
     # grant feats on every XP increase
     feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
-                                     f'where turn_in_amount <= {xp_total} and profession like \'%{profession}%\' '
+                                     f'where turn_in_amount <= {xp_total} and profession like \'%{profession}%\' and tier = {tier}'
                                      f'order by turn_in_amount desc')
     for feat in feats_to_grant:
         grant_feat(char_id, char_name, feat[0])
@@ -211,6 +289,8 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
                 outputString += (f'**You have gained the ability to trim armor weight to 0 with `v/trim`. '
                                  f'Use `v/help trim` for an explanation.**\n')
             if new_tier == 5:
+                outputString += (f'**You have gained the ability to increase armor values with `v/fortify`. '
+                                 f'Use `v/help fortify` for an explanation.**\n')
                 outputString += (f'**You have gained the ability to repair equipped armor with `v/repair`. '
                                  f'Use `v/help repair` for an explanation.**\n')
         case 'archivist':
@@ -218,26 +298,31 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
                 outputString += (f'**You have gained the ability to enchant weapons with long-lasting effects '
                                  f'with `v/enchant`.  Use `v/help enchant` for an explanation.**\n')
             if new_tier == 5:
-                outputString += (f'**You have gained the ability to research sigils with `v/research`. '
-                                 f'Use `v/help research` for an explanation.**\n')
+                outputString += (f'**You have gained the ability to enchant weapons with stronger long-lasting effects '
+                                 f'with `v/enchant`.  Use `v/help enchant` for an explanation.**\n')
+                # outputString += (f'**You have gained the ability to research sigils with `v/research`. '
+                #                  f'Use `v/help research` for an explanation.**\n')
                 outputString += f'You have unlocked the following {profession} recipes (claim with with `v/featrestore`)\n'
 
                 feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
-                                                 f'where turn_in_amount <= {turn_in_amount} and profession like \'%{profession}%\' '
+                                                 f'where turn_in_amount <= {turn_in_amount} '
+                                                 f'and profession like \'%{profession}%\' '
+                                                 f'and tier = {new_tier}'
                                                  f'order by turn_in_amount desc')
                 for feat in feats_to_grant:
                     grant_feat(char_id, char_name, feat[0])
                     outputString += f'{feat[1]}\n'
         case 'tamer':
-            if new_tier == 3:
-                outputString += (f'**You have gained the ability to breed rare offspring from animals '
-                                 f'with `v/offspring`. Use `v/help offspring` for an explanation.**\n')
+            # if new_tier == 3:
+            #     outputString += (f'**You have gained the ability to breed rare offspring from animals '
+            #                      f'with `v/offspring`. Use `v/help offspring` for an explanation.**\n')
             if new_tier == 4:
-                outputString += (f'**You have gained the ability to bond with an animal companion, increasing its damage significantly '
-                                 f'with `v/animalbond`. Use `v/help animalbond` for an explanation.**\n')
-            if new_tier == 5:
                 outputString += (f'**You have gained the ability to train followers, granting them experience '
                                  f'with `v/train`. Use `v/help train` for an explanation.**\n')
+
+            if new_tier == 5:
+                outputString += (f'**You have gained the ability to bond with an animal companion, increasing its damage significantly '
+                                 f'with `v/animalbond`. Use `v/help animalbond` for an explanation.**\n')
         case 'scavenger':
             if new_tier == 4:
                 outputString += (f'**You have gained the heal followers '
@@ -370,7 +455,10 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
     # print(f'outputstring is {len(outputString)} characters')
     # print(f'{outputString}')
 
-    await message.edit(content=f'{outputString}')
+    if is_docker():
+        await message.edit(content=f'{outputString}')
+    else:
+        print(f'Skipped updating profession board,  test mode active.')
 
     # print(f'make leaderboard')
     # print(f'{profession_list}')
@@ -427,7 +515,11 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
                 # print(f'outputstring is {len(outputString)} characters')
 
             # print(f'end of loop')
-    await leaderboard_message.edit(content=f'{leader_outputString}')
+    if is_docker():
+        await leaderboard_message.edit(content=f'{leader_outputString}')
+    else:
+        print(f'Skipped updating leaderboard,  test mode active.')
+
     return True
 
 class Professions(commands.Cog):
@@ -611,6 +703,97 @@ class Professions(commands.Cog):
         else:
             await ctx.send(f'Error updating Profession details for {char_name}')
         return
+
+    @commands.command(name='specialize', aliases=['spec'])
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.check(check_channel)
+    async def specialize(self, ctx, profession: str = 'check', confirm: str = ''):
+        """
+
+        Parameters
+        ----------
+        ctx
+        profession
+        confirm
+
+        Returns
+        -------
+
+        """
+        t4_spec_cap = int(get_bot_config(f't4_spec_cap'))
+        t5_spec_cap = int(get_bot_config(f't5_spec_cap'))
+
+        character = is_registered(ctx.author.id)
+        profession = profession.casefold()
+        outputString = f'__Current specializations__'
+
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        profession_list = ['blacksmith', 'armorer', 'tamer', 'archivist', 'scavenger']
+        if 'check' in profession:
+            results = db_query(False, f'select profession, tier from specialization where char_id = {character.id} and season = {CURRENT_SEASON}')
+            if results:
+                for result in results:
+                    outputString += f'\n`{result[0]}` - Tier `{result[1]}`'
+            await ctx.reply(f'{outputString}')
+            return
+
+        if profession not in profession_list:
+            await ctx.reply(f'Must specify a valid profession: `blacksmith`, `armorer`, `tamer`, `archivist`, `scavenger`')
+            return
+
+        selected_profession = get_profession_tier(character.id, profession)
+        print(selected_profession.tier)
+
+        t4_avail, t5_avail = available_specializations(character.id)
+
+        if selected_profession.tier == 3 or selected_profession.tier == 4:
+            if selected_profession.current_experience == int(get_bot_config(f'profession_t{selected_profession.tier+1}_xp')):
+                if selected_profession.tier == 3 and t4_avail == 0:
+                    await ctx.reply(f'You can only specialize in {t4_spec_cap} T4 Professions at once!')
+                    return
+                if selected_profession.tier == 4 and t5_avail == 0:
+                    await ctx.reply(f'You can only specialize in {t5_spec_cap} T5 Profession at once!')
+                    return
+                if 'confirm' in confirm.casefold():
+
+                    db_query(True, f'insert or replace into specialization '
+                                   f'(char_id, profession, tier, season) values '
+                                   f'({character.id}, \'{profession}\', {selected_profession.tier+1}, '
+                                   f'{CURRENT_SEASON})')
+                    await profession_tier_up(profession, selected_profession.tier,
+                                             selected_profession.current_experience, character.id,
+                                             character.char_name, self.bot)
+                    pass
+                else:
+                    await ctx.reply(f'This command will increase your `{profession}` to `T{selected_profession.tier+1}`. '
+                                    f'Use the command `v/specialize {profession} confirm` if you want to proceed.')
+            else:
+                await ctx.reply(f'You must be at the maximum experience for `{profession} '
+                                f'T{selected_profession.tier}` in order to specialize!')
+                return
+        else:
+            await ctx.reply(f'You must be at the maximum experience for `{profession} T3 or T4` in order to specialize!')
+            return
+
+
+
+        # results = db_query(True,
+        #                    f'update character_progression '
+        #                    f'set tier = {tier}, current_experience = {xp}, turn_ins_this_cycle = {turn_ins} '
+        #                    f'where char_id = {char_id} and season = {CURRENT_SEASON} '
+        #                    f'and profession = \'{profession.capitalize()}\'')
+
+        # if results:
+        #     await ctx.send(f'Updated Profession details for '
+        #                    f'`{char_name}`: {profession.capitalize()} Tier {tier} XP {xp} Deliveries {turn_ins}')
+        # else:
+        #     await ctx.send(f'Error updating Profession details for {char_name}')
+        # return
+
 
     @commands.command(name='refreshprofessions')
     @commands.has_any_role('Admin', 'Moderator')

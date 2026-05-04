@@ -152,17 +152,17 @@ def encode_inn_id(clan_id):
     inn_id = hashlib.md5(str(clan_id).encode('utf-8')).hexdigest()
     return inn_id
 
-def inn_transaction(inn, character, cost, revenue, bonus_mult):
+def inn_transaction(inn, character, cost, revenue):
     eld_transaction(character, f'Inn TP to {inn.name}', -cost)
     inn_owner = get_single_registration_new(char_id=int(inn.owner_id))
-    guests = count_checkins(inn.clan_id)
-    bonus_revenue = guests * bonus_mult
-    print(bonus_revenue)
-    final_revenue = bonus_revenue + revenue
-    if final_revenue > 10:
-        final_revenue = 10
-    print(final_revenue)
-    eld_transaction(inn_owner, f'{character.char_name} teleported to {inn.name}', final_revenue)
+    # guests = count_checkins(inn.clan_id)
+    # bonus_revenue = guests * bonus_mult
+    # print(bonus_revenue)
+    # final_revenue = bonus_revenue + revenue
+    # if final_revenue > 10:
+    #     final_revenue = 10
+    # print(final_revenue)
+    eld_transaction(inn_owner, f'{character.char_name} teleported to {inn.name}', revenue)
     increment_inn_teleport_counter(inn)
     return
 
@@ -390,7 +390,7 @@ class InnSystem(commands.Cog):
     @commands.check(check_channel)
     @commands.has_any_role('Outcasts')
     async def inn(self, ctx):
-        """ - Teleports you to the inn where you are checked-in. Costs Decyain Eldarium.
+        """ - Teleports you to the inn where you are checked-in. Costs Bronze Coins.
 
         Parameters
         ----------
@@ -417,11 +417,11 @@ class InnSystem(commands.Cog):
             inn = get_inn_details(checkin.inn_id)
             if checkin.inn_id:
                 cost = int(get_bot_config('inn_teleport_cost'))
-                bonus_mult = int(get_bot_config('inn_checkin_bonus_mult'))
+                # bonus_mult = int(get_bot_config('inn_checkin_bonus_mult'))
                 revenue = int(get_bot_config('inn_teleport_revenue'))
                 balance = get_balance(character)
                 if balance >= cost:
-                    inn_transaction(inn, character, cost, revenue, bonus_mult)
+                    inn_transaction(inn, character, cost, revenue)
                 else:
                     await ctx.reply(f'`{character.char_name}` does not have the required `{cost}` '
                                     f'Bronze Coins to teleport to their inn room at `{inn.name}`.')
