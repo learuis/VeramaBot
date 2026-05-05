@@ -1656,6 +1656,63 @@ class Professions(commands.Cog):
                             f'Needed: `{final_cost}`')
             return
 
+    @commands.command(name='mountbond')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def mountbond(self, ctx, confirm: str = ''):
+        """ - Increases mount endurance
+
+        Parameters
+        ----------
+        ctx
+        confirm
+            Type confirm to perform the ritual of bonding
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        bond_cost = int(get_bot_config('mount_bond_cost'))
+        endurance_value = int(get_bot_config('mount_bond_endurance_value'))
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        tamer = get_profession_tier(character.id, f'Tamer')
+        if not (tamer.tier >= 4):
+            await ctx.reply(f'Only Tamers who have achieved Tier 4 can perform an animal bonding ritual. \n'
+                            f'Current Tamer Tier: `T{tamer.tier}`')
+            return
+
+        if 'confirm' not in confirm.lower():
+            await ctx.reply(
+                f'This command will set the Endurance value of your current following mount'
+                f' to `{endurance_value}` Endurance. '
+                f'Do not use this command with human followers, or you will be thrown into the volcano.\n'
+                f'\n`{bond_cost} Bronze Coins` will be consumed. \n\n'
+                f'If you are sure you want to proceed, '
+                f'use `v/mountbond confirm`')
+            return
+
+        balance = get_balance(character)
+        if balance >= bond_cost:
+            damage_bonus = int(get_bot_config('animal_bond_damage_bonus'))
+            message = await ctx.reply(f'Performing ritual of bonding with your mount, please wait... ')
+            eld_transaction(character, f'Mount Bond Cost', -bond_cost)
+            run_console_command_by_name(character.char_name,
+                                        f'setfollowerstat endurancemax {endurance_value}')
+
+            await message.edit(content=f'`{character.char_name}` has performed a ritual of bonding with their mount, '
+                                       f'increasing their endurance to `{endurance_value}`!'
+                                       f'\nConsumed `{bond_cost}` Bronze Coins')
+        else:
+            await ctx.reply(f'Not enough materials to perform a ritual of bonding! '
+                            f'Available Bronze Coins: `{balance}`, Needed: `{bond_cost}`')
+            return
+
+
     @commands.command(name='animalbond')
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
@@ -1674,6 +1731,7 @@ class Professions(commands.Cog):
         """
         character = is_registered(ctx.author.id)
         bond_cost = int(get_bot_config('bond_cost'))
+        endurance_value = int(get_bot_config('mount_bond_endurance_value'))
         damage_bonus = int(get_bot_config('animal_bond_damage_bonus'))
 
         if not character:
@@ -1689,7 +1747,7 @@ class Professions(commands.Cog):
         if 'confirm' not in confirm.lower():
             await ctx.reply(
                 f'This command will set the Damage Modifier of your current pet on follow mode to `{damage_bonus}.0`. '
-                f'Mounts will be upgraded to `10,000` Endurance. '
+                f'Mounts will be upgraded to `{endurance_value}` Endurance. '
                 f'Do not use this command with human followers, or you will be thrown into the volcano.\nYou can bond '
                 f'with a pet and a horse at the same time. If you have '
                 f'War Party, you can bond with both following pets at once.\n'
@@ -1708,10 +1766,10 @@ class Professions(commands.Cog):
             run_console_command_by_name(character.char_name,
                                         f'setfollowerstat damagemodifierranged {damage_bonus}')
             run_console_command_by_name(character.char_name,
-                                        f'setfollowerstat endurancemax 10000')
+                                        f'setfollowerstat endurancemax {endurance_value}')
 
             await message.edit(content=f'`{character.char_name}` has performed a ritual of bonding with their pet, '
-                                       f'increasing their damage modifiers to `{damage_bonus}.0` and endurance to `10,000`!'
+                                       f'increasing their damage modifiers to `{damage_bonus}.0` and endurance to `{endurance_value}`!'
                                        f'\nConsumed `{bond_cost}` Bronze Coins')
         else:
             await ctx.reply(f'Not enough materials to perform a ritual of bonding! '

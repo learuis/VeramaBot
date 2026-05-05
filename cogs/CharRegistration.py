@@ -127,7 +127,8 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
         if character:
             balance = get_balance(character)
             if balance == 0:
-                eld_transaction(character,f'Initial Balance',100)
+                registration_gift = int(get_bot_config('registration_gift'))
+                eld_transaction(character,f'Initial Balance', registration_gift)
 
 class CharRegistration(commands.Cog):
     def __init__(self, bot: commands.Bot):
