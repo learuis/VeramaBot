@@ -87,6 +87,10 @@ async def on_ready():
 
         if not oneStepQuestChecker.is_running():
             oneStepQuestChecker.start()
+
+        if not boonChecker.is_running():
+            boonChecker.start()
+
         print(f'Bot in test mode, limited services are running.')
         # if not treasure_announcer.is_running():
         #     treasure_announcer.start()

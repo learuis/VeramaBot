@@ -80,7 +80,7 @@ class Warps(commands.Cog):
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def stuck(self, ctx, info: str = f''):
-        """Teleports you to your bed/bedroll. Costs 3 Bronze Coins
+        """Teleports you to your bed/bedroll. Consumes Bronze Coins
 
         v/home1 [info] or v/home2 [info]
             home1 = oldest spawn point

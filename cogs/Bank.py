@@ -13,7 +13,7 @@ REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
-class EldariumBank(commands.Cog):
+class Bank(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
@@ -313,5 +313,5 @@ class EldariumBank(commands.Cog):
 
 @commands.Cog.listener()
 async def setup(bot):
-    await bot.add_cog(EldariumBank(bot))
+    await bot.add_cog(Bank(bot))
     
