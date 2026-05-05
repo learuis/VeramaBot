@@ -173,7 +173,7 @@ class InnSystem(commands.Cog):
 
     @commands.command(name='renameinn')
     @commands.check(check_channel)
-    @commands.has_any_role('Outcasts')
+    @commands.has_any_role('Admin')
     async def renameinn(self, ctx, new_name: str = ''):
         """ - Renames your inn
 
@@ -216,7 +216,7 @@ class InnSystem(commands.Cog):
 
     @commands.command(name='closeinn')
     @commands.check(check_channel)
-    @commands.has_any_role('Outcasts')
+    @commands.has_any_role('Admin')
     async def closeinn(self, ctx, confirm: str = ''):
         """ - Closes your current inn
 
@@ -262,7 +262,7 @@ class InnSystem(commands.Cog):
 
     @commands.command(name='establishinn', aliases=['setupinn'])
     @commands.check(check_channel)
-    @commands.has_any_role('Outcasts')
+    @commands.has_any_role('Admin')
     async def establishinn(self, ctx, inn_name: str, *args):
         """ - Establishes an inn at your current location
 
@@ -338,7 +338,7 @@ class InnSystem(commands.Cog):
 
     @commands.command(name='inninfo', aliases=['innfo'])
     @commands.check(check_channel)
-    @commands.has_any_role('Outcasts')
+    @commands.has_any_role('Admin')
     async def inninfo(self, ctx):
         """ - Shows information about your check-in and your clan's inn
 
@@ -387,7 +387,7 @@ class InnSystem(commands.Cog):
 
     @commands.command(name='inn')
     @commands.check(check_channel)
-    @commands.has_any_role('Outcasts')
+    @commands.has_any_role('Admin')
     async def inn(self, ctx):
         """ - Teleports you to the inn where you are checked-in. Costs Bronze Coins.
 
@@ -438,7 +438,7 @@ class InnSystem(commands.Cog):
 
     @commands.command(name='checkin', aliases=['book'])
     @commands.check(check_channel)
-    @commands.has_any_role('Outcasts')
+    @commands.has_any_role('Admin')
     async def checkin(self, ctx):
         """- Checks in to the inn room nearest to your location
 
@@ -489,7 +489,7 @@ class InnSystem(commands.Cog):
 
     @commands.command(name='innlist')
     @commands.check(check_channel)
-    @commands.has_any_role('Outcasts')
+    @commands.has_any_role('Admin')
     async def innlist(self, ctx):
         """
 
