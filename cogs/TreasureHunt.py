@@ -9,7 +9,7 @@ from cogs.QuestSystem import check_inventory, count_inventory_qty, treasure_broa
 from functions.common import custom_cooldown, get_bot_config, is_registered, flatten_list, set_bot_config, get_rcon_id, \
     run_console_command_by_name, get_single_registration, int_epoch_time, no_registered_char_reply, check_channel, \
     add_reward_record, get_treasure_target, clear_treasure_target, increase_notoriety, increment_times_looted, \
-    eld_transaction, modify_favor
+    eld_transaction, modify_favor, treasure_map_swap
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -216,7 +216,7 @@ def grant_treasure_rewards(character, target_name, bonus, daily=False):
 
 
 
-    print(reward_message)
+    # print(reward_message)
     return reward_message
 
 
@@ -313,7 +313,7 @@ class TreasureHunt(commands.Cog):
                 print(f'Treasure Portal triggered!')
                 increment_times_looted(treasure_target)
                 clear_treasure_target(character)
-                outputMessage += f'`{character.char_name}` found a mysterious portal at `{target_name}`!\n'
+                outputMessage += f'`{character.char_name}` found a mysterious portal at `{treasure_target.map} - {target_name}`!\n'
                 outputMessage += f'Treasure Vault Portal Chance has been reduced to `{updated_portal_chance}%`!\n\n'
                 await ctx.reply(f'{outputMessage}')
                 run_console_command_by_name(character.char_name, f'testFIFO 7 Portal! You found a mysterious portal!')
@@ -330,7 +330,7 @@ class TreasureHunt(commands.Cog):
 
                 run_console_command_by_name(character.char_name, f'testFIFO 7 Treasure! Use v/claim to get rewards')
 
-                outputMessage += f'`{character.char_name}` has found the treasure hidden at `{target_name}`!\n\n'
+                outputMessage += f'`{character.char_name}` has found the treasure hidden at `{treasure_target.map} - {target_name}`!\n\n'
                 result = db_query(False,
                                   f'select count(*) from treasure_portal_locations where last_visited < {last_server_restart}')
                 remaining_vaults = result[0][0]
@@ -351,7 +351,7 @@ class TreasureHunt(commands.Cog):
 
         else:
             outputMessage += (f'{character.char_name} tried to dig up hidden treasure, but didn\'t find anything. '
-                              f'Wait 1 minute and make sure you\'re at `{treasure_target.location_name}` before trying again!\n'
+                              f'Wait 1 minute and make sure you\'re at `{treasure_target.map} {treasure_target.location_name}` before trying again!\n'
                               f'The bot sees your location as: `TeleportPlayer {digger_x} {digger_y} {digger_z}`')
 
             # print(f'NW: ({nwPoint[0]}, {nwPoint[1]}) SE: ({sePoint[0]}, {sePoint[1]})\n'
@@ -361,6 +361,34 @@ class TreasureHunt(commands.Cog):
 
         await ctx.reply(f'{outputMessage}')
 
+        return
+
+    @commands.command(name='map', aliases=['swaptreasuremap'])
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
+    async def map(self, ctx):
+        """ - Swaps your preference for ExiledLands or Siptah Treasure Hunt Locations
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        output_string = 'This message should not be displayed!'
+
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            return
+
+        treasure_map_option = treasure_map_swap(character)
+
+        output_string = f'Your preference for Treasure Hunt locations has been switched to `{treasure_map_option}`!'
+
+        await ctx.reply(output_string)
         return
 
     @commands.command(name='daily', aliases=['dailydig', 'dailytrasure'])

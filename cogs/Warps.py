@@ -76,7 +76,7 @@ class Warps(commands.Cog):
             await ctx.reply(f'Teleported `{name}` to {description}.')
             return
 
-    @commands.command(name='home', aliases=['stuck', 'home2'])
+    @commands.command(name='home', aliases=['stuck', 'home1', 'home2', 'home3', 'home4', 'homelist'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def stuck(self, ctx, info: str = f''):
@@ -85,23 +85,26 @@ class Warps(commands.Cog):
         v/home1 [info] or v/home2 [info]
             home1 = oldest spawn point
             home2 = latest spawn point
-            add 'info' after to see the destination before teleporting
+            add 'info' after to see the possible destinations
         v/stuck
             teleports you to the sinkhole
         """
         coordinates = []
+        key_list = []
         character = is_registered(ctx.author.id)
         target_x = 0
         target_y = 0
         target_z = 0
         balance = 0
+        dest_id = 1
+        spawn_type = ''
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             # channel = self.bot.get_channel(REGHERE_CHANNEL)
             # await ctx.reply(f'No character registered to player {ctx.author.mention}! '
             #                 f'Please register here: {channel.mention} ')
-            return False
+            return
         else:
             name = character.char_name
 
@@ -111,25 +114,35 @@ class Warps(commands.Cog):
             # hex_name = hex_name.hex()
             # print(f'Char name in hex is {hex_name}')
 
-            if 'home2' in ctx.invoked_with:
-                dest_id = f'2'
-                order_by = f'desc'
-            else:
-                dest_id = f'1'
-                order_by = f'asc'
+            numbers = {1,2,3,4}
+            if info in numbers:
+                try:
+                    dest_id = int(info)
+                except ValueError:
+                    await ctx.reply(f'Invalid value in `info`. Use `v/help home`')
+                    return
+                return
 
-            if '2' in info or '1' in info:
-                await ctx.reply(f'This command has been changed, use `v/home` or `v/home2`, add `info` to see the destination before teleporting.')
-                return False
+            match ctx.invoked_with:
+                case 'home2':
+                    dest_id = 2
+                case 'home3':
+                    dest_id = 3
+                case 'home4':
+                    dest_id = 4
+                case _:
+                    dest_id = 1
 
-            commandString = (f'sql select ap.x,ap.y,ap.z from actor_position ap '
+
+            commandString = (f'sql select object_id, trim(substr(ap.class,instr(ap.class,\'.BP_PL\')+7),\'_C\'), '
+                             f'ap.x,ap.y,ap.z from actor_position ap '
                              f'left join properties p on ap.id = p.object_id '
                              f'where hex(p.value) like '
                              f'( select \'%\' || hex(a.platformId) || \'%\' from account a '
                              f'left join characters c on a.id = c.playerId '
                              f'left join properties p2 on a.id = p2.object_id '
                              f'where c.id = {character.id} ) '
-                             f'order by p.object_id {order_by} limit 1;')
+                             f'order by ap.x asc limit 4;')
 
             # commandString = (f'sql select x,y,z from actor_position where id in '
             #                  f'(select object_id from properties '
@@ -140,44 +153,62 @@ class Warps(commands.Cog):
             rconResponse = runRcon(f'{commandString}')
             if rconResponse.error:
                 print(f'RCON error in hex lookup')
-                return False
+                return
             rconResponse.output.pop(0)
             # print(rconResponse)
 
-            for x in rconResponse.output:
+            for count, x in enumerate(rconResponse.output, start=1):
                 match = re.findall(r'\s+\d+ | [^|]*', x)
-                coordinates.append(match)
+                object_id = match[0].strip()
+                spawn_type = match[1].strip()
+                target_x = match[2].strip()
+                print(float(target_x))
+                if float(target_x) >= 500000:
+                    map_loc = 'Siptah'
+                else:
+                    map_loc = 'Exiled Lands'
+                target_y = match[3].strip()
+                target_z = match[4].strip()
+                key_list = key_list + [count]
+                coordinates.append([object_id, spawn_type, map_loc, target_x, target_y, target_z])
 
             # print(coordinates)
             if not coordinates:
                 print(f'RCON error in parsing')
                 await ctx.send(f'Found no spawn points for {character.char_name}!')
-                return False
+                return
 
-            for record in coordinates:
-                target_x = record[0].strip()
-                target_y = record[1].strip()
-                target_z = record[2].strip()
+            spawn_points = dict(zip(key_list, coordinates))
+            print(spawn_points)
 
-            rconCharId = get_rcon_id(character.char_name)
-            if not rconCharId:
-                await ctx.reply(f'Character `{name}` must be online to be rescued!')
-                return False
-            else:
-                sq_x, sq_y = transform_coordinates(float(target_x), float(target_y))
-                if 'info' in info:
-                    await ctx.reply(f'Home Destination `{dest_id}`: `{sq_x}{sq_y}` - {target_x} {target_y} {target_z}')
-                    return False
+            final_target_x = float(spawn_points[dest_id][3])
+            final_target_y = float(spawn_points[dest_id][4])
+            z_offset = int(get_bot_config(f'home_z_offset'))
+            final_target_z = float(spawn_points[dest_id][5]) + z_offset
+            final_map_loc = spawn_points[dest_id][2]
+            final_spawn_type = spawn_points[dest_id][1]
+
+            sq_x, sq_y, map_loc_b = transform_coordinates(final_target_x, final_target_y)
+
+            if 'list' in info or 'list' in ctx.invoked_with:
+                outputString = ''
+                for count, coordinate in enumerate(coordinates, start=1):
+                    outputString += f'`v/home{count}` - {coordinate}\n'
+                await ctx.reply(f'{outputString}')
+                return
+            elif 'info' in info:
+                await ctx.reply(f'`v/{ctx.invoked_with}` will send you to: `{final_spawn_type}` in `{final_map_loc} {sq_x}{sq_y}`')
+                return
+            elif not info:
+                rconCharId = get_rcon_id(character.char_name)
+                if not rconCharId:
+                    await ctx.reply(f'Character `{name}` must be online to be rescued!')
+                    return
                 else:
-
-                    # location = get_bot_config('event_location')
-                    # if location != '0':
                     if int(get_bot_config(f'EventTeleport')) >= int_epoch_time():
                         home_cost = 0
                         pass
                         # an event is active, do not charge.
-                        # await ctx.reply(f'This command can only be used during an event!')
-                        # return
                     else:
                         home_cost = int(get_bot_config('home_cost'))
                         if sufficient_funds(character, home_cost):
@@ -187,26 +218,31 @@ class Warps(commands.Cog):
                             balance = int(get_balance(character))
                             await ctx.reply(
                                 f'Insufficient funds! Available Bronze Coins: {balance}. Needed: {home_cost}')
-                            return False
+                            return
                     # print(f'{home_cost}')
                     if home_cost != 0:
-                        run_console_command_by_name(character.char_name, f'TeleportPlayer {target_x} {target_y} {target_z}')
-                        await ctx.reply(f'Returned `{name}` to their spawn in `{sq_x}{sq_y}` '
-                                        f'`{target_x} {target_y} {target_z}` for `{home_cost}` Bronze Coins.'
+                        run_console_command_by_name(character.char_name,
+                                                    f'TeleportPlayer {final_target_x} {final_target_y} {final_target_z}')
+                        await ctx.reply(f'Returned `{name}` to `{final_spawn_type}` in `{final_map_loc} {sq_x}{sq_y}`'
+                                        f' for `{home_cost}` Bronze Coins.'
                                         f'\nBronze Coin Balance: `{balance}`')
-                        return False
+                        return
                     else:
-                        run_console_command_by_name(character.char_name, f'TeleportPlayer {target_x} {target_y} {target_z}')
+                        run_console_command_by_name(character.char_name,
+                                                    f'TeleportPlayer {final_target_x} {final_target_y} {final_target_z}')
                         # runRcon(f'con {rconCharId} TeleportPlayer {target_x} {target_y} {target_z}')
-                        await ctx.reply(f'Returned `{name}` to their spawn in `{sq_x}{sq_y}` `{target_x} {target_y} {target_z}`')
-                        return False
+                        await ctx.reply(f'Returned `{name}` to `{final_spawn_type}` in `{final_map_loc} {sq_x}{sq_y}`')
+                        return
+            else:
+                await ctx.reply(f'Invalid value in `info`. Use `v/help home`')
+                return
         else:
             destination = get_bot_config('rescue_location')
 
             rconCharId = get_rcon_id(character.char_name)
             if not rconCharId:
                 await ctx.reply(f'Character `{name}` must be online to be rescued!')
-                return False
+                return
             else:
                 query_command = (f'select description, x, y, z from warp_locations where warp_name like '
                                  f'\'%{destination.casefold()}%\' limit 1')
@@ -217,7 +253,7 @@ class Warps(commands.Cog):
                 (description, x, y, z) = warp_entry
                 run_console_command_by_name(character.char_name, f'TeleportPlayer {x} {y} {z}')
                 await ctx.reply(f'Rescued `{name}` from the floor, teleported to `{description}`.')
-                return False
+                return
 
 @commands.Cog.listener()
 async def setup(bot):

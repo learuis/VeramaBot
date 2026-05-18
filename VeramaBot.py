@@ -27,6 +27,7 @@ OUTCASTBOT_CHANNEL = int(os.getenv('OUTCASTBOT_CHANNEL'))
 PROFESSION_CHANNEL = int(os.getenv('PROFESSION_CHANNEL'))
 PROFESSION_MESSAGE = int(os.getenv('PROFESSION_MESSAGE'))
 LEADERBOARD_MESSAGE = int(os.getenv('LEADERBOARD_MESSAGE'))
+SERVER_PORT = int(os.getenv('SERVER_PORT'))
 ADMIN_LOG_CHANNEL = int(os.getenv('ADMIN_LOG_CHANNEL'))
 LOBBY_CHANNEL = int(os.getenv('LOBBY_CHANNEL'))
 
@@ -45,6 +46,7 @@ bot.quest_running = False
 
 @bot.event
 async def on_ready():
+    print(f'on ready run')
     for f in os.listdir('./cogs'):
         if f.endswith('.py'):
             await bot.load_extension(f'cogs.{f[:-3]}')
@@ -55,6 +57,7 @@ async def on_ready():
     bot.add_view(RoleplayingButton())
 
     if is_docker():
+        # print(f'we are in docker')
         if not liveStatus.is_running():
             liveStatus.start()
 
@@ -141,6 +144,7 @@ async def fillCages():
 @tasks.loop(minutes=5)
 async def onlineCharacterAlert():
     channel = bot.get_channel(BOT_CHANNEL)
+    # print(f'starting onlinecharalert')
 
     try:
         await is_character_online(channel)
@@ -155,6 +159,7 @@ async def liveStatus():
 
     try:
         message = await channel.fetch_message(STATUS_MESSAGE)
+        # print(SERVER_PORT)
         await editStatus(message, bot)
     except discord.errors.DiscordServerError:
         print(f'Discord error prevented status updates.')
@@ -196,7 +201,7 @@ async def placeMarkers():
         print(f'place_markers ended with an exception')
         return
 
-@tasks.loop(hours=1)
+@tasks.loop(minutes=10)
 async def boonChecker():
 
     try:
@@ -261,7 +266,8 @@ async def on_command_error(ctx, error):
         return
 
     else:
-        await ctx.send(error)
+        print(error)
+        # await ctx.send(error)
         raise error
 
 bot.run(TOKEN)

@@ -60,11 +60,11 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
         charId = charId.strip()
 
-        if not re.search(r'^[^#]+#\d{5}', str(self.funcomId)):
-            await interaction.response.send_message(f'Funcom ID `{self.funcomId}` was formatted incorrectly. Must be '
-                                                    f'in the following format: `funcom name here#12345`. You can find '
-                                                    f'this value by pressing L while in game.', ephemeral=True)
-            return
+        # if not re.search(r'^[^#]+#\d{5}', str(self.funcomId)):
+        #     await interaction.response.send_message(f'Funcom ID `{self.funcomId}` was formatted incorrectly. Must be '
+        #                                             f'in the following format: `funcom name here#12345`. You can find '
+        #                                             f'this value by pressing L while in game.', ephemeral=True)
+        #     return
 
         self.funcomId = re.sub('\'', '', str(self.funcomId))
 
@@ -286,7 +286,7 @@ class CharRegistration(commands.Cog):
                 await ctx.send(f'Deleted record:\n{res}')
 
     @commands.command(name='registrationlookup', aliases=['reglook', 'whois', 'who'])
-    @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
+    @commands.has_any_role('Admin', 'Moderator')
     @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def registrationLookup(self, ctx, name: str):

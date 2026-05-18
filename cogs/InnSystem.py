@@ -529,20 +529,17 @@ class InnSystem(commands.Cog):
     @commands.command(name='shoplist')
     @commands.check(check_channel)
     @commands.has_any_role('Outcasts')
-    async def shoplist(self, ctx, option:str = f'thrall'):
+    async def shoplist(self, ctx):
         """ - List all thrall shops and their locations
 
         Parameters
         ----------
         ctx
-        option
-            thrall | pet
 
         Returns
         -------
 
         """
-        type_string = f''
         splitOutput = ''
         outputList = []
         once = True
@@ -553,17 +550,19 @@ class InnSystem(commands.Cog):
             # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
-        if 'pet' in option or 'animal' in option:
-            type_string = f'Pet'
-            class_string = f'/Game/Systems/Building/Placeables/ThrallTrading/BP_PL_ThrallTrade_Animal.BP_PL_ThrallTrade_Animal_C'
-        elif 'thrall' in option or 'human' in option:
-            type_string = f'Thrall'
-            class_string = f'/Game/Systems/Building/Placeables/ThrallTrading/BP_PL_ThrallTrade_Humanoid.BP_PL_ThrallTrade_Humanoid_C'
-        else:
-            await ctx.reply(f'`{option}` is not a valid option. Use `thrall` or `pet`')
-            return
+        # if 'pet' in option or 'animal' in option:
+        #     type_string = f'Pet'
+        #     class_string = f'/Game/Systems/Building/Placeables/ThrallTrading/BP_PL_ThrallTrade_Animal1.BP_PL_ThrallTrade_Animal1_C'
+        # elif 'thrall' in option or 'human' in option:
+        #     type_string = f'Thrall'
+        #     class_string = f'/Game/Systems/Building/Placeables/ThrallTrading/BP_PL_ThrallTrade_Humanoid1.BP_PL_ThrallTrade_Humanoid1_C'
+        # else:
+        #     await ctx.reply(f'`{option}` is not a valid option. Use `thrall` or `pet`')
+        #     return
 
-        outputString = f'__List of Active {type_string} Shops__\n'
+        class_string = 'ThrallTrade'
+
+        outputString = f'__List of Active Shops__\n'
         query = (f'sql select x, y, coalesce(guilds.name, characters.char_name) as owner from actor_position '
                  f'left join buildings on actor_position.id = buildings.object_id '
                  f'left join guilds on buildings.owner_id = guilds.guildId '
@@ -571,7 +570,7 @@ class InnSystem(commands.Cog):
                  f'left join used_smart_objects on buildings.object_id = used_smart_objects.smart_object_actor_id '
                  f'left join properties on used_smart_objects.interacting_actor_id = properties.object_id '
                  f'where used_smart_objects.interacting_actor_id is not null '
-                 f'and class = \'{class_string}\' '
+                 f'and class like \'%{class_string}%\' '
                  f'and properties.name like \'%SourceSpawnTable%\' order by x asc, y asc, owner desc')
         results = runRcon(query)
         if not results:
@@ -584,8 +583,8 @@ class InnSystem(commands.Cog):
             x = float(match[0][0])
             y = float(match[0][1])
             clan = match[0][2]
-            sq_x, sq_y = transform_coordinates(x, y)
-            outputString += f'{clan} - `{sq_x}{sq_y}` ({str(round(x))}, {str(round(y))})\n'
+            sq_x, sq_y, loc_map = transform_coordinates(x, y)
+            outputString += f'{clan} - `{loc_map} {sq_x}{sq_y}` ({str(round(x))}, {str(round(y))})\n'
             #
             # new_x, new_y = transform_coordinates(inn.x, inn.y)
             # outputString += (f'`{inn.name}` - Owned by `{owner.char_name}` of `{clan_name}` '

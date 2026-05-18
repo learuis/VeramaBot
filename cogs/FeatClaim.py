@@ -48,6 +48,7 @@ def grant_feat(char_id, char_name, feat_id):
     try:
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
         cur = con.cursor()
+        print(f'trying to add feat {feat_id} to character {char_name} (id {char_id})')
         cur.execute(f'insert or ignore into featclaim (season,char_id,feat_id) '
                     f'values ({CURRENT_SEASON},{char_id},{feat_id})')
         con.commit()

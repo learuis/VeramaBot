@@ -51,8 +51,8 @@ class CharacterMods(commands.Cog):
         outputString = f'Altering height of {character.char_name}\n'
         await message.edit(content=outputString)
 
-        rconCommand = (f'sql update properties set value = ( select substr(value,1,1857) || x\'{size_value}\' || '
-                       f'substr(value,1862) from properties where name = \'BasePlayerChar_C.CharacterLayout\' '
+        rconCommand = (f'sql update properties set value = ( select substr(value,1,2322) || x\'{size_value}\' || '
+                       f'substr(value,2327) from properties where name = \'BasePlayerChar_C.CharacterLayout\' '
                        f'and object_id = {character.id} ) where name = \'BasePlayerChar_C.CharacterLayout\' '
                        f'and object_id = {character.id}')
         rconResponse = runRcon(rconCommand)

@@ -657,6 +657,9 @@ class Admin(commands.Cog):
 
         """
         character = get_single_registration(name)
+        backup_target = is_registered(ctx.author.id)
+
+        destination = f'TeleportPlayer -17174.951172 -259672.125 87383.28125'
 
         if not character:
             await ctx.reply(f'No character named `{name}` registered!')
@@ -664,14 +667,23 @@ class Admin(commands.Cog):
         else:
             name = character[1]
 
-        rconCharId = get_rcon_id(name)
+        rconCharId = get_rcon_id(character.char_name)
         if not rconCharId:
             await ctx.reply(f'Character `{name}` must be online to throw into the Volcano!')
             return
         else:
-            runRcon(f'con {rconCharId} TeleportPlayer -17174.951172 -259672.125 87383.28125')
-            await ctx.reply(f'Tossed `{name}` into the Volcano.')
-            return
+            if 'Verama' in name.lower():
+                rconCharId2 = get_rcon_id(backup_target.char_name)
+                if not rconCharId2:
+                    await ctx.reply(f'Volcano-ing while offline? Naughty!')
+                    return
+                run_console_command_by_name(backup_target.char_name, destination)
+                await ctx.reply(f'Tossed `{backup_target.char_name}` into the Volcano. LOL')
+                return
+            else:
+                run_console_command_by_name(name, destination)
+                await ctx.reply(f'Tossed `{name}` into the Volcano.')
+                return
 
     @commands.command(name='shame', aliases=['prison', 'capture', 'jail'])
     @commands.has_any_role('Admin', 'Moderator')

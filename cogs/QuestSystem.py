@@ -249,8 +249,9 @@ async def oneStepQuestUpdate(bot):
             # print(f'Skipping quest {quest_id}, no one in the box')
             continue
 
-        character.id = char_id
-        character.char_name = char_name
+        # character.id = char_id
+        # character.char_name = char_name
+        character = get_single_registration_new(char_id=char_id)
 
         if active_flag == 0:
             display_quest_text(999999, 0, False, char_name)
@@ -283,7 +284,7 @@ async def oneStepQuestUpdate(bot):
                     treasure_target = set_treasure_target(character)
 
                 display_quest_text(0, 0, False, char_name, 6,
-                                   f'Treasure!', f'{treasure_target.location_name}')
+                                   f'Treasure!', f'{treasure_target.map} - {treasure_target.location_name}')
                 print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
                 continue
             case 'Information':

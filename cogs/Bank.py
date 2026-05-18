@@ -19,7 +19,6 @@ class Bank(commands.Cog):
 
     @commands.command(name='balance', aliases=['checkbalance', 'eld', 'bal'])
     @commands.check(check_channel)
-    @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
     async def balance(self, ctx, discord_user: discord.Member = None):
         """
         Displays current bronze coin balance
@@ -202,13 +201,13 @@ class Bank(commands.Cog):
                     amount = 1000
 
         if amount <= 0:
-            await ctx.reply(f'Must withdraw Bronze Coins in whole number amounts > 0!\nCommand Format:`v/withdraw <amount> <eld_type> <confirm>`')
+            await ctx.reply(f'Must withdraw Bronze Coins in whole number amounts > 0!\nCommand Format:`v/withdraw <amount> <confirm>`')
             return
         else:
-            check_balance = sufficient_funds(character, abs(amount), eld_type)
+            check_balance = sufficient_funds(character, abs(amount))
             if check_balance:
-                new_balance = eld_transaction(character, f'Withdrawal', -amount, eld_type)
-                add_reward_record(character.id, 11499, amount, f'Bank Withdrawal: Raw')
+                new_balance = eld_transaction(character, f'Withdrawal', -amount)
+                add_reward_record(character.id, 11499, amount, f'Bank Withdrawal: BC')
                 amount_string = f'{amount} Bronze Coins'
 
                 await ctx.reply(

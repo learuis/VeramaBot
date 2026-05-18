@@ -200,7 +200,7 @@ class Reroll(commands.Cog):
         points = get_prestige_points(character)
 
         query_string = f'select reason, points from prestige where discord_id = \'{character.discord_id}\''
-        print(query_string)
+        # print(query_string)
         result = db_query(False, f'{query_string}')
         if result:
             for record in result:
@@ -227,29 +227,29 @@ class Reroll(commands.Cog):
             await message.edit(content=f'{outputString}')
             return
 
-        results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
+        results = runRcon(f'sql select substr(hex(value),25,2) from properties where object_id = {character.id} '
                           f'and name = \'BP_ProgressionSystem_C.AttributePointsDistributed\'')
         results.output.pop(0)
         if len(results.output) == 1:
             distributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
-            # print(f'Dist: {distributed_points}')
+            print(f'Dist: {distributed_points}')
         else:
             outputString += f'You must allocate all attribute points in order to claim prestige points! (You have not spent any points)'
             await message.edit(content=f'{outputString}')
             return
 
-        results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
+        results = runRcon(f'sql select substr(hex(value),25,2) from properties where object_id = {character.id} '
                           f'and name = \'BP_ProgressionSystem_C.AttributePointsTotal\'')
         results.output.pop(0)
         if len(results.output) == 1:
             total_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
-            # print(f'Total: {total_points}')
+            print(f'Total: {total_points}')
         else:
             outputString += f'You must allocate all attribute points in order to claim prestige points! (You must be at least level 2)'
             await message.edit(content=f'{outputString}')
             return
 
-        results = runRcon(f'sql select substr(hex(value),9,2) from properties where object_id = {character.id} '
+        results = runRcon(f'sql select substr(hex(value),25,2) from properties where object_id = {character.id} '
                           f'and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
         print(f'Undist result: {results.output}')
         results.output.pop(0)
@@ -289,14 +289,14 @@ class Reroll(commands.Cog):
             # print(query)
             # runRcon(query)
             # run_console_command_by_name(character.char_name, f'addundistributedattributepoints {points}')
-            # print(f'You have {get_prestige_points(character)} prestige points in total.')
+            print(f'You have {get_prestige_points(character)} prestige points in total.')
             outputString += f'`{character.char_name}` claimed `{points}` extra attribute points from Prestige!.\n'
             await message.edit(content=f'{outputString}')
             return
         return
 
     @commands.command(name='carryover')
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def carryover(self, ctx, feature: str = f'fomo'):
         """

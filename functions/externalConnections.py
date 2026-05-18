@@ -105,6 +105,7 @@ def runRcon(command: str):
 
     while connection_failures < 6:
         try:
+            # print(RCON_HOST, RCON_PORT)
             # print(f'{RCON_HOST}:{RCON_PORT}')
             console = Console(host=RCON_HOST, port=int(RCON_PORT), password=RCON_PASS)
             break

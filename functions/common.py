@@ -156,6 +156,7 @@ def check_channel(ctx):
         return True
     else:
         #everyone else
+        print(f'{ctx.author.display_name} used command')
         if int(ctx.channel.id) != OUTCASTBOT_CHANNEL:
             # print(f'wrong channel {ctx.channel.id} != {OUTCASTBOT_CHANNEL}')
             return False
@@ -572,7 +573,7 @@ async def editStatus(message, bot):
                                    f'- Server Name: `{SERVER_NAME}`\n'
                                    f'- IP Address:Port: `{SERVER_IP}:{SERVER_PORT}`\n'
                                    f'- Password: `{SERVER_PASSWORD}`\n'
-                                   f'- Direct Connect: ```directconnect {SERVER_IP} {SERVER_PORT}```\n'
+                                   f'- Direct Connect (For use with console): ```directconnect {SERVER_IP} {SERVER_PORT}```\n'
                                    # f'- Server Online: `{onlineStatus}` {statusSymbol}\n'
                                    f'- Players Connected: `{currentPlayers}` / `{maxPlayers}` {onlineSymbol}\n'
                                    f'Server restarts are at {restart_string} in your local timezone.')
@@ -1419,7 +1420,46 @@ class TreasureTarget:
         self.location_id = ''
         self.location_name = ''
         self.start_time = 0
+        self.map = ''
 
+def get_treasure_map(character):
+
+    option = f'ExiledLands'
+
+    query = f'select discord_id, option from treasure_option where discord_id = {character.discord_id}'
+    print(query)
+    results = db_query(False, f'{query}')
+    print(f'{results}')
+
+    if results:
+        for record in results:
+            option = record[1]
+        return option
+    else:
+        option = treasure_map_swap(character)
+        return option
+
+def treasure_map_swap(character):
+    option = f'ExiledLands'
+
+    print(f'Treasure swapping')
+    results = db_query(False, f'select discord_id, option from treasure_option where discord_id = {character.discord_id}')
+    print(f'{results}')
+    if results:
+        if f'ExiledLands' in str(results):
+            option = f'Siptah'
+            print(f'results are {option}')
+        else:
+            option = f'ExiledLands'
+            print(f'results are {option}')
+    else:
+        option = f'ExiledLands'
+        print(f'no results {option}')
+
+    db_query(True, f'insert or replace into treasure_option (discord_id, option) values ({character.discord_id},\'{option}\')')
+
+    print(f'{option}')
+    return option
 
 def set_treasure_target(character):
 
@@ -1427,15 +1467,17 @@ def set_treasure_target(character):
     my_target.char_id = character.id
     my_target.start_time = int_epoch_time()
     # randomizer = random.randint(0, int(get_bot_config('beast_slayer_target_count')))
-    query = (f'select id, location_name from treasure_locations'
+    my_target.map = get_treasure_map(character)
+    query = (f'select id, location_name from treasure_locations where map = \'{my_target.map}\''
              f' order by times_looted asc, random() limit 1')
+    print(query)
     query_result = db_query(False, f'{query}')
     # print(query_result)
     (my_target.location_id, my_target.location_name) = flatten_list(query_result)
     db_query(True, f'insert or replace into treasure_hunters '
-                   f'(char_id, season, location_id, location_name, start_time) '
+                   f'(char_id, season, location_id, location_name, start_time, map) '
                    f'values ({my_target.char_id}, {CURRENT_SEASON}, \'{my_target.location_id}\', '
-                   f'\'{my_target.location_name}\', {my_target.start_time})')
+                   f'\'{my_target.location_name}\', {my_target.start_time}, \'{my_target.map}\')')
     return my_target
 
 
@@ -1446,12 +1488,12 @@ def clear_treasure_target(character: Registration):
 
 def get_treasure_target(character: Registration):
     my_target = TreasureTarget()
-    query_result = db_query(False, f'select char_id, location_id, location_name, start_time from treasure_hunters'
-                                   f' where char_id = {character.id} and season = {CURRENT_SEASON}')
+    query_result = db_query(False, f'select char_id, location_id, location_name, start_time, map '
+                                   f'from treasure_hunters where char_id = {character.id} and season = {CURRENT_SEASON}')
     if query_result:
         print(query_result)
         (my_target.char_id, my_target.location_id,
-         my_target.location_name, my_target.start_time) = flatten_list(query_result)
+         my_target.location_name, my_target.start_time, my_target.map) = flatten_list(query_result)
         # print(f'My target {my_target}')
         return my_target
     else:
@@ -1529,11 +1571,20 @@ class RegistrationOLD:
 
 
 def transform_coordinates(x, y):
-    x_squares = 'ABCDEFGHIJKLMNOP'
-    x = math.floor(1 + ((x + 307682) / 46500))
-    y = math.floor(1 + (-(y - 330805) / 46500))
+    print(x,y)
+    x_squares = 'ABCDEFGHIJKLMNOPQQ'
+    if x > 500000:
+        x = math.floor((x - 1108529) / 51226)
+        y = math.floor(-(y - 500575) / 51126)
+        print(x, y)
+        loc_map = f'Siptah'
+    else:
+        x = math.floor(1 + ((x + 307682) / 46500))
+        y = math.floor(1 + (-(y - 330805) / 46500))
+        print(x, y)
+        loc_map = 'Exiled Lands'
 
     x_square_label = x_squares[x-1]
     y_square_label = y + 1
     print(f'{x_square_label}{y_square_label}')
-    return x_square_label, y_square_label
+    return x_square_label, y_square_label, loc_map

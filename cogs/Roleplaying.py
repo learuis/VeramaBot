@@ -231,7 +231,7 @@ class Roleplaying(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator', 'Roleplay')
     @commands.check(check_channel)
     async def Roleplay(self, ctx):
-        """
+        """ - Lists online roleplayers
 
         Parameters
         ----------

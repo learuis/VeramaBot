@@ -140,7 +140,7 @@ def available_specializations(char_id):
 
     t4_available = t4_spec_cap - t4_results
     t5_available = t5_spec_cap - t5_results
-    print(f'available specializations:', t4_available, t5_available)
+    # print(f'available specializations:', t4_available, t5_available)
     return t4_available, t5_available
 
 def is_specialized(char_id, profession, tier):
@@ -193,8 +193,8 @@ async def give_profession_xp(char_id, char_name, profession, tier, bot):
                          f'season = {CURRENT_SEASON} '
                          f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}')
                 db_query(True, query)
-                await channel.send(f'You cannot earn more experience as a `{profession}` until you specialize '
-                                   f'with `v/specialize {profession}`!')
+                print(f'You cannot earn more experience as a `{profession}` until you specialize '
+                      f'with `v/specialize {profession}`!')
                 return
     elif tier == 4:
         if current_xp + earned_xp >= tier_5_xp:
@@ -208,8 +208,8 @@ async def give_profession_xp(char_id, char_name, profession, tier, bot):
                          f'season = {CURRENT_SEASON} '
                          f'where char_id = {char_id} and profession like \'%{profession}%\' and season = {CURRENT_SEASON}')
                 db_query(True, query)
-                await channel.send(f'You cannot earn more experience as a `{profession}` until you specialize '
-                                   f'with `v/specialize {profession}`!')
+                print(f'You cannot earn more experience as a `{profession}` until you specialize '
+                      f'with `v/specialize {profession}`!')
                 return
 
     db_query(True,
@@ -227,14 +227,14 @@ async def give_profession_xp(char_id, char_name, profession, tier, bot):
                        f'and season = {CURRENT_SEASON} limit 1')
     results = flatten_list(results)
     xp_total = results[0]
-    # print(f'{char_name} has {xp_total} xp in tier {tier} {profession}')
+    print(f'{char_name} has {xp_total} xp in tier {tier} {profession}')
 
     # grant feats on every XP increase
-    feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
-                                     f'where turn_in_amount <= {xp_total} and profession like \'%{profession}%\' and tier = {tier}'
-                                     f'order by turn_in_amount desc')
-    for feat in feats_to_grant:
-        grant_feat(char_id, char_name, feat[0])
+    # feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
+    #                                  f'where turn_in_amount <= {xp_total} and profession like \'%{profession}%\' and tier = {tier}'
+    #                                  f'order by turn_in_amount desc')
+    # for feat in feats_to_grant:
+    #     grant_feat(char_id, char_name, feat[0])
 
     await profession_tier_up(profession, tier, xp_total, char_id, char_name, bot)
 
@@ -245,6 +245,7 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
     channel = bot.get_channel(OUTCASTBOT_CHANNEL)
     outputString = ''
 
+    print(f'in-tier up')
     cycle_limit = int(get_bot_config(f'profession_cycle_limit'))
     tier_2_xp = int(get_bot_config(f'profession_t2_xp'))
     tier_3_xp = int(get_bot_config(f'profession_t3_xp'))
@@ -262,11 +263,11 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
     elif tier_5_xp <= turn_in_amount:
         new_tier = 5
     else:
-        # print(f'Error in calculating next tier for {char_id} - tier {tier} xp {turn_in_amount}')
+        print(f'Error in calculating next tier for {char_id} - tier {tier} xp {turn_in_amount}')
         return
 
     if tier == new_tier:
-        # print(f'No tier increase is due to {char_id} - tier {tier} xp {turn_in_amount}')
+        print(f'No tier increase is due to {char_id} - tier {tier} xp {turn_in_amount}')
         return
 
     db_query(True,
@@ -346,7 +347,7 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
     profession_community_goal_desc = str(get_bot_config(f'profession_community_goal_desc'))
     next_update = last_profession_update + profession_update_interval
     profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist', 'Scavenger']
-    faction_list = ['Provisioner', 'Slayer', 'Treasure', 'Conjurer', 'Reliquarian']
+    faction_list = ['Slayer', 'Treasure', 'Conjurer'] # 'Provisioner', 'Reliquarian'
     count = 0
     item_id_string = ''
     item_name_string = ''
@@ -462,7 +463,7 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
 
     # print(f'make leaderboard')
     # print(f'{profession_list}')
-    leader_outputString = f''
+    leader_outputString = f'_'
     for item in profession_list:
 
         query = f'select char_id, current_experience from character_progression ' \
@@ -536,7 +537,7 @@ class Professions(commands.Cog):
     @commands.has_any_role('Admin', 'Moderator', 'Outcasts')
     @commands.check(check_channel)
     async def profession(self, ctx):
-        """
+        """ - Displays Profession details
 
         Parameters
         ----------
@@ -559,9 +560,34 @@ class Professions(commands.Cog):
 
         for profession in profession_list:
             profession_details = get_profession_tier(character.id, profession)
+            t4_spec, t5_spec = available_specializations(character.id)
             if profession_details.tier == 0:
                 config_value = f'profession_t2_xp'
                 xp_target = int(get_bot_config(f'{config_value}'))
+            elif profession_details.tier == 3:
+                config_value = f'profession_t4_xp'
+                if is_specialized(character.id, profession, 4):
+                    xp_target = int(get_bot_config(f'{config_value}'))
+                else:
+                    if profession_details.current_experience == int(get_bot_config(f'{config_value}')):
+                        if t4_spec:
+                            xp_target = 'MAX (v/specialize)'
+                        else:
+                            xp_target = 'MAX'
+                    else:
+                        xp_target = int(get_bot_config(f'{config_value}'))
+            elif profession_details.tier == 4:
+                config_value = f'profession_t5_xp'
+                if is_specialized(character.id, profession, 5):
+                    xp_target = int(get_bot_config(f'{config_value}'))
+                else:
+                    if profession_details.current_experience == int(get_bot_config(f'{config_value}')):
+                        if t5_spec:
+                            xp_target = 'MAX (v/specialize)'
+                        else:
+                            xp_target = 'MAX'
+                    else:
+                        xp_target = int(get_bot_config(f'{config_value}'))
             elif profession_details.tier == 5:
                 xp_target = f'--'
             else:
@@ -614,29 +640,29 @@ class Professions(commands.Cog):
             if int(rank) == character.id:
                 outputString += f'\nServer-wide Ranking: `{index + 1}`\n\n'
 
-        favor = get_favor(character.id, f'provisioner')
-        option = get_provisioner_option(character)
-        outputString += (f'`Provisioner` - Current Favor: `{favor.current_favor} / 50` | '
-                         f'Lifetime Favor: `{favor.lifetime_favor}`\nReward Option: `{option}`\n')
-
-        provisioner_ranking = db_query(False, f'select char_id from factions '
-                                  f'where faction like \'%provisioner%\' '
-                                  f'and season = {CURRENT_SEASON} order by lifetime_favor desc')
-        provisioner_ranking = flatten_list(provisioner_ranking)
-        for index, rank in enumerate(provisioner_ranking):
-            if int(rank) == character.id:
-                outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
-
-        reliquarian_favor = get_favor(character.id, f'reliquarian')
-        outputString += (f'`Reliquarian` - Current Favor: `{reliquarian_favor.current_favor}` | '
-                         f'Lifetime Favor: `{reliquarian_favor.lifetime_favor}`\n')
-        reliquarian_ranking = db_query(False, f'select char_id from factions '
-                                  f'where faction like \'%reliquarian%\' '
-                                  f'and season = {CURRENT_SEASON} order by lifetime_favor desc')
-        reliquarian_ranking = flatten_list(reliquarian_ranking)
-        for index, rank in enumerate(reliquarian_ranking):
-            if int(rank) == character.id:
-                outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
+        # favor = get_favor(character.id, f'provisioner')
+        # option = get_provisioner_option(character)
+        # outputString += (f'`Provisioner` - Current Favor: `{favor.current_favor} / 50` | '
+        #                  f'Lifetime Favor: `{favor.lifetime_favor}`\nReward Option: `{option}`\n')
+        #
+        # provisioner_ranking = db_query(False, f'select char_id from factions '
+        #                           f'where faction like \'%provisioner%\' '
+        #                           f'and season = {CURRENT_SEASON} order by lifetime_favor desc')
+        # provisioner_ranking = flatten_list(provisioner_ranking)
+        # for index, rank in enumerate(provisioner_ranking):
+        #     if int(rank) == character.id:
+        #         outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
+        #
+        # reliquarian_favor = get_favor(character.id, f'reliquarian')
+        # outputString += (f'`Reliquarian` - Current Favor: `{reliquarian_favor.current_favor}` | '
+        #                  f'Lifetime Favor: `{reliquarian_favor.lifetime_favor}`\n')
+        # reliquarian_ranking = db_query(False, f'select char_id from factions '
+        #                           f'where faction like \'%reliquarian%\' '
+        #                           f'and season = {CURRENT_SEASON} order by lifetime_favor desc')
+        # reliquarian_ranking = flatten_list(reliquarian_ranking)
+        # for index, rank in enumerate(reliquarian_ranking):
+        #     if int(rank) == character.id:
+        #         outputString += f'Server-wide Ranking: `{index + 1}`\n\n'
 
         treasure_target = get_treasure_target(character)
         treasure_favor = get_favor(character.id, f'treasure')
@@ -645,7 +671,7 @@ class Professions(commands.Cog):
             outputString += f'`Treasure Hunter` - Renown: `{treasure_favor.lifetime_favor}`\nCurrent Location: `None`'
         else:
             if treasure_target.char_id:
-                outputString += f'`Treasure Hunter` - Renown: `{treasure_favor.lifetime_favor}`\nCurrent Location: `{treasure_target.location_name}`'
+                outputString += f'`Treasure Hunter` - Renown: `{treasure_favor.lifetime_favor}`\nCurrent Location: `{treasure_target.map} - {treasure_target.location_name}`'
             else:
                 outputString += f'`Treasure Hunter` - Renown: `{treasure_favor.lifetime_favor}`\nCurrent Location: `None`'
         treasure_ranking = db_query(False, f'select char_id from factions '
@@ -665,7 +691,7 @@ class Professions(commands.Cog):
         next_update = last_profession_update + profession_update_interval
         outputString += (f'\nProfession Targets Updated at: <t:{last_profession_update}> in your timezone'
                          f'\nNext: <t:{next_update}:f> in your timezone\n')
-
+        print(len(outputString))
         await ctx.reply(f'Profession Details for `{character.char_name}`:\n'
                         f'{outputString}')
 
@@ -705,7 +731,7 @@ class Professions(commands.Cog):
         return
 
     @commands.command(name='specialize', aliases=['spec'])
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def specialize(self, ctx, profession: str = 'check', confirm: str = ''):
         """
@@ -1121,7 +1147,7 @@ class Professions(commands.Cog):
         # armor_mapping = {"head": 360, 'chest': 630, 'hands': 180, 'legs': 450, 'feet': 180}
 
         character = is_registered(ctx.author.id)
-        eldarium_per_armor = int(get_bot_config('eldarium_per_armor'))
+        armor_per_coin = int(get_bot_config('armor_per_coin'))
 
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
@@ -1150,7 +1176,7 @@ class Professions(commands.Cog):
             await ctx.reply(f'You can only fortify armor in increments of 50 which are >= 50.')
             return
 
-        final_cost = int(amount / eldarium_per_armor)
+        final_cost = int(amount / armor_per_coin)
 
         if 'confirm' not in confirm.lower():
             await ctx.reply(
@@ -1988,131 +2014,131 @@ class Professions(commands.Cog):
     #     await ctx.reply(output_string)
     #     return
 
-    @commands.command(name='technique', aliases=['techniquelist'])
-    @commands.has_any_role('Outcasts')
-    @commands.check(check_channel)
-    async def technique(self, ctx, monster: str = '', option: str = 'no'):
-        """ - Creates a monster weapon from a category of your choice
-
-        Parameters
-        ----------
-        ctx
-        monster
-            Which type of monster technique you want to learn
-
-        Returns
-        -------
-
-        """
-        character = is_registered(ctx.author.id)
-
-        if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
-            return
-
-        monster = monster.lower()
-
-        valid_groups = ['tchotcho', 'husk', 'migo', 'deepone', 'drowned', 'werewolf', 'szeth']
-        costs = {'tchotcho': int(get_bot_config('tchotcho_cost')), 'husk': int(get_bot_config('husk_cost')),
-                 'migo': int(get_bot_config('migo_cost')), 'deepone': int(get_bot_config('deepone_cost')),
-                 'drowned': int(get_bot_config('drowned_cost')), 'werewolf': int(get_bot_config('werewolf_cost')),
-                 'szeth': int(get_bot_config('szeth_cost'))}
-
-        if monster not in valid_groups:
-            group_string = '`, `'.join(valid_groups)
-            await ctx.reply(f'You must specify a valid monster type to learn a technique! Use `{group_string}`.')
-            return
-        else:
-            if 'reset' in option.lower():
-                await ctx.reply(f'Use `v/techniquereset` for this.')
-                return
-
-            if 'list' in option.lower() or 'techniquelist' in ctx.invoked_with:
-                weapon_count = db_query(False, f'select count(*) from monster_weapons where type = \'{monster}\'')
-                weapon_count = flatten_list(weapon_count)
-                weapon_list = db_query(False, f'select item_name from monster_weapons where type = \'{monster}\'')
-                weapon_list = flatten_list(weapon_list)
-                weapon_list_string = '`\n`'.join(weapon_list)
-                await ctx.reply(
-                    f'There are `{weapon_count[0]}` total `{monster}` techniques to learn.\n`{weapon_list_string}`')
-                return
-
-            cost = costs[monster]
-            favor = get_favor(character.id, 'reliquarian')
-            if favor.current_favor >= cost:
-                weapon = select_monster_weapon(character, monster)
-                if weapon:
-                    if 'confirm' in option:
-                        run_console_command_by_name(character.char_name, f'spawnitem {weapon.template_id} 1')
-                        modify_favor(character.id, 'reliquarian', -cost)
-                        mark_technique_as_learned(character, weapon)
-                        output_string = (f'You spent `{cost}` Reliquarian Favor to learn a `{monster}` technique! '
-                                        f'Remaining Favor: `{favor.current_favor-cost}`'
-                                        f'\n`{weapon.item_name}`\n'
-                                        f'Damage: `{weapon.damage}` Penetration: `{weapon.penetration}`')
-                        if weapon.template_id in [23330, 20911]:
-                            output_string += f'\n__This weapon is not capable of hitting enemies and is mostly for roleplaying.__'
-                        if weapon.template_id == 20910:
-                            output_string += (f'\n__This weapon is bugged and consumes durability unlike other '
-                                              f'monster weapons. It will break in one hit. A T5 Blacksmith can '
-                                              f'repair it to a higher durability.__')
-                        await ctx.reply(f'{output_string}')
-                        return
-                    else:
-                        await ctx.reply(f'This command will spend `{cost}` Reliquarian Favor to learn a random `{monster}` technique. '
-                                        f'If you are sure you want to do this, use `v/technique {monster} confirm`')
-                        return
-                else:
-                    await ctx.reply(f'You have already learned all the `{monster}` techniques available! '
-                                    f'If you need to learn them again, use `v/techniquereset {monster}`')
-                    return
-            else:
-                await ctx.reply(f'You do not have enough Reliquarian Favor to learn a `{monster}` technique! '
-                                f'Current favor: `{favor.current_favor}`. Needed: `{cost}`')
-                return
-
-    @commands.command(name='techniquereset', aliases=['resettechniques'])
-    @commands.has_any_role('Outcasts')
-    @commands.check(check_channel)
-    async def techniquereset(self, ctx, monster: str = '', confirm: str = 'no'):
-        """
-
-        Parameters
-        ----------
-        ctx
-        monster
-        confirm
-
-        Returns
-        -------
-
-        """
-        character = is_registered(ctx.author.id)
-
-        if not character:
-            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
-            return
-
-        monster = monster.lower()
-        valid_groups = ['tchotcho', 'husk', 'migo', 'deepone', 'drowned', 'werewolf', 'szeth']
-
-        if monster not in valid_groups:
-            group_string = '`, `'.join(valid_groups)
-            await ctx.reply(f'You must specify a valid monster technique type to reset! Use `{group_string}`.')
-            return
-        else:
-            if 'confirm' in confirm.lower():
-                db_query(True, f'delete from learned_techniques '
-                               f'where char_id = {character.id} and season = {CURRENT_SEASON} and type = \'{monster}\'')
-                await ctx.reply(f'Your `{monster}` technique learning progress has been reset.')
-                return
-            else:
-                await ctx.reply(f'This command will reset your `{monster}` technique learning progress, '
-                                f'causing you to receive random techniques next time you learn one. Use this if '
-                                f'you need a duplicate copy of one you\'ve already learned. If you\'re sure you '
-                                f'want to do this, use `v/techniquereset {monster} confirm`')
-                return
-
+    # @commands.command(name='technique', aliases=['techniquelist'])
+    # @commands.has_any_role('Outcasts')
+    # @commands.check(check_channel)
+    # async def technique(self, ctx, monster: str = '', option: str = 'no'):
+    #     """ - Creates a monster weapon from a category of your choice
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #     monster
+    #         Which type of monster technique you want to learn
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     character = is_registered(ctx.author.id)
+    #
+    #     if not character:
+    #         await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+    #         return
+    #
+    #     monster = monster.lower()
+    #
+    #     valid_groups = ['tchotcho', 'husk', 'migo', 'deepone', 'drowned', 'werewolf', 'szeth']
+    #     costs = {'tchotcho': int(get_bot_config('tchotcho_cost')), 'husk': int(get_bot_config('husk_cost')),
+    #              'migo': int(get_bot_config('migo_cost')), 'deepone': int(get_bot_config('deepone_cost')),
+    #              'drowned': int(get_bot_config('drowned_cost')), 'werewolf': int(get_bot_config('werewolf_cost')),
+    #              'szeth': int(get_bot_config('szeth_cost'))}
+    #
+    #     if monster not in valid_groups:
+    #         group_string = '`, `'.join(valid_groups)
+    #         await ctx.reply(f'You must specify a valid monster type to learn a technique! Use `{group_string}`.')
+    #         return
+    #     else:
+    #         if 'reset' in option.lower():
+    #             await ctx.reply(f'Use `v/techniquereset` for this.')
+    #             return
+    #
+    #         if 'list' in option.lower() or 'techniquelist' in ctx.invoked_with:
+    #             weapon_count = db_query(False, f'select count(*) from monster_weapons where type = \'{monster}\'')
+    #             weapon_count = flatten_list(weapon_count)
+    #             weapon_list = db_query(False, f'select item_name from monster_weapons where type = \'{monster}\'')
+    #             weapon_list = flatten_list(weapon_list)
+    #             weapon_list_string = '`\n`'.join(weapon_list)
+    #             await ctx.reply(
+    #                 f'There are `{weapon_count[0]}` total `{monster}` techniques to learn.\n`{weapon_list_string}`')
+    #             return
+    #
+    #         cost = costs[monster]
+    #         favor = get_favor(character.id, 'reliquarian')
+    #         if favor.current_favor >= cost:
+    #             weapon = select_monster_weapon(character, monster)
+    #             if weapon:
+    #                 if 'confirm' in option:
+    #                     run_console_command_by_name(character.char_name, f'spawnitem {weapon.template_id} 1')
+    #                     modify_favor(character.id, 'reliquarian', -cost)
+    #                     mark_technique_as_learned(character, weapon)
+    #                     output_string = (f'You spent `{cost}` Reliquarian Favor to learn a `{monster}` technique! '
+    #                                     f'Remaining Favor: `{favor.current_favor-cost}`'
+    #                                     f'\n`{weapon.item_name}`\n'
+    #                                     f'Damage: `{weapon.damage}` Penetration: `{weapon.penetration}`')
+    #                     if weapon.template_id in [23330, 20911]:
+    #                         output_string += f'\n__This weapon is not capable of hitting enemies and is mostly for roleplaying.__'
+    #                     if weapon.template_id == 20910:
+    #                         output_string += (f'\n__This weapon is bugged and consumes durability unlike other '
+    #                                           f'monster weapons. It will break in one hit. A T5 Blacksmith can '
+    #                                           f'repair it to a higher durability.__')
+    #                     await ctx.reply(f'{output_string}')
+    #                     return
+    #                 else:
+    #                     await ctx.reply(f'This command will spend `{cost}` Reliquarian Favor to learn a random `{monster}` technique. '
+    #                                     f'If you are sure you want to do this, use `v/technique {monster} confirm`')
+    #                     return
+    #             else:
+    #                 await ctx.reply(f'You have already learned all the `{monster}` techniques available! '
+    #                                 f'If you need to learn them again, use `v/techniquereset {monster}`')
+    #                 return
+    #         else:
+    #             await ctx.reply(f'You do not have enough Reliquarian Favor to learn a `{monster}` technique! '
+    #                             f'Current favor: `{favor.current_favor}`. Needed: `{cost}`')
+    #             return
+    #
+    # @commands.command(name='techniquereset', aliases=['resettechniques'])
+    # @commands.has_any_role('Outcasts')
+    # @commands.check(check_channel)
+    # async def techniquereset(self, ctx, monster: str = '', confirm: str = 'no'):
+    #     """
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #     monster
+    #     confirm
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     character = is_registered(ctx.author.id)
+    #
+    #     if not character:
+    #         await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+    #         return
+    #
+    #     monster = monster.lower()
+    #     valid_groups = ['tchotcho', 'husk', 'migo', 'deepone', 'drowned', 'werewolf', 'szeth']
+    #
+    #     if monster not in valid_groups:
+    #         group_string = '`, `'.join(valid_groups)
+    #         await ctx.reply(f'You must specify a valid monster technique type to reset! Use `{group_string}`.')
+    #         return
+    #     else:
+    #         if 'confirm' in confirm.lower():
+    #             db_query(True, f'delete from learned_techniques '
+    #                            f'where char_id = {character.id} and season = {CURRENT_SEASON} and type = \'{monster}\'')
+    #             await ctx.reply(f'Your `{monster}` technique learning progress has been reset.')
+    #             return
+    #         else:
+    #             await ctx.reply(f'This command will reset your `{monster}` technique learning progress, '
+    #                             f'causing you to receive random techniques next time you learn one. Use this if '
+    #                             f'you need a duplicate copy of one you\'ve already learned. If you\'re sure you '
+    #                             f'want to do this, use `v/techniquereset {monster} confirm`')
+    #             return
+    #
 
     @commands.command(name='crafterlist', aliases=['professionlist', 'whocrafter'])
     @commands.has_any_role('Outcasts')
@@ -2140,7 +2166,7 @@ class Professions(commands.Cog):
         outputString = '__List of T4+ Profession Crafters__\n'
         message = await ctx.reply(f'{outputString}')
         results = db_query(False, f'select char_id, profession, tier from character_progression where '
-                                  f'season = {CURRENT_SEASON} and tier >= 4 order by profession asc, tier asc')
+                                  f'season = {CURRENT_SEASON} and tier >= 4 order by profession asc, tier desc')
 
         for result in results:
             (professioner.char_id, professioner.profession, professioner.tier) = result
@@ -2255,7 +2281,7 @@ class Professions(commands.Cog):
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def leaderboard(self, ctx):
-        """
+        """ - Displays the profession leaderboard
 
         Parameters
         ----------

@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 
 from cogs.QuestSystem import pull_online_character_info_new
 from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id, \
-    flatten_list, get_bot_config, check_channel, no_registered_char_reply, get_clan
+    flatten_list, get_bot_config, check_channel, no_registered_char_reply, get_clan, run_console_command_by_name
 
 from functions.externalConnections import db_query, runRcon
 
@@ -22,6 +22,8 @@ async def is_character_online(channel):
     outputlist = ''
     name = str(get_bot_config(f'online_alert'))
     mention = str(get_bot_config(f'online_alert_tag'))
+
+    # print(f'we are trying to check online')
 
     rconResponse = runRcon('listplayers')
     rconResponse.output.pop(0)
@@ -297,6 +299,7 @@ class Utilities(commands.Cog):
 
     @commands.command(name='channeltest')
     @commands.check(check_channel)
+    @commands.has_any_role('Admin')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def channeltest(self, ctx):
         """
@@ -502,6 +505,73 @@ class Utilities(commands.Cog):
         await ctx.reply(f'The bot sees your location as: '
                         f'`TeleportPlayer {results[0]} {results[1]} {results[2]}`')
         return
+
+    @commands.command(name='killplayer', aliases=['kill'])
+    @commands.has_any_role('Moderator')
+    @commands.check(check_channel)
+    async def killplayer(self, ctx, char_name: str = None, confirm:str = ''):
+        """ - Kills the named player.
+
+        Parameters
+        ----------
+        ctx
+        char_name
+        confirm
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            return
+
+        if 'confirm' in confirm.lower():
+            command = f'suicide'
+            run_console_command_by_name(char_name,command)
+            await ctx.reply(f'Attempting to kill `{char_name}`\n\n'
+                        f'This may fail or kill the wrong player if logouts occur during the command. '
+                            f'Be mindful if another player reports dying for no reason, '
+                            f'and verify it worked for the intended target!')
+            return
+        else:
+            await ctx.reply(f'This will attempt to kill `{char_name}`\n\n'
+                        f'Make sure the name is correct, always use double quotes around the name. '
+                        f'If you are sure, run `v/kill \"{char_name}\" confirm`.')
+            return
+
+    @commands.command(name='sizechange')
+    @commands.has_any_role('Admin')
+    @commands.check(check_channel)
+    async def sizechange(self, ctx, target_object: int = None, size: float = 1.0):
+        """ - Adds a record to the size_changes table for update at next restart
+
+        Parameters
+        ----------
+        ctx
+        target_object
+        size
+
+        Returns
+        -------
+
+        """
+        outputString = ''
+        try:
+            int(target_object)
+            float(size)
+        except ValueError:
+            await ctx.reply(f'The target object ID must be an integer and the target size must be a float!')
+        runRcon(f'sql insert or replace into size_changes (object_id, target_size) values ({target_object}, {size})')
+        results = runRcon(f'sql select * from size_changes where object_id = {target_object}')
+        if results.output:
+            for result in results.output:
+                outputString += f'{result}\n'
+            await ctx.reply(f'Record added/updated:\n{outputString}')
+            return
+
 
     @commands.command(name='locateobject', aliases=['lo', 'shrink'])
     @commands.has_any_role('Outcasts')
@@ -809,7 +879,7 @@ class Utilities(commands.Cog):
         await ctx.reply(f'Found object:\nid: `{object_id}`\nclass: `{class_name}`\n'
                         f'x-coordinate: `{x_result}`\ny-coordinate: `{y_result}`\n'
                         f'distance: `{distance}`\nowned by: `{clan_id}` name: `{clan_name}`\n\n'
-                        f'If this is correct, run the command again, adding `confirm`')
+                        f'If this is the correct object, run the command:```v/sizechange {object_id} <size>````')
         return
 
     @commands.command(name='itemlookup')

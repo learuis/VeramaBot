@@ -227,7 +227,7 @@ class CommunityBoons(commands.Cog):
         con.close()
 
     @commands.command(name='boonlog',
-                      aliases=['log', 'blog', 'boon', 'boons'])
+                      aliases=['log', 'blog'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
@@ -339,7 +339,7 @@ class CommunityBoons(commands.Cog):
         await ctx.send(f'{outputString}')
 
     @commands.command(name='booninfo',
-                      aliases=['binfo'])
+                      aliases=['binfo', 'boon', 'boons'])
     @commands.has_any_role('Admin', 'Outcasts')
     @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
