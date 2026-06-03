@@ -28,6 +28,7 @@ SERVER_IP = str(os.getenv('SERVER_IP'))
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
+BOT_DB_FILE_LOCATION= os.getenv('BOT_DB_FILE_LOCATION')
 
 def add_reward_record(char_id: int, itemId: int, quantity: int, reasonString: str):
     if quantity == 0:
@@ -149,7 +150,7 @@ def update_boons(indv_boon: str = ''):
 
 
 def check_channel(ctx):
-    whitelist = {'Admin', 'Moderator', 'BuildHelper'}
+    whitelist = {'Admin', 'Moderator', 'BuildHelper', 'bot_tester'}
     roles = {role.name for role in ctx.author.roles}
     if not whitelist.isdisjoint(roles):
         #if we're a special role, no limitations on channel
@@ -255,6 +256,22 @@ def get_rcon_id(name: str):
     for x in connected_chars:
         if name.casefold() == x[1].casefold().strip():
             return x[0].strip()
+
+def where_is_character(character):
+    con = sqlite3.connect(f'{BOT_DB_FILE_LOCATION}'.encode('utf-8'))
+    cur = con.cursor()
+
+    cur.execute(f'select x, y, z from online_character_info '
+                f'where char_id = {character.id} limit 1')
+    results = cur.fetchone()
+
+    con.commit()
+    con.close()
+
+    if results:
+        return results
+    else:
+        return [False, False, False]
 
 def get_clan(character):
     match = []
@@ -1063,7 +1080,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
 
                     reward_quantity = reward_quantity + (reroll_cost * notorious_multiplier)
 
-                    chance, value = slayer_bonus_item_chance(notorious_multiplier)
+                    chance, value, bonus_message = slayer_bonus_item_chance(notorious_multiplier, character)
                     if chance:
                         print(f'Notoriety {notorious_multiplier} target slain, chance: {value}%, bonus item earned.')
                         results = db_query(False, f'select item_id, item_name from treasure_rewards '
@@ -1129,7 +1146,7 @@ def grant_slayer_rewards(character, current_target):
     else:
         eld_transaction(character, f'Notorious Beast Reward', reward_quantity)
 
-    chance, value = slayer_bonus_item_chance(notorious_multiplier)
+    chance, value, bonus_message = slayer_bonus_item_chance(notorious_multiplier, character)
     if chance:
         results = db_query(False, f'select item_id, item_name from treasure_rewards '
                                   f'where reward_category = 1 order by RANDOM() limit 1')
@@ -1138,7 +1155,8 @@ def grant_slayer_rewards(character, current_target):
             add_reward_record(int(character.id), int(item[0]), 1, f'Beast Slayer: {item[1]}')
             item_string = f'You found `{item[1]}` hidden in a nearby loot cache! Use `v/claim` to receive it.\n'
     else:
-        item_string = f'You had a `{value}%` chance to find a loot cache, but didn\'t find one this time.\n'
+        item_string = (f'You had a `{value}%` chance to find a loot cache, but didn\'t find one this time.\n'
+                       f'{bonus_message}')
 
     clear_notoriety(current_target)
     increment_killed_total(current_target)
@@ -1148,7 +1166,7 @@ def grant_slayer_rewards(character, current_target):
 
     reward = int(get_bot_config(f'beast_slayer_reward'))
     reroll_cost = int(get_bot_config('beast_slayer_reroll_cost'))
-    outputString += (f'Your quarry, `{current_target.display_name}`, has been slain! '
+    outputString += (f'Your quarry, `{current_target.map} - {current_target.display_name}`, has been slain! '
                      f'You have earned '
                      f'`{reward + (reroll_cost * notorious_multiplier)}` Bronze Coins!\n{item_string}'
                      f'Return to the Beast Slayer at the Profession Hub to be assigned a new Quarry.')
@@ -1244,6 +1262,7 @@ class SlayerTarget:
         self.target_name = ''
         self.display_name = ''
         self.start_time = 0
+        self.map = ''
 
 def get_character_level(character):
     level = 0
@@ -1255,6 +1274,11 @@ def get_character_level(character):
             match = re.search(r'\s+\d+ | [^|]*', result)
             level = int(match[0])
     return level
+
+def has_arachnophobia(character):
+    # print(f'do we have arachnophobia? {character.id}')
+    results = db_query(False, f'select discord_id from arachnophobia where discord_id = {character.discord_id}')
+    return True if results else False
 
 def has_arachnophobia(character):
     # print(f'do we have arachnophobia? {character.id}')
@@ -1286,6 +1310,46 @@ def get_slayer_reroll_exclusion(character):
         return target_list
     else:
         return False
+
+def get_slayer_map(character):
+
+    option = f'ExiledLands'
+
+    query = f'select discord_id, option from slayer_option where discord_id = {character.discord_id}'
+    print(query)
+    results = db_query(False, f'{query}')
+    print(f'{results}')
+
+    if results:
+        for record in results:
+            option = record[1]
+        return option
+    else:
+        option = slayer_map_swap(character)
+        return option
+
+def slayer_map_swap(character):
+    option = f'ExiledLands'
+
+    print(f'Slayer swapping')
+    results = db_query(False, f'select discord_id, option from slayer_option where discord_id = {character.discord_id}')
+    print(f'{results}')
+    if results:
+        if f'ExiledLands' in str(results):
+            option = f'Siptah'
+            print(f'results are {option}')
+        else:
+            option = f'ExiledLands'
+            print(f'results are {option}')
+    else:
+        option = f'ExiledLands'
+        print(f'no results {option}')
+
+    db_query(True, f'insert or replace into slayer_option (discord_id, option) values ({character.discord_id},\'{option}\')')
+
+    print(f'{option}')
+    return option
+
 
 def clear_slayer_reroll(target_to_remove):
     db_query(True, f'delete from beast_slayer_rerolled_targets '
@@ -1319,6 +1383,12 @@ def set_slayer_target(character):
     # if exclude_target:
     #     where_clause = f' where target_name not like \'%{exclude_target.target_name}%\' and notoriety = 0'
 
+    map_option = get_slayer_map(character)
+    if where_clause:
+        where_clause += f' and map = \'{map_option}\''
+    else:
+        where_clause = f' where map = \'{map_option}\''
+
     if has_arachnophobia(character):
         if where_clause:
             where_clause += f' and {spider_string}'
@@ -1330,6 +1400,7 @@ def set_slayer_target(character):
     my_target = SlayerTarget()
     my_target.char_id = character.id
     my_target.start_time = int_epoch_time()
+    my_target.map = map_option
     # randomizer = random.randint(0, int(get_bot_config('beast_slayer_target_count')))
     query = (f'select target_name, target_display_name from beast_slayer_target_list'
              # f'{where_clause} order by notoriety desc, times_killed asc, random() limit 1')
@@ -1357,25 +1428,39 @@ def clear_slayer_target(character: Registration):
 
 def get_slayer_target(character: Registration):
     my_target = SlayerTarget()
-    query_result = db_query(False, f'select char_id, target_name, target_display_name, start_time from beast_slayers'
+    query_result = db_query(False, f'select bs.char_id, bs.target_name, bs.target_display_name, '
+                                   f'bs.start_time, bstl.map from beast_slayers bs '
+                                   f'left join beast_slayer_target_list bstl on bs.target_name = bstl.target_name'
                                    f' where char_id = {character.id} and season = {CURRENT_SEASON}')
     if query_result:
         print(query_result)
         (my_target.char_id, my_target.target_name,
-         my_target.display_name, my_target.start_time) = flatten_list(query_result)
+         my_target.display_name, my_target.start_time, my_target.map) = flatten_list(query_result)
         # print(f'My target {my_target}')
         return my_target
     else:
         return False
 
-def slayer_bonus_item_chance(notoriety: int):
+def slayer_bonus_item_chance(notoriety: int, character):
     notoriety_value = int(get_bot_config('notoriety_bonus_item_mult'))
+    bonus_message = f'Lucky Coin Bonus: `+0%`\n'
     reward_chance = 10 + ( notoriety * notoriety_value )
+
+    count_lucky_coins = get_bot_config(f'slayer_count_lucky_coins')
+    slayer_lucky_coin_multiplier = float(get_bot_config(f'slayer_lucky_coin_multiplier'))
+    if 'yes' in count_lucky_coins:
+        lucky_coins = count_inventory_qty(character.id, 0, 80256)
+        if lucky_coins:
+            coin_bonus = slayer_lucky_coin_multiplier * lucky_coins
+            reward_chance += coin_bonus
+            bonus_message = f'Lucky Coin Bonus: `+{coin_bonus}%`\n'
+
+
     item_roll = random.randint(int(1), int(100))
     if item_roll <= reward_chance:
-        return True, reward_chance
+        return True, reward_chance, bonus_message
     else:
-        return False, reward_chance
+        return False, reward_chance, bonus_message
 
 def get_notoriety(quarry: SlayerTarget):
     # print(f'getting notoriety {quarry.target_name}')
@@ -1582,7 +1667,7 @@ def transform_coordinates(x, y):
         x = math.floor(1 + ((x + 307682) / 46500))
         y = math.floor(1 + (-(y - 330805) / 46500))
         print(x, y)
-        loc_map = 'Exiled Lands'
+        loc_map = f'Exiled Lands'
 
     x_square_label = x_squares[x-1]
     y_square_label = y + 1

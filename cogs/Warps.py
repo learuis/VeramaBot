@@ -5,7 +5,7 @@ from discord.ext import commands
 
 from functions.common import custom_cooldown, flatten_list, is_registered, get_rcon_id, get_bot_config, \
     no_registered_char_reply, check_channel, eld_transaction, get_balance, sufficient_funds, transform_coordinates, \
-    run_console_command_by_name, int_epoch_time
+    run_console_command_by_name, int_epoch_time, where_is_character
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -76,7 +76,8 @@ class Warps(commands.Cog):
             await ctx.reply(f'Teleported `{name}` to {description}.')
             return
 
-    @commands.command(name='home', aliases=['stuck', 'home1', 'home2', 'home3', 'home4', 'homelist'])
+    @commands.command(name='home', aliases=['stuck', 'home1', 'home2', 'home3', 'home4',
+                                            'homelist', 'homeinfo','bedlist','bed'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def stuck(self, ctx, info: str = f''):
@@ -98,6 +99,9 @@ class Warps(commands.Cog):
         balance = 0
         dest_id = 1
         spawn_type = ''
+        start_x = 0
+        start_y = 0
+        start_z = 0
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
@@ -108,7 +112,7 @@ class Warps(commands.Cog):
         else:
             name = character.char_name
 
-        if 'home' in ctx.invoked_with:
+        if 'home' or 'bed' in ctx.invoked_with:
 
             # hex_name = bytes(name, 'utf8')
             # hex_name = hex_name.hex()
@@ -181,8 +185,12 @@ class Warps(commands.Cog):
             spawn_points = dict(zip(key_list, coordinates))
             print(spawn_points)
 
-            final_target_x = float(spawn_points[dest_id][3])
-            final_target_y = float(spawn_points[dest_id][4])
+            try:
+                final_target_x = float(spawn_points[dest_id][3])
+                final_target_y = float(spawn_points[dest_id][4])
+            except KeyError:
+                await ctx.reply(f'Spawn point `{dest_id}` for {character.char_name} not found!')
+                return
             z_offset = int(get_bot_config(f'home_z_offset'))
             final_target_z = float(spawn_points[dest_id][5]) + z_offset
             final_map_loc = spawn_points[dest_id][2]
@@ -196,7 +204,7 @@ class Warps(commands.Cog):
                     outputString += f'`v/home{count}` - {coordinate}\n'
                 await ctx.reply(f'{outputString}')
                 return
-            elif 'info' in info:
+            elif 'info' in info or 'info' in ctx.invoked_with:
                 await ctx.reply(f'`v/{ctx.invoked_with}` will send you to: `{final_spawn_type}` in `{final_map_loc} {sq_x}{sq_y}`')
                 return
             elif not info:
@@ -252,7 +260,8 @@ class Warps(commands.Cog):
                 warp_entry = flatten_list(output)
                 (description, x, y, z) = warp_entry
                 run_console_command_by_name(character.char_name, f'TeleportPlayer {x} {y} {z}')
-                await ctx.reply(f'Rescued `{name}` from the floor, teleported to `{description}`.')
+                start_x, start_y, start_z = where_is_character(character)
+                await ctx.reply(f'Rescued `{name}` from `{start_x}, {start_y}, {start_z}`, teleported to `{description}`.')
                 return
 
 @commands.Cog.listener()

@@ -103,6 +103,8 @@ async def on_ready():
     else:
         await channel.send(f'VeramaBot TEST (use vt/) started on {loadtime}.')
 
+    print(f'on ready run finished')
+
 @tasks.loop(seconds=30)
 async def onlineCharacterInfo():
 
@@ -267,7 +269,7 @@ async def on_command_error(ctx, error):
 
     else:
         print(error)
-        # await ctx.send(error)
+        await ctx.send(error)
         raise error
 
 bot.run(TOKEN)

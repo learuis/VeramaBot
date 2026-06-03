@@ -30,9 +30,11 @@ class Inn:
         self.x = 0
         self.y = 0
         self.z = 0
+        self.map_square = ''
+        self.loc_map = ''
         self.teleport_counter = 0
 
-    def structure_inn(self, inn_id, clan_id, owner_id, name, x, y, z, teleport_counter):
+    def structure_inn(self, inn_id, clan_id, owner_id, name, x, y, z, map_square, loc_map, teleport_counter):
         self.inn_id = inn_id
         self.clan_id = clan_id
         self.owner_id = owner_id
@@ -40,6 +42,8 @@ class Inn:
         self.x = x
         self.y = y
         self.z = z
+        self.map_square = map_square
+        self.loc_map = loc_map
         self.teleport_counter = teleport_counter
         return self
 
@@ -48,15 +52,14 @@ class Checkin:
     def __init__(self):
         self.char_id = 0
         self.inn_id = ''
-        self.valid_until = 0
 
 
 def carpets_in_range(x, y, radius, clan_id):
-    count = 0
+    carpet_id = 0
     nwPoint = [x - radius, y - radius]
     sePoint = [x + radius, y + radius]
 
-    rconResponse = runRcon(f'sql select count(*) from actor_position a left join buildings b on a.id = b.object_id '
+    rconResponse = runRcon(f'sql select b.object_id from actor_position a left join buildings b on a.id = b.object_id '
                            f'where b.owner_id = {clan_id} '
                            f'and x > {nwPoint[0]} and y > {nwPoint[1]} '
                            f'and x < {sePoint[0]} and y < {sePoint[1]} '
@@ -67,30 +70,59 @@ def carpets_in_range(x, y, radius, clan_id):
         match = re.search(r'#\b\d\s+(\d+)', x)
         if match:
             match.group(1)
-            count = int(match.group(1))
+            carpet_id = int(match.group(1))
 
-    return count
+    return carpet_id
 
+def get_all_inns():
+    inn_list = []
 
-def get_checkin_details(character):
-    checkin = Checkin()
-
-    results = db_query(False, f'select checkins.char_id, checkins.inn_id, checkins.valid_until '
-                              f'from inn_checkins as checkins '
-                              f'left join inn_locations as locs on checkins.inn_id = locs.inn_id '
-                              f'where checkins.char_id = {character.id} order by checkins.valid_until desc limit 1')
+    results = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x, y, z, '
+                               f'map_square, loc_map, teleport_counter from inn_locations')
     if not results:
-        return checkin
-    results = flatten_list(results)
-    print(results)
-    (checkin.char_id, checkin.inn_id, checkin.valid_until) = results
+        return False
+    for result in results:
+        inn_id = result[0]
+        inn = get_inn_details(inn_id)
+        inn_list.append(inn)
 
-    return checkin
+    print(inn_list)
+    return inn_list
 
+def get_all_checkin_details(character):
+    checkin = Checkin()
+    inn_list = []
+
+    results = db_query(False, f'select checkins.inn_id from inn_checkins as checkins '
+                              f'left join inn_locations as locs on checkins.inn_id = locs.inn_id '
+                              f'where checkins.char_id = {character.id} order by checkins.checkin_id asc')
+    if not results:
+        return False
+    for count, result in enumerate(results):
+        sequence_id = count + 1
+        inn_id = result[0]
+        inn = get_inn_details(inn_id)
+        inn_list.append(inn)
+
+    print(inn_list)
+    return inn_list
+
+    # (checkin.char_id, checkin.inn_id, checkin.valid_until) = results
+
+def is_checked_in(character, inn):
+    checkin = Checkin()
+    inn_list = []
+
+    results = db_query(False, f'select inn_checkins.inn_id from inn_checkins  '
+                              f'where inn_checkins.char_id = {character.id} and inn_checkins.inn_id = \'{inn.inn_id}\'')
+    if results:
+        return True
+    else:
+        return False
 
 def count_checkins(clan_id):
     count = 0
-    inn_id = encode_inn_id(clan_id)
+    inn_id = get_inn_id(clan_id)
 
     results = db_query(False, f'select count(*) '
                               f'from inn_checkins as checkins '
@@ -104,24 +136,40 @@ def count_checkins(clan_id):
 
     return int(count)
 
+def does_object_exist(object_id):
+    results = runRcon(f'sql select * from actor_position where id = {object_id}')
+    if results.output:
+        results.output.pop(0)
+        print(results.output)
+        if results.output:
+            return True
+        else:
+            return False
+    else:
+        return False
 
 def get_inn_details(inn_id: str):
     inn = Inn()
-    results = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x,y,z, teleport_counter '
+    results = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x,y,z, '
+                              f'map_square, loc_map, teleport_counter '
                               f'from inn_locations where inn_id = \'{inn_id}\' limit 1')
     if results:
         results = flatten_list(results)
         print(results)
-        (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.teleport_counter) = results
+        inn = inn.structure_inn(results[0],results[1],results[2],results[3],results[4],results[5],
+                                results[6],results[7],results[8],results[9])
+        # (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z,
+        #  inn.map_square, inn.loc_map, inn.teleport_counter) = results
     return inn
 
 
-def checkin_to_inn(character, inn_id):
+def checkin_to_inn(character, inn):
     length = int(get_bot_config(f'inn_checkin_length'))
-    checkout_time = int_epoch_time() + length
-    db_query(True, f'insert or replace into inn_checkins (char_id, inn_id, valid_until) '
-                   f'values ({character.id}, \'{inn_id}\', \'{int_epoch_time() + length}\')')
-    return checkout_time
+    # checkout_time = int_epoch_time() + length
+    db_query(True, f'delete from inn_checkins where char_id = {character.id} and inn_id = {inn.inn_id}')
+    db_query(True, f'insert into inn_checkins (char_id, inn_id) '
+                   f'values ({character.id}, \'{inn.inn_id}\')')
+    return True
 
 
 def clear_all_checkins(inn_id):
@@ -131,9 +179,9 @@ def clear_all_checkins(inn_id):
 
 def create_inn(inn):
     db_query(True, f'insert or replace into inn_locations '
-                   f'(inn_id, clan_id, owner_id, inn_name, x, y, z, teleport_counter) values '
+                   f'(inn_id, clan_id, owner_id, inn_name, x, y, z, map_square, loc_map, teleport_counter) values '
                    f'(\'{inn.inn_id}\', {inn.clan_id}, {inn.owner_id}, \'{inn.name}\', '
-                   f'\'{inn.x}\', \'{inn.y}\', \'{inn.z}\', 0)')
+                   f'\'{inn.x}\', \'{inn.y}\', \'{inn.z}\', \'{inn.map_square}\', \'{inn.loc_map}\', 0)')
 
 
 def delete_inn(inn_id):
@@ -148,8 +196,14 @@ def increment_inn_teleport_counter(inn: Inn):
     db_query(True, f'update inn_locations set teleport_counter = teleport_counter + 1 where inn_id = \'{inn.inn_id}\'')
     return
 
-def encode_inn_id(clan_id):
-    inn_id = hashlib.md5(str(clan_id).encode('utf-8')).hexdigest()
+def get_inn_id(clan_id):
+    inn_id = 0
+    # inn_id = hashlib.md5(str(clan_id).encode('utf-8')).hexdigest()
+    result = db_query(False, f'select inn_id from inn_locations where clan_id = \'{clan_id}\'')
+    if result:
+        result = flatten_list(result)
+        inn_id = result[0]
+
     return inn_id
 
 def inn_transaction(inn, character, cost, revenue):
@@ -171,52 +225,53 @@ class InnSystem(commands.Cog):
     def __init__(self, bot: commands.Bot):
         self.bot = bot
 
-    @commands.command(name='renameinn')
-    @commands.check(check_channel)
-    @commands.has_any_role('Admin')
-    async def renameinn(self, ctx, new_name: str = ''):
-        """ - Renames your inn
-
-        Parameters
-        ----------
-        ctx
-        new_name
-            The new name for the inn
-
-        Returns
-        -------
-
-        """
-
-        character = is_registered(ctx.author.id)
-        if not character:
-            await no_registered_char_reply(self.bot, ctx)
-            # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
-            return
-
-        clan_id, clan_name = get_clan(character)
-        if not clan_id:
-            await ctx.reply(f'`{character.char_name}` must be in a clan to rename an inn!')
-            return
-
-        if not new_name:
-            await ctx.reply(f'Provide the new name for the inn, surrounded by "double quotes"')
-            return
-
-        inn_id = hashlib.md5(str(clan_id).encode('utf-8')).hexdigest()
-        old_inn = get_inn_details(inn_id)
-
-        if inn_id:
-            modify_inn(old_inn.inn_id,new_name)
-            await ctx.reply(f'`{old_inn.name}` owned by `{character.char_name}` has been renamed to `{new_name}`!')
-            return
-        else:
-            await ctx.reply(f'There is no inn registered to `{character.char_name}`!')
-            return
+    # @commands.command(name='renameinn')
+    # @commands.check(check_channel)
+    # @commands.has_any_role('Outcasts')
+    # async def renameinn(self, ctx, new_name: str = ''):
+    #     """ - Renames your inn
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #     new_name
+    #         The new name for the inn
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #
+    #     character = is_registered(ctx.author.id)
+    #     if not character:
+    #         await no_registered_char_reply(self.bot, ctx)
+    #         # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+    #         return
+    #
+    #     clan_id, clan_name = get_clan(character)
+    #     if not clan_id:
+    #         await ctx.reply(f'`{character.char_name}` must be in a clan to rename an inn!')
+    #         return
+    #
+    #     if not new_name:
+    #         await ctx.reply(f'Provide the new name for the inn, surrounded by "double quotes"')
+    #         return
+    #
+    #     # inn_id = hashlib.md5(str(clan_id).encode('utf-8')).hexdigest()
+    #     inn_id = clan_id
+    #     old_inn = get_inn_details(inn_id)
+    #
+    #     if inn_id:
+    #         modify_inn(old_inn.inn_id,new_name)
+    #         await ctx.reply(f'`{old_inn.name}` owned by `{character.char_name}` has been renamed to `{new_name}`!')
+    #         return
+    #     else:
+    #         await ctx.reply(f'There is no inn registered to `{character.char_name}`!')
+    #         return
 
     @commands.command(name='closeinn')
     @commands.check(check_channel)
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Outcasts')
     async def closeinn(self, ctx, confirm: str = ''):
         """ - Closes your current inn
 
@@ -241,7 +296,8 @@ class InnSystem(commands.Cog):
             await ctx.reply(f'`{character.char_name}` must be in a clan to establish an inn!')
             return
 
-        inn_id = hashlib.md5(str(clan_id).encode('utf-8')).hexdigest()
+        # inn_id = hashlib.md5(str(clan_id).encode('utf-8')).hexdigest()
+        inn_id = get_inn_id(clan_id)
         inn = get_inn_details(inn_id)
 
         if inn_id:
@@ -262,7 +318,7 @@ class InnSystem(commands.Cog):
 
     @commands.command(name='establishinn', aliases=['setupinn'])
     @commands.check(check_channel)
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Outcasts')
     async def establishinn(self, ctx, inn_name: str, *args):
         """ - Establishes an inn at your current location
 
@@ -301,7 +357,7 @@ class InnSystem(commands.Cog):
             await ctx.reply(f'`{character.char_name}` must be in a clan to establish an inn!')
             return
 
-        inn_id = encode_inn_id(str(clan_id))
+        inn_id = get_inn_id(str(clan_id))
         inn = get_inn_details(inn_id)
         if inn.inn_id:
             await ctx.reply(f'`{character.char_name}` already has an inn, `{inn.name}`! \n'
@@ -314,31 +370,26 @@ class InnSystem(commands.Cog):
                                    f'where char_id = {character.id}')
         (x, y, z) = flatten_list(location)
 
-        if int(carpets_in_range(x, y, 500, clan_id)) == 0:
+        carpet_id = int(carpets_in_range(x, y, 500, clan_id))
+        if not carpet_id:
             await ctx.reply(f'No carpet detected within range of the inn location. '
                             f'You must place any type of carpet to serve as the check-in point!')
             return
+        sq_x, sq_y, loc_map = transform_coordinates(x, y)
+        map_square = f'{sq_x}{sq_y}'
 
-        inn = inn.structure_inn(inn_id, clan_id, character.id, inn_name, x, y, z, 0)
+        inn = inn.structure_inn(carpet_id, clan_id, character.id, inn_name, x, y, z, map_square, loc_map, 0)
         create_inn(inn)
 
-        await ctx.reply(f'`{character.char_name}` of clan `{clan_name}` has established an inn - `{inn_name}`!\n'
+        await ctx.reply(f'`{character.char_name}` of clan `{clan_name}` has established an inn - `{inn_name}` with Inn ID `{carpet_id}`!\n'
                         f'Located at: `TeleportPlayer {x} {y} {z}`\n'
                         f'Please verify that the inn location matches your in-game location!')
         return
 
-        # get character and clan
-        # Get character location
-        # add record to inns table
-        # add checkin command
-        # checkin table has char id, inn id, valid until timestamp,
-        # telporting will add 1 week of duration to your stay automatically
-        # add inn command to teleport to inn
-        # consume decaying eldarium and grant a reward to the inn owner
 
     @commands.command(name='inninfo', aliases=['innfo'])
     @commands.check(check_channel)
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Outcasts')
     async def inninfo(self, ctx):
         """ - Shows information about your check-in and your clan's inn
 
@@ -352,29 +403,37 @@ class InnSystem(commands.Cog):
         """
         outputString = ''
         character = is_registered(ctx.author.id)
+        cost = int(get_bot_config('inn_teleport_cost'))
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             return
 
-        checkin = get_checkin_details(character)
-        inn = get_inn_details(checkin.inn_id)
-        if checkin.inn_id:
-            inn_teleport_cost = int(get_bot_config(f'inn_teleport_cost'))
-            outputString += (f'`{character.char_name}` is checked in at `{inn.name}`, '
-                             # f'location `TeleportPlayer {inn.x} {inn.y} {inn.z}` \n'
-                             f'\nCheckout Time: <t:{checkin.valid_until}:f> in your timezone\n'
-                             f'Cost to teleport: `{inn_teleport_cost}` Bronze Coin\n\n')
+        checkin_list = get_all_checkin_details(character)
+        if checkin_list:
+            for count, checkin in enumerate(checkin_list):
+                sequence = count + 1
+                outputString += (f'`v/inn {sequence}` - `{checkin.name}` in `{checkin.loc_map} - {checkin.map_square}`, '
+                    f'Cost: `{cost}` Bronze Coin\n')
+            outputString += '\n'
         else:
-            outputString += f'`{character.char_name}` is not checked in at any inn!\n\n'
+            outputString += f'You are not checked in at any inn. Travel to an inn (`v/innlist` to see a list), then check in with `v/checkin`!\n\n'
 
         clan_id, clan_name = get_clan(character)
         if not clan_id:
             outputString += f'`{character.char_name}` is not a member of a clan with an inn.'
         else:
-            inn_id = encode_inn_id(str(clan_id))
+            inn_id = get_inn_id(str(clan_id))
             inn = get_inn_details(inn_id)
             if inn.inn_id:
+                if does_object_exist(inn.inn_id):
+                    pass
+                else:
+                    outputString += (f'The carpet which was used to register `{inn.name}` no longer exists. '
+                                    f'You must close and re-establish your inn.')
+                    await ctx.reply(f'{outputString}')
+                    return
+
                 outputString += f'Your clan, `{clan_name}`, owns `{inn.name}` '
             # f'at `{inn.x} {inn.y} {inn.z}`')
                 number_of_checkins = count_checkins(clan_id)
@@ -387,13 +446,15 @@ class InnSystem(commands.Cog):
 
     @commands.command(name='inn')
     @commands.check(check_channel)
-    @commands.has_any_role('Admin')
-    async def inn(self, ctx):
-        """ - Teleports you to the inn where you are checked-in. Costs Bronze Coins.
+    @commands.has_any_role('Outcasts')
+    async def inn(self, ctx, target_inn: int = 1):
+        """ - Teleports you to the specified inn. Must be previously checked-in. Costs Bronze Coins.
 
         Parameters
         ----------
         ctx
+        target_inn
+            Inn ID to teleport to
 
         Returns
         -------
@@ -401,6 +462,9 @@ class InnSystem(commands.Cog):
         """
         character = is_registered(ctx.author.id)
         outputString = ''
+        cost = int(get_bot_config('inn_teleport_cost'))
+        revenue = int(get_bot_config('inn_teleport_revenue'))
+        checkinString = ''
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
@@ -411,12 +475,45 @@ class InnSystem(commands.Cog):
             await ctx.reply(f'Character `{character.char_name}` must be online to teleport to an inn!')
             return
         else:
-            checkin = get_checkin_details(character)
-            inn = get_inn_details(checkin.inn_id)
-            if checkin.inn_id:
-                cost = int(get_bot_config('inn_teleport_cost'))
-                # bonus_mult = int(get_bot_config('inn_checkin_bonus_mult'))
-                revenue = int(get_bot_config('inn_teleport_revenue'))
+            checkin_list = get_all_checkin_details(character)
+            if checkin_list:
+                for count, checkin in enumerate(checkin_list):
+                    sequence = count + 1
+                    checkinString += (
+                        f'`v/inn {sequence}` - `{checkin.name}` in `{checkin.loc_map} - {checkin.map_square}`, '
+                        f'Cost: `{cost}` Bronze Coin\n')
+            else:
+                checkinString = f'You are not checked in at any inn. Travel to an inn (`v/innlist` to see a list), then check in with `v/checkin`!'
+                await ctx.reply(f'{checkinString}')
+                return
+
+            # if not target_inn:
+            #     outputString += (f'You must specify an inn ID to teleport to! See list below then use `v/inn <1 2 3 etc..>`\n\n'
+            #                      f'__List of Inns where are you are checked in:__\n'
+            #                      f'{checkinString}')
+            #     await ctx.reply(f'{outputString}')
+            #     return
+            # else:
+            try:
+                destination_inn = checkin_list[target_inn - 1]
+                print(destination_inn)
+            except IndexError | TypeError:
+                outputString += (f'You must use the short-form inn sequence number referenced below. `v/inn <1 2 3 etc..>`\n\n'
+                                 f'__List of Inns where are you are checked in:__\n'
+                                 f'{checkinString}')
+                await ctx.reply(f'{outputString}')
+                return
+
+            if is_checked_in(character, destination_inn):
+                inn = get_inn_details(destination_inn.inn_id)
+
+                if does_object_exist(inn.inn_id):
+                    pass
+                else:
+                    outputString = f'The carpet which was used to register `{destination_inn.name}` no longer exists. You may not teleport there.'
+                    await ctx.reply(f'{outputString}')
+                    return
+
                 balance = get_balance(character)
                 if balance >= cost:
                     inn_transaction(inn, character, cost, revenue)
@@ -425,22 +522,38 @@ class InnSystem(commands.Cog):
                                     f'Bronze Coins to teleport to their inn room at `{inn.name}`.')
                     return
                 runRcon(f'con {rconCharId} TeleportPlayer {inn.x} {inn.y}, {inn.z}')
-                checkout_time = checkin_to_inn(character, inn.inn_id)
                 await ctx.reply(f'Returned `{character.char_name}` into their inn room at `{inn.name}`\n'
-                                f'`{cost}` Bronze Coins have been deducted from your account.\n'
-                                f'Your check-in has been refreshed and now lasts until <t:{checkout_time}:f>.')
+                                f'`{cost}` Bronze Coins have been deducted from your account.')
                 return
             else:
-                outputString += f'Character `{character.char_name}` is not checked in at any inn!\n\n'
+                outputString += (f'You are not checked in at that inn.\n\n'
+                                 f'__List of Inns where are you are checked in:__\n'
+                                 f'{checkinString}')
+                await ctx.reply(f'{outputString}')
+                return
 
-            await ctx.reply(f'{outputString}')
-            return
+            # # checkin_list = get_all_checkin_details(character)
+            # # for chosen_inn in checkin_list:
+            # #     inn = get_inn_details(chosen_inn.inn_id)
+            # #     outputString += (f'``{inn.name}` - {inn.name}, '
+            # #                      # f'location `TeleportPlayer {inn.x} {inn.y} {inn.z}` \n'
+            # #                      f'\nCheckout Time: <t:{checkin.valid_until}:f> in your timezone\n'
+            # #                      f'Cost to teleport: `{inn_teleport_cost}` Bronze Coin\n\n')
+            # # if checkin.inn_id:
+            #     # bonus_mult = int(get_bot_config('inn_checkin_bonus_mult'))
+            #
+            #
+            # # else:
+            #     outputString += f'Character `{character.char_name}` is not checked in at any inn!\n\n'
+            #
+            # await ctx.reply(f'{outputString}')
+            # return
 
     @commands.command(name='checkin', aliases=['book'])
     @commands.check(check_channel)
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Outcasts')
     async def checkin(self, ctx):
-        """- Checks in to the inn room nearest to your location
+        """- Checks in to the inn room nearest to your location, costs 10 BC
 
         Parameters
         ----------
@@ -453,20 +566,24 @@ class InnSystem(commands.Cog):
         character = is_registered(ctx.author.id)
         target_inn = ''
         inn = Inn()
+        checkin_cost = int(get_bot_config(f'checkin_cost'))
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             # await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
             return
 
-        inn_list = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x, y, z, teleport_counter from inn_locations')
+        # inn_list = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x, y, z, '
+        #                            f'map_square, loc_map, teleport_counter from inn_locations')
+        inn_list = get_all_inns()
         print(inn_list)
         if not inn_list:
             await ctx.reply(f'Character `{character.char_name}` is not located at an inn!')
             return
 
-        for inn_record in inn_list:
-            (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.teleport_counter) = inn_record
+        for inn in inn_list:
+            # (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.map_square,
+            #  inn.loc_map, inn.teleport_counter) = inn_record
             result_id, result_name = character_in_radius(inn.x, inn.y, inn.z, 2500, character.id)
             if result_id:
                 clan_id, clan_name = get_clan(character)
@@ -475,21 +592,27 @@ class InnSystem(commands.Cog):
                     await ctx.reply(f'You cannot check in at an inn owned by your clan!')
                     return
                 else:
-                    target_inn = inn.inn_id
+                    target_inn = inn
                 break
 
         if target_inn:
-            checkout_time = checkin_to_inn(character, target_inn)
-            await ctx.reply(f'Character `{character.char_name}` has checked in at inn `{inn.name}` '
-                            f'until <t:{checkout_time}:f>.')
-            return
+            balance = get_balance(character)
+            if balance >= checkin_cost:
+                eld_transaction(character, f'Inn Check-in fee', -checkin_cost)
+                checkin_to_inn(character, target_inn)
+                await ctx.reply(f'Character `{character.char_name}` has checked in at inn `{inn.name}` '
+                                f'for {checkin_cost} Bronze Coins.')
+                return
+            else:
+                await ctx.reply(f'You do not have enough bronze coins to check in! Available Bronze Coins: `{balance}`, '
+                                f'Needed: `{checkin_cost}`')
         else:
             await ctx.reply(f'Character `{character.char_name}` is not located at an inn!')
             return
 
     @commands.command(name='innlist')
     @commands.check(check_channel)
-    @commands.has_any_role('Admin')
+    @commands.has_any_role('Outcasts')
     async def innlist(self, ctx):
         """
 
@@ -508,19 +631,19 @@ class InnSystem(commands.Cog):
             return
 
         inn = Inn()
-        outputString = '__List of Inns__\n'
+        outputString = '__List of Server-wide Inns__\n'
         results = db_query(False, f'select * from inn_locations')
         if not results:
             await ctx.reply(f'There are no inns registered yet.')
             return
 
         for result in results:
-            (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.teleport_counter) = result
+            (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.map_square, inn.loc_map, inn.teleport_counter) = result
             owner = get_single_registration_new(char_id=inn.owner_id)
             clan_id, clan_name = get_clan(owner)
-            new_x, new_y = transform_coordinates(inn.x, inn.y)
+            # new_x, new_y = transform_coordinates(inn.x, inn.y)
             outputString += (f'`{inn.name}` - Owned by `{owner.char_name}` of `{clan_name}` '
-                             f'located in `{new_x}{new_y}` at `({inn.x},{inn.y})`\n')
+                             f'located in `{inn.loc_map} - {inn.map_square}` at `({inn.x},{inn.y})`\n')
 
         await ctx.reply(f'{outputString}')
 

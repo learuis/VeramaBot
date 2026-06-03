@@ -308,7 +308,7 @@ async def profession_tier_up(profession, tier, turn_in_amount, char_id, char_nam
                 feats_to_grant = db_query(False, f'select feat_id, feat_name from profession_rewards '
                                                  f'where turn_in_amount <= {turn_in_amount} '
                                                  f'and profession like \'%{profession}%\' '
-                                                 f'and tier = {new_tier}'
+                                                 f'and tier = {new_tier} '
                                                  f'order by turn_in_amount desc')
                 for feat in feats_to_grant:
                     grant_feat(char_id, char_name, feat[0])
@@ -440,7 +440,7 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
         set_bot_config(f'last_profession_update', current_time)
         next_update = current_time + profession_update_interval
         outputString = (f'\n\nUpdated hourly.\n'
-                         f'Prev: <t:{current_time}'
+                         f'Prev: <t:{current_time}>'
                          f'\nNext: <t:{next_update}:f>\n\n') + outputString
         # outputString += (f'\n\nUpdated hourly.\n'
         #                  f'Updated at: <t:{current_time}> in your timezone'
@@ -571,7 +571,7 @@ class Professions(commands.Cog):
                 else:
                     if profession_details.current_experience == int(get_bot_config(f'{config_value}')):
                         if t4_spec:
-                            xp_target = 'MAX (v/specialize)'
+                            xp_target = f'MAX (v/specialize {profession})'
                         else:
                             xp_target = 'MAX'
                     else:
@@ -583,7 +583,7 @@ class Professions(commands.Cog):
                 else:
                     if profession_details.current_experience == int(get_bot_config(f'{config_value}')):
                         if t5_spec:
-                            xp_target = 'MAX (v/specialize)'
+                            xp_target = f'MAX (v/specialize {profession})'
                         else:
                             xp_target = 'MAX'
                     else:
@@ -623,7 +623,7 @@ class Professions(commands.Cog):
             outputString += f'Current Quarry: `None`'
         else:
             if current_target.char_id:
-                outputString += f'Current Quarry: `{current_target.display_name}`'
+                outputString += f'Current Quarry: `{current_target.map} - {current_target.display_name}`'
                 notorious_target, notorious_multiplier = get_notoriety(current_target)
                 if notorious_multiplier > 0:
                     outputString += f' **Notorious +{notorious_multiplier}!**'
@@ -730,11 +730,11 @@ class Professions(commands.Cog):
             await ctx.send(f'Error updating Profession details for {char_name}')
         return
 
-    @commands.command(name='specialize', aliases=['spec'])
+    @commands.command(name='specialize', aliases=['spec', 'specialise'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def specialize(self, ctx, profession: str = 'check', confirm: str = ''):
-        """
+        """- Specialize to T4 or T5 in a profession. Usage: v/specialize <profession>
 
         Parameters
         ----------
@@ -759,11 +759,15 @@ class Professions(commands.Cog):
             return
 
         profession_list = ['blacksmith', 'armorer', 'tamer', 'archivist', 'scavenger']
+        if 'armourer' in profession.lower():
+            profession = 'armorer'
+
         if 'check' in profession:
             results = db_query(False, f'select profession, tier from specialization where char_id = {character.id} and season = {CURRENT_SEASON}')
             if results:
                 for result in results:
                     outputString += f'\n`{result[0]}` - Tier `{result[1]}`'
+            outputString += f'\n\nTo specialize, you must be at the maximum XP in Tier 3, then use `v/specialize <profession>`.'
             await ctx.reply(f'{outputString}')
             return
 
@@ -1308,7 +1312,9 @@ class Professions(commands.Cog):
 
         character = is_registered(ctx.author.id)
         enchant_cost = int(get_bot_config('enchant_cost'))
+        t5_enchant_cost_multiplier = int(get_bot_config('t5_enchant_cost_multiplier'))
         enchant_charges = int(get_bot_config('enchant_charges'))
+        t5_enchant_charge_multiplier = int(get_bot_config('t5_enchant_charge_multiplier'))
 
         if not character:
             await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
@@ -1316,6 +1322,8 @@ class Professions(commands.Cog):
 
         archivist = get_profession_tier(character.id, f'Archivist')
         if enchant in t5_enchants:
+            enchant_charges = enchant_charges * t5_enchant_charge_multiplier
+            enchant_cost = enchant_cost * t5_enchant_cost_multiplier
             if not (archivist.tier >= 5):
                 await ctx.reply(f'Only Archivists who have achieved Tier 5 can enchant weapons with `{enchant_names[enchant]}`. \n'
                                 f'Current Archivist Tier: `T{archivist.tier}`')
@@ -2293,7 +2301,7 @@ class Professions(commands.Cog):
         """
 
         profession_list = ['Blacksmith', 'Armorer', 'Tamer', 'Archivist', 'Scavenger']
-        faction_list = ['Provisioner', 'Slayer', 'Treasure', 'Conjurer', 'Reliquarian']
+        faction_list = ['Slayer', 'Treasure', 'Conjurer']
         leader_outputString = f''
 
         for item in profession_list:

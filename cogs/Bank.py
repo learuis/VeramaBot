@@ -207,7 +207,7 @@ class Bank(commands.Cog):
             check_balance = sufficient_funds(character, abs(amount))
             if check_balance:
                 new_balance = eld_transaction(character, f'Withdrawal', -amount)
-                add_reward_record(character.id, 11499, amount, f'Bank Withdrawal: BC')
+                add_reward_record(character.id, 11020, amount, f'Bank Withdrawal: BC')
                 amount_string = f'{amount} Bronze Coins'
 
                 await ctx.reply(
@@ -303,8 +303,8 @@ class Bank(commands.Cog):
 
         if results:
             for result in results:
-                message += f'{result} | <t:{result[4]}>\n'
-            await ctx.send(f'{message}')
+                message = f'{result} | <t:{result[4]}>'
+                await ctx.send(f'{message}')
             return
         else:
             await ctx.send(f'No results returned.')

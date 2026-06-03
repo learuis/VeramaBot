@@ -4,14 +4,19 @@ import time
 import sqlite3
 import os
 import inspect
+import platform
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 
 import discord.ext.commands
 from discord.ext import commands
+from matplotlib.pyplot import legend
 
+from cogs.InnSystem import Character
 from functions.externalConnections import runRcon, downloadSave, db_query, rcon_all, send_rcon_command
 from functions.common import custom_cooldown, is_registered, get_rcon_id, get_single_registration, \
     get_bot_config, set_bot_config, add_bot_config, int_epoch_time, no_registered_char_reply, \
-    run_console_command_by_name, flatten_list, check_channel
+    run_console_command_by_name, flatten_list, check_channel, Registration
 from datetime import datetime
 from datetime import timezone
 from time import strftime, localtime
@@ -28,6 +33,272 @@ RCON_PASS = str(os.getenv('RCON_PASS'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 GUILD_ID = int(os.getenv('GUILD_ID'))
+
+class LogServerStats:
+    def __init__(self):
+        self.uptime = []
+        self.mem1 = []
+        self.mem2 = []
+        self.mem3 = []
+        self.mem4 = []
+        self.cpu1 = []
+        self.cpu2 = []
+        self.players = []
+        self.frametime_best = []
+        self.frametime_avg = []
+        self.frametime_worst = []
+        self.npc_ailod1 = []
+        self.npc_ailod2 = []
+        self.npc_ailod3 = []
+        self.npc_ailod4 = []
+        self.b_ailod1 = []
+        self.b_ailod2 = []
+        self.b_ailod3 = []
+        self.b_ailod4 = []
+        self.p_ailod1 = []
+        self.p_ailod2 = []
+        self.p_ailod3 = []
+        self.p_ailod4 = []
+        self.sfps_avg = []
+        self.startup_offset = 0
+
+def get_population():
+
+    timeOfRecording = []
+    population = []
+
+    DB_LOCATION = os.getenv('DB_LOCATION')
+    DB_FILE = os.getenv('DB_FILE')
+    db_path = f'{DB_LOCATION}/{DB_FILE}'
+    connection = sqlite3.connect(f'{db_path}')
+
+    cursor = connection.cursor()
+
+    cursor.execute(f'SELECT * from serverPopulationRecordings order by timeofRecording asc')
+
+    rows = cursor.fetchall()
+    connection.close()
+
+    for row in rows:
+        timeOfRecording.append(datetime.fromtimestamp(row[0]))
+        # timeOfRecording.append(int(row[0]))
+        population.append(float(row[1])*40)
+
+
+    print(timeOfRecording)
+    print(population)
+
+    plt.plot(timeOfRecording, population, label='Population', color='blue', marker='o', markersize=1)
+
+    ax = plt.gca()
+    y_max = 40
+    x_max = datetime.fromtimestamp(int_epoch_time()).day
+    ax.tick_params(axis='y', labelsize=7)
+    ax.tick_params(axis='x', labelsize=4)
+    ax.y_lim = (0, y_max)
+    ax.x_lim = (timeOfRecording[0], x_max)
+    ax.set_yticks(range(0, y_max + 1))
+    # ax.xaxis.set_major_locator(ticker.MultipleLocator(10))
+    ax.xaxis.set_major_locator(plt.MaxNLocator(10))
+    ax.set_xlabel('Time')
+    ax.set_ylabel('Players')
+    ax.grid(visible=True, axis='y', which='major', color='gray', linestyle='--', alpha=0.5)
+    plt.title('Population Recordings')
+    plt.legend(bbox_to_anchor=(1.32, 1), loc='upper right')
+    # plt.legend()
+
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format="png", dpi=720, bbox_inches='tight')
+    buffer.seek(0)
+    file = discord.File(buffer, filename='population.png')
+
+    plt.close()
+
+    return file
+
+def parse_log_server_stats(option):
+    stat_list = []
+    players_series = []
+    sfps_series = []
+    uptime_series = []
+    purge_start_times = []
+    purge_end_times = []
+    last_restart = 0
+
+    lss = LogServerStats()
+
+    first = True
+
+    DB_LOCATION = os.getenv('DB_LOCATION')
+    DB_FILE = os.getenv('DB_FILE')
+    log_path = f'{DB_LOCATION}/Logs'
+    db_path = f'{DB_LOCATION}/{DB_FILE}'
+
+    log_path = os.path.abspath(log_path)
+    db_path = os.path.abspath(db_path)
+
+    if option:
+        filename = option
+    else:
+        filename = 'ConanSandbox'
+
+    system_os = platform.system()
+    print(system_os)
+
+    if system_os == 'Windows':
+        find_command = 'findstr /l /c:'
+        cd_command = 'cd /d'
+    else:
+        find_command = 'grep'
+        cd_command = 'cd'
+
+    os.system(f'{cd_command} {log_path} && {find_command} "LogServerStats" {filename}.log > raw_stats.txt')
+
+    with io.open(f'{log_path}//raw_stats.txt', mode='r') as log:
+        for line in log:
+            # print(f'starting line in log loop')
+            # print(line)
+            # if re.search('ServerStatReporter', line):
+            if 'ServerStatReporter' in line:
+                # skip initial line
+                # print(f'initial line')
+                continue
+            elif 'StartupTime' in line:
+                # get startup offset
+                # print(f'startup line')
+                lss.startup_offset = int(re.search('StartupTime=(\\d+)', line).group(1))
+                # print(lss.startup_offset)
+                continue
+            elif 'Uptime' in line:
+                # print('uptime line')
+                match = re.findall('Uptime=(\\d*)\\s'
+                                   'Mem=(\\d*):(\\d*):(\\d*):(\\d*)\\s'
+                                   'CPU=(\\d+\\.\\d+):(\\d+\\.\\d+)\\s'
+                                   'Players=(\\d+)\\s'
+                                   'FPS=(\\d+\\.\\d+):(\\d+\\.\\d+):(\\d+\\.\\d+)\\s'
+                                   'NPC_AILOD=(\\d+):(\\d+):(\\d+):(\\d+)\\s'
+                                   'B_AILOD=(\\d+):(\\d+):(\\d+):(\\d+)\\s'
+                                   'P_AILOD=(\\d+):(\\d+):(\\d+):(\\d+)', line)
+                stat_list.extend(match)
+        # print(stat_list)
+        for stat in stat_list:
+            # print(stat)
+            target_lists = [lss.cpu1, lss.cpu2,
+             lss.players, lss.frametime_best, lss.frametime_avg, lss.frametime_worst,
+             lss.npc_ailod1, lss.npc_ailod2, lss.npc_ailod3, lss.npc_ailod4,
+             lss.b_ailod1, lss.b_ailod2, lss.b_ailod3, lss.b_ailod4,
+             lss.p_ailod1, lss.p_ailod2, lss.p_ailod3, lss.p_ailod4]
+
+            # print(stat[0])
+            lss.uptime.append(int(stat[0])/60)
+            lss.mem1.append(float(stat[1]) / 1073741824)
+            lss.mem2.append(float(stat[2]) / 1073741824)
+            lss.mem3.append(float(stat[3]) / 1073741824)
+            lss.mem4.append(float(stat[4]) / 1073741824)
+            lss.sfps_avg.append(1000/float(stat[9]))
+
+            for x in range(5, len(stat)):
+                target_lists[x-5].append(float(stat[x]))
+
+            # for values, sublist in zip(values, target_lists):
+            #     sublist.append(values)
+
+        # print([lss.uptime], [lss.mem1], [lss.mem2], [lss.mem3], [lss.mem4], [lss.cpu1], [lss.cpu2],
+        #      [lss.players], [lss.frametime_best], [lss.frametime_avg], [lss.frametime_worst],
+        #      [lss.npc_ailod1], [lss.npc_ailod2], [lss.npc_ailod3], [lss.npc_ailod4],
+        #      [lss.b_ailod1], [lss.b_ailod2], [lss.b_ailod3], [lss.b_ailod4],
+        #      [lss.p_ailod1], [lss.p_ailod2], [lss.p_ailod3], [lss.p_ailod4])
+
+        # uptime_series.append(int(int(stat[0])/60))
+        # players_series.append(int(stat[7]))
+        # sfps_series.append(sfps)
+
+    connection = sqlite3.connect(f'{db_path}')
+
+    cursor = connection.cursor()
+    if option:
+        cursor.execute(f'SELECT worldTime, eventType from game_events where eventType in (0,118,119,120) '
+                       f'and worldTime >= ( select min(worldTime) from ( select worldTime from game_events where eventType = 0 order by worldTime desc limit 2 ) ) '
+                       f'and worldTime < ( select max(worldTime) from game_events where eventType = 0 ) '
+                       f'order by worldTime asc')
+    else:
+        cursor.execute(f'SELECT worldTime, eventType from game_events where eventType in (0,118,119,120) '
+                       f'and worldTime >= ( select worldTime from game_events where eventType = 0 order by worldTime desc limit 1 ) '
+                       f'order by worldTime asc')
+    rows = cursor.fetchall()
+    connection.close()
+
+    if rows:
+        for row in rows:
+            match row[1]:
+                case 0:
+                    # print(row[0])
+                    last_restart = int(row[0])
+                case 118:
+                    # print(row[0])
+                    purge_start_time = (int(row[0]) - last_restart - lss.startup_offset) / 60
+                    # print(purge_start_time)
+                    purge_start_times.append(purge_start_time)
+                case 119 | 120:
+                    # print(row[0])
+                    purge_end_time = (int(row[0]) - last_restart - lss.startup_offset) / 60
+                    # print(purge_end_time)
+                    purge_end_times.append(purge_end_time)
+
+
+        # print(purge_start_times)
+        # print(purge_end_times)
+
+    return lss, purge_start_times, purge_end_times
+
+
+def draw_performance_chart(lss, purge_start_times, purge_end_times):
+
+    plt.plot(lss.uptime, lss.players, label='Players', color='blue', marker='o', markersize=1)
+    plt.plot(lss.uptime, lss.sfps_avg, label='SFPS', color='orange', marker='o', markersize=1)
+    plt.plot(lss.uptime, lss.mem3, label='Memory (GB)', color='purple', marker='o', markersize=1)
+
+    if purge_start_times:
+        for index, start_time in enumerate(purge_start_times):
+            if index == 0:
+                label = 'Purge Start'
+            else:
+                label = '_nolegend_'
+            plt.axvline(x=start_time, color='red', linestyle='--', label=label)
+    if purge_end_times:
+        for index, end_time in enumerate(purge_end_times):
+            if index == 0:
+                label = 'Purge End'
+            else:
+                label = '_nolegend_'
+            plt.axvline(x=end_time, color='black', linestyle='--', label=label)
+
+    ax = plt.gca()
+    y_max = int(round(max(max(lss.players),max(lss.sfps_avg)),0))
+    x_max = int(max(lss.uptime))
+    ax.tick_params(axis='y', labelsize=7)
+    ax.tick_params(axis='x', labelsize=7)
+    ax.y_lim = (0, y_max)
+    ax.x_lim = (0, x_max)
+    ax.set_yticks(range(0, y_max + 1))
+    # ax.xaxis.set_major_locator(ticker.MultipleLocator(10))
+    ax.xaxis.set_major_locator(plt.MaxNLocator(10))
+    ax.set_xlabel('Uptime (minutes)')
+    ax.set_ylabel('Value')
+    ax.grid(visible=True, axis='y', which='major', color='gray', linestyle='--', alpha=0.5)
+    plt.title('Players:SFPS')
+    plt.legend(bbox_to_anchor=(1.32, 1), loc='upper right')
+    # plt.legend()
+
+    buffer = io.BytesIO()
+    plt.savefig(buffer, format="png", dpi=720, bbox_inches='tight')
+    buffer.seek(0)
+    file = discord.File(buffer, filename='performance.png')
+
+    plt.close()
+
+    return file
+
 
 class Admin(commands.Cog):
     """Cog class containing commands related to server status."""
@@ -639,6 +910,7 @@ class Admin(commands.Cog):
             await ctx.send(f'Query returned no rows.')
             return
 
+
     @commands.command(name='volcano', aliases=['drop', 'getrekt'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.check(check_channel)
@@ -656,20 +928,24 @@ class Admin(commands.Cog):
         -------
 
         """
-        character = get_single_registration(name)
+        reg = get_single_registration(name)
+        character = Registration()
+
+        if not reg:
+            await ctx.reply(f'No character named `{name}` registered!')
+            return
+        else:
+            character.id = reg[0]
+            character.name = reg[1]
+            character.discord_id = reg[2]
+
         backup_target = is_registered(ctx.author.id)
 
         destination = f'TeleportPlayer -17174.951172 -259672.125 87383.28125'
 
-        if not character:
-            await ctx.reply(f'No character named `{name}` registered!')
-            return
-        else:
-            name = character[1]
-
-        rconCharId = get_rcon_id(character.char_name)
+        rconCharId = get_rcon_id(character.name)
         if not rconCharId:
-            await ctx.reply(f'Character `{name}` must be online to throw into the Volcano!')
+            await ctx.reply(f'Character `{character.name}` must be online to throw into the Volcano!')
             return
         else:
             if 'Verama' in name.lower():
@@ -681,8 +957,8 @@ class Admin(commands.Cog):
                 await ctx.reply(f'Tossed `{backup_target.char_name}` into the Volcano. LOL')
                 return
             else:
-                run_console_command_by_name(name, destination)
-                await ctx.reply(f'Tossed `{name}` into the Volcano.')
+                run_console_command_by_name(character.name, destination)
+                await ctx.reply(f'Tossed `{character.name}` into the Volcano.')
                 return
 
     @commands.command(name='shame', aliases=['prison', 'capture', 'jail'])
@@ -910,6 +1186,53 @@ class Admin(commands.Cog):
 
         await ctx.reply(f'{returnValue.output}')
         return False
+
+    @commands.command(name='performance', aliases=['perf','sfps','fps'])
+    @commands.has_any_role('Admin', 'Moderator')
+    async def performance(self, ctx, option: str = None):
+        """
+
+        Parameters
+        ----------
+        ctx
+        option
+            Filename
+
+        Returns
+        -------
+
+        """
+
+        lss, purge_start_times, purge_end_times = parse_log_server_stats(option)
+        if not lss:
+            await ctx.reply('No data returned.')
+            return
+        # print(players_series)
+        # print(sfps_series)
+        # print(uptime_series)
+        # print(uptime_series[-1])
+
+        file = draw_performance_chart(lss, purge_start_times, purge_end_times)
+        await ctx.reply(f'Performance Graph has been generated.', file=file)
+
+    @commands.command(name='population', aliases=['pop'])
+    @commands.has_any_role('Admin', 'Moderator')
+    async def population(self, ctx, option: str = None):
+        """
+
+        Parameters
+        ----------
+        ctx
+        option
+            Filename
+
+        Returns
+        -------
+
+        """
+        file = get_population()
+        await ctx.reply(f'Population Graph has been generated.', file=file)
+        return
 
 async def setup(bot):
     await bot.add_cog(Admin(bot))

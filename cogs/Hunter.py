@@ -72,9 +72,9 @@ class Hunter(commands.Cog):
                     f'New Balance: {new_balance}\n\n'
                     f'You will not be assigned to slay `{exclude_target.display_name}` again until '
                     f'it has been slain by someone else.\n\n'
-                    f'`{character.char_name}` was assigned a new Beast Slayer quarry: `{current_target.display_name}`'
+                    f'`{character.char_name}` was assigned a new Beast Slayer quarry: `{current_target.map} - {current_target.display_name}`'
                     f' on <t:{current_target.start_time}:f>.'
-                    f'\n\nThe bounty on `{exclude_target.display_name}` has increased to `{total_bounty}` '
+                    f'\n\nThe bounty on `{exclude_target.map} - {exclude_target.display_name}` has increased to `{total_bounty}` '
                     f'Bronze Coins!')
                 return
             else:
@@ -83,7 +83,7 @@ class Hunter(commands.Cog):
                 return
 
         else:
-            await ctx.reply(f'`{character.char_name}`\'s current quarry: `{exclude_target.display_name}`.\n\n'
+            await ctx.reply(f'`{character.char_name}`\'s current quarry: `{exclude_target.map} - {exclude_target.display_name}`.\n\n'
                             f'This command will clear your quarry and assign you a new one for 1 Bronze Coin. '
                             f'You will not be able to claim any reward for the current quarry, even if you already '
                             f'killed it.\n\nIf you are sure want to be assigned a new quarry, '
@@ -124,7 +124,7 @@ class Hunter(commands.Cog):
             for result in results:
                 display_name, notoriety = result
                 total_reward = reward_quantity + (reroll_cost * notoriety)
-                outputString += f'`{display_name}` - `{total_reward}` DE\n'
+                outputString += f'`{display_name}` - `{total_reward}` <:bronze_coin:1499794576116813935>\n'
 
         await ctx.reply(outputString)
         return
@@ -156,7 +156,7 @@ class Hunter(commands.Cog):
         else:
             current_target = get_slayer_target(character)
 
-        await ctx.reply(f'`{character.char_name}` was assigned a task to slay `{current_target.display_name}`'
+        await ctx.reply(f'`{character.char_name}` was assigned a task to slay `{current_target.map} - {current_target.display_name}`'
                         f' on <t:{current_target.start_time}:f>')
 
     # @commands.command(name='logkill')
@@ -259,10 +259,10 @@ class Hunter(commands.Cog):
                 notorious_target, notorious_multiplier = get_notoriety(current_target)
                 if notorious_multiplier > 0:
                     display_quest_text(0, 0, False, character.char_name, 7,
-                                       f'Notorious Beast Slain!', f'{current_target.display_name}')
+                                       f'Notorious Beast Slain!', f'`{current_target.map} - {current_target.display_name}`')
                 else:
                     display_quest_text(0, 0, False, character.char_name, 7,
-                                       f'Slain', f'{current_target.display_name}')
+                                       f'Slain', f'`{current_target.map} - {current_target.display_name}`')
                 output_string = grant_slayer_rewards(character, current_target)
                 clear_slayer_reroll(current_target)
                 clear_slayer_target(character)

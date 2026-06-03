@@ -9,7 +9,7 @@ from cogs.QuestSystem import check_inventory, count_inventory_qty, treasure_broa
 from functions.common import custom_cooldown, get_bot_config, is_registered, flatten_list, set_bot_config, get_rcon_id, \
     run_console_command_by_name, get_single_registration, int_epoch_time, no_registered_char_reply, check_channel, \
     add_reward_record, get_treasure_target, clear_treasure_target, increase_notoriety, increment_times_looted, \
-    eld_transaction, modify_favor, treasure_map_swap
+    eld_transaction, modify_favor, treasure_map_swap, slayer_map_swap
 from functions.externalConnections import db_query, runRcon
 
 from dotenv import load_dotenv
@@ -154,7 +154,7 @@ def treasure_portal(bonus):
         set_bot_config('treasure_portal_chance', str(portal_chance+portal_chance_increment))
         return False, False
 
-def grant_treasure_rewards(character, target_name, bonus, daily=False):
+def grant_treasure_rewards(character, target_name, loc_map, bonus, daily=False):
     reward_list = []
     # default_reward = (11009, 'Eldarium Cache')
     alternate_reward = (80256, 'Lucky Coin')
@@ -192,6 +192,8 @@ def grant_treasure_rewards(character, target_name, bonus, daily=False):
                 # bonus / 10
                 # eldarium_payout = random.randint(int(1), treasure_eldarium_max) * (5 - category) + (bonus / 10)
                 eldarium_payout = int(get_bot_config('treasure_eldarium_static'))
+                if 'Siptah' in loc_map:
+                    eldarium_payout *= int(get_bot_config('treasure_siptah_multiplier'))
                 total_payout += eldarium_payout
                 reward_message += f'`Bronze Coin x {int(eldarium_payout)}` | '
                 # this causes classes to get shuffled
@@ -325,7 +327,7 @@ class TreasureHunt(commands.Cog):
                 clear_treasure_target(character)
 
                 bonus, bonusMessage = calculate_bonus(character.id, daily)
-                reward_list = grant_treasure_rewards(character, target_name, bonus)
+                reward_list = grant_treasure_rewards(character, target_name, treasure_target.map, bonus)
 
 
                 run_console_command_by_name(character.char_name, f'testFIFO 7 Treasure! Use v/claim to get rewards')
@@ -363,15 +365,16 @@ class TreasureHunt(commands.Cog):
 
         return
 
-    @commands.command(name='map', aliases=['swaptreasuremap'])
+    @commands.command(name='map', aliases=['swapmap'])
     @commands.check(check_channel)
     @commands.has_any_role('Outcasts')
-    async def map(self, ctx):
+    async def map(self, ctx, system_type: str = ''):
         """ - Swaps your preference for ExiledLands or Siptah Treasure Hunt Locations
 
         Parameters
         ----------
         ctx
+        system_type
 
         Returns
         -------
@@ -379,14 +382,20 @@ class TreasureHunt(commands.Cog):
         """
         character = is_registered(ctx.author.id)
         output_string = 'This message should not be displayed!'
+        map_option = 'ExiledLands'
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
             return
+        if 'treasure' in system_type.lower():
+            map_option = treasure_map_swap(character)
+        elif 'slayer' in system_type.lower():
+            map_option = slayer_map_swap(character)
+        else:
+            await ctx.reply(f'Invalid option! Use `treasure` or `slayer`!')
+            return
 
-        treasure_map_option = treasure_map_swap(character)
-
-        output_string = f'Your preference for Treasure Hunt locations has been switched to `{treasure_map_option}`!'
+        output_string = f'Your preference for `{system_type.capitalize()}` locations has been switched to `{map_option}`!'
 
         await ctx.reply(output_string)
         return
@@ -409,6 +418,7 @@ class TreasureHunt(commands.Cog):
         bonus = 0
         outputMessage = ''
         daily = True
+        loc_map = 'ExiledLands'
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
@@ -455,7 +465,7 @@ class TreasureHunt(commands.Cog):
             update_daily_eligibility(character)
 
             bonus, bonusMessage = calculate_bonus(character.id, daily)
-            reward_list = grant_treasure_rewards(character, target_name, bonus, daily)
+            reward_list = grant_treasure_rewards(character, target_name, loc_map, bonus, daily)
 
             run_console_command_by_name(character.char_name, f'testFIFO 7 Treasure! Use v/claim to get rewards')
 
@@ -522,7 +532,7 @@ class TreasureHunt(commands.Cog):
             outputMessage += f'{user.mention}\n'
             outputMessage += f'`{character.char_name}` has been awarded a bonus treasure! (claim with `v/claim`)\n'
             outputMessage += f'\nChance to find Treasure is increased by `{bonus}%`!\n\n'
-            outputMessage += grant_treasure_rewards(character, f'', calc_bonus)
+            outputMessage += grant_treasure_rewards(character, f'', f'', calc_bonus)
             channel = self.bot.get_channel(OUTCASTBOT_CHANNEL)
             await channel.send(outputMessage)
 

@@ -1,4 +1,5 @@
 import math
+import random
 import sqlite3
 import re
 import os
@@ -7,9 +8,10 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
-from cogs.QuestSystem import pull_online_character_info_new
+from cogs.QuestSystem import pull_online_character_info_new, pull_online_character_info_direct
 from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id, \
-    flatten_list, get_bot_config, check_channel, no_registered_char_reply, get_clan, run_console_command_by_name
+    flatten_list, get_bot_config, check_channel, no_registered_char_reply, get_clan, run_console_command_by_name, \
+    int_epoch_time, where_is_character
 
 from functions.externalConnections import db_query, runRcon
 
@@ -492,18 +494,14 @@ class Utilities(commands.Cog):
             # await ctx.reply(f'No character registered to {ctx.message.author.mention}! Visit {reg_channel.mention}')
             return
 
-        con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
-        cur = con.cursor()
+        x, y, z = where_is_character(character)
 
-        cur.execute(f'select x, y, z from online_character_info '
-                    f'where char_id = {character.id} limit 1')
-        results = cur.fetchone()
-
-        con.commit()
-        con.close()
+        if not x:
+            await ctx.reply(f'Couldn\'t find the location of {character.char_name}!')
+            return
 
         await ctx.reply(f'The bot sees your location as: '
-                        f'`TeleportPlayer {results[0]} {results[1]} {results[2]}`')
+                        f'`TeleportPlayer {x} {y} {z}`')
         return
 
     @commands.command(name='killplayer', aliases=['kill'])
@@ -541,6 +539,52 @@ class Utilities(commands.Cog):
                         f'Make sure the name is correct, always use double quotes around the name. '
                         f'If you are sure, run `v/kill \"{char_name}\" confirm`.')
             return
+
+    # @commands.command(name='performance')
+    # @commands.has_any_role('Admin')
+    # async def performance(self, ctx, target_object: int = None, size: float = 1.0):
+    #     """ - Checks server performance
+    #
+    #     Parameters
+    #     ----------
+    #     ctx
+    #     target_object
+    #     size
+    #
+    #     Returns
+    #     -------
+    #
+    #     """
+    #     await ctx.reply(f'nothing to see here')
+    #     return
+
+    @commands.command(name='roll')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def roll(self, ctx):
+        """ - Rolls a d100!
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            return
+
+        if get_rcon_id(character.char_name):
+            await ctx.reply(f'Character `{character.char_name}` must be offline to roll dice for the Market Raffle!!')
+            return
+
+        rand = random.randint(1, 100)
+        await ctx.reply(f'Rolled `{rand}`!')
+        return
 
     @commands.command(name='sizechange')
     @commands.has_any_role('Admin')
@@ -934,7 +978,19 @@ class Utilities(commands.Cog):
         -------
 
         """
-        pull_online_character_info_new()
+        direct_start = int_epoch_time()
+        direct_output = pull_online_character_info_direct()
+        direct_end = int_epoch_time()
+        print(direct_end-direct_start)
+        for line in direct_output:
+            print(line)
+        listplayers = runRcon('listplayers')
+        for line in listplayers.output:
+            print(line)
+        # rcon_start = int_epoch_time()
+        # rcon_output = pull_online_character_info_new()
+        # rcon_end = int_epoch_time()
+        # print(rcon_end-rcon_start)
         return
 
 @commands.Cog.listener()

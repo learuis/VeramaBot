@@ -14,6 +14,30 @@ class CharLocation:
         self.y = 0
         self.z = 0
 
+
+def pull_online_character_info_direct():
+    DB_LOCATION = str(os.getenv("DB_LOCATION"))
+    DB_FILE = str(os.getenv("DB_FILE"))
+    db_string = f'{DB_LOCATION}'  #/{DB_FILE}'
+    filepath = os.path.abspath(db_string)
+    final_path = f'{filepath}/{DB_FILE}'
+
+    # connection = sqlite3.connect(f'file:{DB_LOCATION}/{DB_FILE}?mode=ro&immutable=1', uri=True)
+    connection = sqlite3.connect(f'{final_path}')
+
+    cursor = connection.cursor()
+    cursor.execute(f'select c.id, c.char_name, ap.x, ap.y, ap.z from characters c '
+                   f'left join account a on c.playerId = a.id '
+                   f'left join actor_position ap on c.id = ap.id '
+                   f'where a.online = 1 '
+                   f'and c.lastTimeOnline >= ( select max(lastTimeOnline)-60 from characters ) '
+                   f'order by c.lastTimeOnline desc limit 40')
+    rows = cursor.fetchall()
+    connection.close()
+
+    return rows
+
+
 def pull_online_character_info_new():
     matches = []
     worklist = []
@@ -25,19 +49,20 @@ def pull_online_character_info_new():
                         f'and c.lastTimeOnline >= ( select max(lastTimeOnline)-60 from characters ) '
                         f'order by c.lastTimeOnline desc limit 40')
     responses.output.pop(0)
+    # print(responses.output)
 
     for response in responses.output:
         matches = re.findall(r'#\d+\s+(\d+)\s[|]\s+([-\d+.]+)\s[|]\s+([-\d+.]+)\s[|]\s+([-\d+.]+)', response)
 
         for match in matches:
-            print(match)
+            # print(match)
             (character_location.id, character_location.x, character_location.y, character_location.z) = match
             worklist.append(character_location)
 
     for item in worklist:
         character = get_single_registration_new(f'', item.id)
-        print(character.char_name)
-
+        # print(character.char_name)
+    return worklist
 
 def pull_online_character_info():
     # print(f'start char info query {int_epoch_time()}')
@@ -244,7 +269,6 @@ async def oneStepQuestUpdate(bot):
 
         char_id, char_name = character_in_radius(trigger_x, trigger_y, trigger_z, trigger_radius)
 
-
         if not char_id:
             # print(f'Skipping quest {quest_id}, no one in the box')
             continue
@@ -370,10 +394,11 @@ async def oneStepQuestUpdate(bot):
                     notorious_target, notorious_multiplier = get_notoriety(current_target)
                     if notorious_multiplier > 0:
                         display_quest_text(0, 0, False, char_name, 6,
-                                           f'Notorious!', f' Quarry: {current_target.display_name}')
+                                           f'Notorious!',
+                                           f' Quarry: `{current_target.map} - {current_target.display_name}`')
                     else:
                         display_quest_text(0, 0, False, char_name, 6,
-                                           f'Quarry:', f'{current_target.display_name}')
+                                           f'Quarry:', f'`{current_target.map} - {current_target.display_name}`')
                 # else:
                 #     # has a current target, check if killed
                 #     if killed_target(current_target, character):
@@ -408,7 +433,7 @@ async def oneStepQuestUpdate(bot):
                                              f'where profession = \'{requirement_type.lower()}\'')
                 favor_dict = dict(favor_list)
                 item_name_list = db_query(False, f'select template_id, item_name from favor_reward_values '
-                                             f'where profession = \'{requirement_type.lower()}\'')
+                                                 f'where profession = \'{requirement_type.lower()}\'')
                 item_name_dict = dict(item_name_list)
                 selection_string = ', '.join(str(i) for i in favor_dict.keys())
                 # print(f'{selection_string}')
