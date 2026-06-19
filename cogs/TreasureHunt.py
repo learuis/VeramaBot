@@ -156,7 +156,7 @@ def treasure_portal(bonus):
 
 def grant_treasure_rewards(character, target_name, loc_map, bonus, daily=False):
     reward_list = []
-    # default_reward = (11009, 'Eldarium Cache')
+    siptah_reward = (11009, 'Eldarium Cache')
     alternate_reward = (80256, 'Lucky Coin')
     eldarium_payout = 0
     total_payout = 0
@@ -184,8 +184,14 @@ def grant_treasure_rewards(character, target_name, loc_map, bonus, daily=False):
             treasure_count += 1
         else:
             lucky_coin_chance = random.randint(int(1), int(100))
+            print(f'Lucky Coin: Rolled {lucky_coin_chance}')
+            eldarium_replacement_chance = random.randint(int(1), int(100))
+            print(f'Eldarium: Rolled {eldarium_replacement_chance}')
+
             if lucky_coin_chance <= int(get_bot_config('lucky_coin_chance')):
                 reward_list.append(alternate_reward)
+            elif 'Siptah' in loc_map and eldarium_replacement_chance <= int(get_bot_config('eldarium_replacement_chance')):
+                reward_list.append(siptah_reward)
             else:
                 # reward_list.append(default_reward)
                 # add logic here to give bulk eldarium instead

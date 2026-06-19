@@ -188,7 +188,7 @@ def check_channel(ctx):
         return True
     else:
         #everyone else
-        print(f'{ctx.author.display_name} used command')
+        # print(f'{ctx.author.display_name} used command')
         if int(ctx.channel.id) != OUTCASTBOT_CHANNEL:
             # print(f'wrong channel {ctx.channel.id} != {OUTCASTBOT_CHANNEL}')
             return False
