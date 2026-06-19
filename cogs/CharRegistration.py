@@ -6,7 +6,8 @@ import os
 from discord import ui
 from discord.ext import commands
 from functions.common import custom_cooldown, get_character_id, is_registered, get_registration, \
-    get_member_from_userid, last_season_char, get_bot_config, check_channel, eld_transaction, get_balance
+    get_member_from_userid, last_season_char, get_bot_config, check_channel, eld_transaction, get_balance, \
+    get_account_user, get_account_details
 from datetime import date
 from dotenv import load_dotenv
 
@@ -40,6 +41,12 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
     async def on_submit(self, interaction: discord.Interaction):
 
         charId = get_character_id(f'{self.charName}')
+        # combine these later
+        user, platformId = get_account_details(f'{self.charName}')
+        if not user or not platformId:
+            await interaction.response.send_message(f'Error with account information. '
+                                                    f'Please contact Verama (server admin).', ephemeral=True)
+            return
         existing_character = is_registered(charId)
         channel = interaction.guild.get_channel(SUPPORT_CHANNEL)
 
@@ -58,7 +65,10 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
                                                     f'{channel.mention}', ephemeral=True)
             return
 
+
         charId = charId.strip()
+
+        # account_id = get_account_user(f'charId')
 
         # if not re.search(r'^[^#]+#\d{5}', str(self.funcomId)):
         #     await interaction.response.send_message(f'Funcom ID `{self.funcomId}` was formatted incorrectly. Must be '
@@ -73,16 +83,16 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
         if is_registered(interaction.user.id):
             cur_sub.execute(f'update registration set character_name = \'{self.charName}\', '
-                            f'funcom_id = \'{self.funcomId}\', game_char_id = {charId} '
+                            f'funcom_id = \'{self.funcomId}\', game_char_id = {charId}, account = \'{user}\', platform_id = \'{platformId}\' '
                             f'where discord_user = \'{interaction.user.id}\' and season = \'{CURRENT_SEASON}\'')
             outputString = (f'Your Season {CURRENT_SEASON} registration has been updated: '
                             f'{self.charName} (id {charId}) '
                             f'with Funcom ID: {self.funcomId} to user {interaction.user.mention}')
         else:
             cur_sub.execute(f'insert into registration '
-                            f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id) values '
+                            f'(discord_user,character_name,funcom_id,registration_date,season,game_char_id,account,platform_id) values '
                             f'(\'{interaction.user.id}\',\'{self.charName}\',\'{self.funcomId}\','
-                            f'\'{date.today()}\',{CURRENT_SEASON},{charId})')
+                            f'\'{date.today()}\',{CURRENT_SEASON},{charId},\'{user}\',\'{platformId}\')')
             # outputString = (f'Registered Season {CURRENT_SEASON} character: {self.charName} (id {charId}) '
             #                 f'with Funcom ID: {self.funcomId} '
             #                 f' to user {interaction.user.mention}. You have been granted a feat as a reward! '
@@ -221,7 +231,8 @@ class CharRegistration(commands.Cog):
         splitOutput = ''
         once = True
 
-        res = db_query(False, f'select * from registration where season = {CURRENT_SEASON}')
+        res = db_query(False, f'select id,discord_user,character_name,funcom_id,registration_date,'
+                              f'season,game_char_id,god from registration where season = {CURRENT_SEASON}')
 
         for x in res:
             outputString += f'{x}\n'

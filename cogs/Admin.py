@@ -911,7 +911,7 @@ class Admin(commands.Cog):
             return
 
 
-    @commands.command(name='volcano', aliases=['drop', 'getrekt'])
+    @commands.command(name='volcano', aliases=['sharkbait'])
     @commands.has_any_role('Admin', 'Moderator')
     @commands.check(check_channel)
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
@@ -930,6 +930,7 @@ class Admin(commands.Cog):
         """
         reg = get_single_registration(name)
         character = Registration()
+        admin_name = get_bot_config(f'admin_char_name')
 
         if not reg:
             await ctx.reply(f'No character named `{name}` registered!')
@@ -938,27 +939,33 @@ class Admin(commands.Cog):
             character.id = reg[0]
             character.name = reg[1]
             character.discord_id = reg[2]
+            # character.account = reg[3]
 
         backup_target = is_registered(ctx.author.id)
 
-        destination = f'TeleportPlayer -17174.951172 -259672.125 87383.28125'
+        if 'sharkbait' in ctx.invoked_with:
+            destination = f'TeleportPlayer 1371340.752519 366073.524212 -15482.820873'
+            dest_text = 'Ocean'
+        else:
+            destination = f'TeleportPlayer -17174.951172 -259672.125 87383.28125'
+            dest_text = f'Volcano'
 
         rconCharId = get_rcon_id(character.name)
         if not rconCharId:
             await ctx.reply(f'Character `{character.name}` must be online to throw into the Volcano!')
             return
         else:
-            if 'Verama' in name.lower():
+            if admin_name in name.lower():
                 rconCharId2 = get_rcon_id(backup_target.char_name)
                 if not rconCharId2:
                     await ctx.reply(f'Volcano-ing while offline? Naughty!')
                     return
                 run_console_command_by_name(backup_target.char_name, destination)
-                await ctx.reply(f'Tossed `{backup_target.char_name}` into the Volcano. LOL')
+                await ctx.reply(f'Tossed `{backup_target.char_name}` into the {dest_text}. LOL')
                 return
             else:
                 run_console_command_by_name(character.name, destination)
-                await ctx.reply(f'Tossed `{character.name}` into the Volcano.')
+                await ctx.reply(f'Tossed `{character.name}` into the {dest_text}.')
                 return
 
     @commands.command(name='shame', aliases=['prison', 'capture', 'jail'])

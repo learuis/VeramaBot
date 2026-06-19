@@ -3,6 +3,7 @@ import random
 import sqlite3
 import re
 import os
+import struct
 
 import discord
 from discord.ext import commands
@@ -11,7 +12,7 @@ from dotenv import load_dotenv
 from cogs.QuestSystem import pull_online_character_info_new, pull_online_character_info_direct
 from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id, \
     flatten_list, get_bot_config, check_channel, no_registered_char_reply, get_clan, run_console_command_by_name, \
-    int_epoch_time, where_is_character
+    int_epoch_time, where_is_character, eld_transaction, get_balance
 
 from functions.externalConnections import db_query, runRcon
 
@@ -19,11 +20,16 @@ load_dotenv('data/server.env')
 REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 SUPPORT_CHANNEL = int(os.getenv('SUPPORT_CHANNEL'))
 
+async def add_size_change_record(target_object, size):
+    runRcon(f'sql insert or replace into size_changes (object_id, target_size) values ({target_object}, {size})')
+    results = runRcon(f'sql select * from size_changes where object_id = {target_object}')
+    return results
+
 async def is_character_online(channel):
     connected_chars = []
     outputlist = ''
     name = str(get_bot_config(f'online_alert'))
-    mention = str(get_bot_config(f'online_alert_tag'))
+    # mention = str(get_bot_config(f'online_alert_tag'))
 
     # print(f'we are trying to check online')
 
@@ -42,7 +48,8 @@ async def is_character_online(channel):
     for x in connected_chars:
         if name:
             if name.casefold() in x[1].casefold():
-                await channel.send(f'<@{mention}> `{x[1].strip()}` is online with rcon ID `{x[0].strip()}`.')
+                # await channel.send(f'<@{mention}> `{x[1].strip()}` is online with rcon ID `{x[0].strip()}`.')
+                await channel.send(f'<`{x[1].strip()}` is online with rcon ID `{x[0].strip()}`.')
                 return True
     return False
 
@@ -540,6 +547,37 @@ class Utilities(commands.Cog):
                         f'If you are sure, run `v/kill \"{char_name}\" confirm`.')
             return
 
+    @commands.command(name='checkstats')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def checkstats(self, ctx):
+        """ - Check the hidden stats of your thralls
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            return
+
+        run_console_command_by_name(character.char_name, f'say Melee Damage Multiplier:')
+        run_console_command_by_name(character.char_name, f'getfollowerstat damagemodifiermelee')
+        run_console_command_by_name(character.char_name, f'say Ranged Damage Multiplier:')
+        run_console_command_by_name(character.char_name, f'getfollowerstat damagemodifierranged')
+        run_console_command_by_name(character.char_name, f'say Inventory Slots (only if modified with Pockets ability):')
+        run_console_command_by_name(character.char_name, f'getfollowerstat itemcontainersize')
+        await ctx.reply(f'Press `~` twice in game to see the DamageModifierMelee and DamageModifierRanged of your '
+                        f'current followers. If you have multiple followers, stats are displayed '
+                        f'in the order which you had them follow you.')
+
+        return
+
     # @commands.command(name='performance')
     # @commands.has_any_role('Admin')
     # async def performance(self, ctx, target_object: int = None, size: float = 1.0):
@@ -586,10 +624,10 @@ class Utilities(commands.Cog):
         await ctx.reply(f'Rolled `{rand}`!')
         return
 
-    @commands.command(name='sizechange')
+    @commands.command(name='adminsizechange')
     @commands.has_any_role('Admin')
     @commands.check(check_channel)
-    async def sizechange(self, ctx, target_object: int = None, size: float = 1.0):
+    async def adminsizechange(self, ctx, target_object: int = None, size: float = 1.0):
         """ - Adds a record to the size_changes table for update at next restart
 
         Parameters
@@ -603,30 +641,36 @@ class Utilities(commands.Cog):
 
         """
         outputString = ''
+        print(f'wtf')
         try:
             int(target_object)
             float(size)
         except ValueError:
             await ctx.reply(f'The target object ID must be an integer and the target size must be a float!')
-        runRcon(f'sql insert or replace into size_changes (object_id, target_size) values ({target_object}, {size})')
-        results = runRcon(f'sql select * from size_changes where object_id = {target_object}')
+            return
+
+        results = await add_size_change_record(target_object, size)
         if results.output:
             for result in results.output:
                 outputString += f'{result}\n'
             await ctx.reply(f'Record added/updated:\n{outputString}')
             return
+        else:
+            await ctx.reply(f'An error occurred. Ping Verama!')
 
 
-    @commands.command(name='locateobject', aliases=['lo', 'shrink'])
+    @commands.command(name='sizechange', aliases=['lo', 'locateobject', 'shrink', 'grow'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
-    async def locateobject(self, ctx, target_object: str = None, size: float = 1.0):
+    async def sizechange(self, ctx, target_object: str = None, size: float = 1.0, confirm: str = ''):
         """ - Requests a size change of a nearby object
 
         Parameters
         ----------
         ctx
         object
+        size
+        confirm
 
         Returns
         -------
@@ -637,6 +681,12 @@ class Utilities(commands.Cog):
         search_term = f''
         key_str = ''
         character = is_registered(ctx.author.id)
+        output_string = ''
+        object_id = ''
+        class_name = ''
+        x_result = 0
+        y_result = 0
+        distance = 0
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
@@ -666,14 +716,14 @@ class Utilities(commands.Cog):
 
         try:
             float(size)
-            if 0.3 <= size <= 1.5:
+            if 0.3 <= size <= 3.0:
                 size = round(size,2)
                 pass
             else:
-                await ctx.reply(f'Size must be a value between 0.3 and 1.5')
+                await ctx.reply(f'Size must be a value between 0.3 and 3.0')
                 return
         except ValueError:
-            await ctx.reply(f'Size must be a value between 0.3 and 1.5')
+            await ctx.reply(f'Size must be a value between 0.3 and 3.0')
             return
 
         con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -712,17 +762,51 @@ class Utilities(commands.Cog):
             print(f'{match.group(1)} {match.group(2)} {match.group(3)} {match.group(4)} {match.group(5)}')
             object_id, class_name, x_result, y_result, distance = match.groups()
 
-        sizechange_price = get_bot_config(f'sizechange_price')
+        sizechange_price = int(get_bot_config(f'sizechange_price'))
 
-        await ctx.reply(f'The bot sees your location as: `{x_coord} {y_coord}`\n\n'
-                        f'**Found object:**\nid: `{object_id}`\nclass: `{class_name}`\n'
-                        f'x-coordinate: `{x_result}`\ny-coordinate: `{y_result}`\n'
-                        f'owned by: `{clan_id}` Owner Name: `{clan_name}`\n\n'
-                        f'If this is the object you want to resize, copy/paste the following template into  <#{SUPPORT_CHANNEL}> to request a size change:')
-        await ctx.reply(f'```\n__Size Change Request__\nOwner: `{clan_id}` | `{character.char_name}` (`{clan_name}`)\nObject Type: `{class_name}`\n'
-                        f'Object ID: `{object_id}`\nSize: `{size}`\n\n'
-                        f'`update actor_position set sx = {size}, sy = {size}, sz = {size} where id in ({object_id});`\n'
-                        f'`v/tx <@{character.discord_id}> SizeChange {sizechange_price}` ```')
+        if not object_id:
+            await ctx.reply(f'No matching object found.')
+            return
+
+        if 'confirm' in confirm:
+            balance = int(get_balance(character))
+            if balance >= sizechange_price:
+                eld_transaction(character, f'Size Change', -sizechange_price)
+
+                results = await add_size_change_record(object_id, size)
+                if results.output:
+                    for result in results.output:
+                        output_string += f'{result}\n'
+                    await ctx.reply(f'Record added/updated:\n{output_string}\n\n The size change will be executed at '
+                                    f'the next restart. Do not remove the object after the request has been submitted. '
+                                    f'If you delete the object and place a new one, the new object will have a '
+                                    f'new ID and will not be changed via this transaction.\n\n'
+                                    f'`{sizechange_price}` Bronze Coins have been deducted from your account.')
+                    return
+
+            else:
+                await ctx.reply(f'Insufficient funds! Available Bronze Coins: {balance}. Needed: `{sizechange_price}`')
+                return
+        else:
+            await ctx.reply(f'The bot sees your location as: `{x_coord} {y_coord}`\n\n'
+                            f'**Found object:**\nid: `{object_id}`\nclass: `{class_name}`\n'
+                            f'x-coordinate: `{x_result}`\ny-coordinate: `{y_result}`\n'
+                            f'owned by: `{clan_id}` Owner Name: `{clan_name}`\n\n'
+                            f'Changing the size of this object will cost {sizechange_price} Bronze Coins.\n\n'
+                            f'Do not remove the object after the request has been submitted. If you delete the object '
+                            f'and place a new one, the new object will have a new ID and will '
+                            f'not be changed via this transaction.\n\n'
+                            f'If this is the object you want to resize, Make sure you stay in the same location, then '
+                            f'run the command again, adding confirm. '
+                            f'`v/shrink {target_object} {size} confirm`')
+            return
+
+
+
+        # await ctx.reply(f'```\n__Size Change Request__\nOwner: `{clan_id}` | `{character.char_name}` (`{clan_name}`)\nObject Type: `{class_name}`\n'
+        #                 f'Object ID: `{object_id}`\nSize: `{size}`\n\n'
+        #                 f'`update actor_position set sx = {size}, sy = {size}, sz = {size} where id in ({object_id});`\n'
+        #                 f'`v/tx <@{character.discord_id}> SizeChange {sizechange_price}` ```')
         return
 
         await ctx.reply(f'The bot sees your location as: '
@@ -925,6 +1009,62 @@ class Utilities(commands.Cog):
                         f'distance: `{distance}`\nowned by: `{clan_id}` name: `{clan_name}`\n\n'
                         f'If this is the correct object, run the command:```v/sizechange {object_id} <size>````')
         return
+
+    @commands.command(name='maelstrom')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def maelstrom(self, ctx):
+        """
+
+        Parameters
+        ----------
+
+        Returns
+        -------
+
+        """
+        current_state = 0
+        next_state = 1
+        hours = 0
+        minutes = 0
+        seconds = 0
+        maelstrom_states = ['Inactive','Accumulating','Active','Dissipating']
+
+        results = runRcon(f'sql select substr(hex(value),length(hex(value))-15) from properties where name like \'%siptahstorm%\'')
+        if results.output:
+            results.output.pop(0)
+            hex_time = re.search(r'\d+\s+([a-fA-F0-9]+)\s[|]',results.output[0]).group(1)
+            total_seconds = round(struct.unpack('>d', bytes.fromhex(bytes.fromhex(hex_time)[::-1].hex()))[0])
+            hours = total_seconds // 3600
+            remaining_seconds = total_seconds % 3600
+            minutes = remaining_seconds // 60
+            seconds = remaining_seconds % 60
+
+        results = runRcon(f' sql select substr(hex(value),33,66) from properties where name = \'BP_SiptahStormController_C.SavedStormState\'')
+        if results.output:
+            results.output.pop(0)
+            if results.output:
+                # test_pattern = '53697074616853746F726D5374617465733A3A4E6577456E756D657261746F723300'
+                # storm_state = re.search(r'\d+\s+([a-fA-F0-9]+)\s[|]', test_pattern)
+                storm_state = re.search(r'\d+\s+([a-fA-F0-9]+)\s[|]', results.output[0]).group(1)
+                state_string = bytes.fromhex(storm_state).decode('utf-8')
+                match state_string:
+                    case 'SiptahStormStates::NewEnumerator1':
+                        current_state = 1
+                        next_state = 2
+                    case 'SiptahStormStates::NewEnumerator2':
+                        current_state = 2
+                        next_state = 3
+                    case 'SiptahStormStates::NewEnumerator3':
+                        current_state = 3
+                        next_state = 0
+            else:
+                pass
+
+        await ctx.reply(f'The Maelstrom is currently `{maelstrom_states[current_state]}`.\n'
+                        f'`{hours}h {minutes}m {seconds}s` until it becomes `{maelstrom_states[next_state]}`.')
+        return
+
 
     @commands.command(name='itemlookup')
     @commands.has_any_role('Admin', 'Moderator')

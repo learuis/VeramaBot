@@ -52,9 +52,9 @@ class Hunter(commands.Cog):
                             f'Visit the Profession Hub to be assigned one.')
             return
 
+        reroll_cost = int(get_bot_config(f'beast_slayer_reroll_cost'))
         if 'confirm' in confirm:
             reason = (f'Quarry Reroll')
-            reroll_cost = int(get_bot_config(f'beast_slayer_reroll_cost'))
             amount = -reroll_cost
             reward_quantity = int(get_bot_config(f'beast_slayer_reward'))
             check_balance = sufficient_funds(character, abs(amount))
@@ -84,7 +84,7 @@ class Hunter(commands.Cog):
 
         else:
             await ctx.reply(f'`{character.char_name}`\'s current quarry: `{exclude_target.map} - {exclude_target.display_name}`.\n\n'
-                            f'This command will clear your quarry and assign you a new one for 1 Bronze Coin. '
+                            f'This command will clear your quarry and assign you a new one for {reroll_cost} Bronze Coins. '
                             f'You will not be able to claim any reward for the current quarry, even if you already '
                             f'killed it.\n\nIf you are sure want to be assigned a new quarry, '
                             f'use `v/quarry confirm`.')

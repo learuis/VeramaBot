@@ -18,7 +18,7 @@ class CharLocation:
 def pull_online_character_info_direct():
     DB_LOCATION = str(os.getenv("DB_LOCATION"))
     DB_FILE = str(os.getenv("DB_FILE"))
-    db_string = f'{DB_LOCATION}'  #/{DB_FILE}'
+    db_string = f'{DB_LOCATION}'  # /{DB_FILE}'
     filepath = os.path.abspath(db_string)
     final_path = f'{filepath}/{DB_FILE}'
 
@@ -63,6 +63,7 @@ def pull_online_character_info_new():
         character = get_single_registration_new(f'', item.id)
         # print(character.char_name)
     return worklist
+
 
 def pull_online_character_info():
     # print(f'start char info query {int_epoch_time()}')
@@ -370,7 +371,7 @@ async def oneStepQuestUpdate(bot):
                     await give_profession_xp(
                         player_tier.char_id, char_name, player_tier.profession, player_tier.tier, bot)
                     grant_reward(char_id, char_name, quest_id, repeatable, player_tier.tier)
-                    #give_favor(player_tier.char_id, 'VoidforgedExiles', player_tier.tier)
+                    # give_favor(player_tier.char_id, 'VoidforgedExiles', player_tier.tier)
                     print(f'Quest {quest_id} / {quest_name} completed by id {char_id} {char_name}')
                     continue
 
@@ -601,6 +602,160 @@ class QuestSystem(commands.Cog):
         display_quest_text(quest_id, 0, False, char_name)
 
         await ctx.send(f'Displayed text for quest {quest_id} to {char_name}')
+
+    @commands.command(name='grail')
+    @commands.has_any_role('Admin', 'Moderator')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def grail(self, ctx, category: str = '', item_type: str = ''):
+        """
+
+        Parameters
+        ----------
+        ctx
+        category
+        item_type
+
+        Returns
+        -------
+
+        """
+
+        character = is_registered(ctx.author.id)
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+
+        container_type = f'Displayrack'
+        outputString = ''
+        total_count = 0
+        total_possible = 0
+        missing_string = ''
+        missing_string2 = ''
+        missing_ids = ''
+        missing_ids2 = ''
+
+        if not category and not item_type:
+            combinations = [('legendary','weapon',4),('legendary','tool',4),('legendary','armor',1),
+                            ('unique','weapon',4),('unique','tool',4),('unique','armor',1)]
+
+            for combo in combinations:
+                category_value = combo[0]
+                type_value = combo[1]
+                inv_type = combo[2]
+                item_name_list = db_query(False, f'select template_id, item_name from grail_items '
+                                                 f'where category like \'%{category_value}%\' and type like \'%{type_value}%\'')
+                item_name_dict = dict(item_name_list)
+                selection_string = ', '.join(str(i) for i in item_name_dict.keys())
+                count_of_items = check_inventory_multiple(character.id, selection_string, inv_type, container_type)
+                outputString += f'`{(int(count_of_items)/len(item_name_dict)):.1%}` - `{count_of_items} of {len(item_name_dict)} {category_value.capitalize()} {type_value.capitalize()}s`\n'
+                total_count += int(count_of_items)
+                total_possible += int(len(item_name_dict))
+
+            outputString += f'\n`{(int(total_count) / total_possible):.1%}` - `{total_count} of {total_possible} Grail Items`'
+            await ctx.reply(f'{outputString}')
+            return
+
+        if 'legendary' in category.lower():
+            category_value = 'legendary'
+        elif 'unique' in category.lower():
+            category_value = 'unique'
+        else:
+            await ctx.reply(f'Must specify either `legendary` or `unique`!\n'
+                            f'Usage: `v/grail category type`')
+            return
+
+        if 'weapon' in item_type.lower():
+            type_value = 'weapon'
+            container_type = f'Displayrack'
+            inv_type = 4
+        elif 'tool' in item_type.lower():
+            type_value = 'tool'
+            container_type = f'Displayrack'
+            inv_type = 4
+        elif 'armor' in item_type.lower():
+            type_value = 'armor'
+            container_type = f'ArmorDisplay'
+            inv_type = 1
+        else:
+            await ctx.reply(f'Must specify either `weapon`, `armor` or `tool`!\n'
+                            f'Usage: `v/grail category type`')
+            return
+
+        item_name_list = db_query(False, f'select template_id, item_name from grail_items '
+                                         f'where category like \'%{category_value}%\' and type like \'%{type_value}%\'')
+        # print(item_name_list)
+        item_name_dict = dict(item_name_list)
+        selection_string = ', '.join(str(i) for i in item_name_dict.keys())
+        count_of_items = check_inventory_multiple(character.id, selection_string, inv_type, container_type)
+        missing_count = len(item_name_dict) - int(count_of_items)
+        # print(missing_count)
+        if missing_count:
+            # query = (f'select grail_items.template_id, cust_item_xref.name from grail_items '
+            #          f'left join cust_item_xref on grail_items.template_id = cust_item_xref.template_id '
+            #          f'where grail_items.category = \'{category_value.capitalize()}\' and grail_items.type = \'{type_value.capitalize()}\' '
+            #          f'except '
+            #          f'select item_inventory.template_id, cust_item_xref.name from item_inventory '
+            #          f'left join cust_item_xref on item_inventory.template_id = cust_item_xref.template_id '
+            #          f'where item_inventory.owner_id in ( select object_id from buildings where owner_id = '
+            #          f'( select guildId from guilds left join characters on guilds.guildId = characters.guild '
+            #          f'where characters.id = {character.id}) ) and inv_type = {inv_type} '
+            #          f'and item_inventory.template_id in ( select template_id from grail_items )')
+            query = (f'select grail_items.template_id from grail_items '
+                     f'where grail_items.category = \'{category_value.capitalize()}\' and grail_items.type = \'{type_value.capitalize()}\' '
+                     f'except '
+                     f'select distinct item_inventory.template_id from item_inventory '
+                     f'where item_inventory.owner_id in ( select object_id from buildings where owner_id = '
+                     f'( select guildId from guilds left join characters on guilds.guildId = characters.guild '
+                     f'where characters.id = {character.id}) ) '
+                     # and inv_type = {inv_type} '
+                     f'and item_inventory.template_id in ( select template_id from grail_items '
+                     f'where grail_items.category = \'{category_value.capitalize()}\' and grail_items.type = \'{type_value.capitalize()}\' )')
+            print(query)
+            results = runRcon(f'sql {query}')
+            if results:
+                results.output.pop(0)
+                if results.output:
+                    # print(results.output)
+                    missing_string = f'Missing: '
+                    for index, result in enumerate(results.output):
+                        # match = re.findall(r'#\d+\s+(\d+)\s[|]\s+(.*)\s[|]',result)
+                        match = re.search(r'#\d+\s+(\d+)\s[|]', result)
+                        if index < 70:
+                            missing_ids += f'{match.group(1)},'
+                        else:
+                            missing_ids2 += f'{match.group(1)},'
+            print(missing_ids)
+            print(missing_ids2)
+            item_names = db_query(False, f'select item_name from grail_items '
+                            f'where template_id in ({missing_ids[:-1]}) '
+                            f'and category = \'{category_value.capitalize()}\' '
+                            f'and type = \'{type_value.capitalize()}\'')
+            for item_name in item_names:
+                missing_string += f'`{item_name[0]}`, '
+
+            output_string = (f'`{(int(count_of_items) / len(item_name_dict)):.1%}` - `{count_of_items} of {len(item_name_dict)} {category_value.capitalize()} {type_value.capitalize()}s`\n\n'
+                            f'{missing_string[:-2]}')
+            # print(len(output_string))
+            await ctx.reply(f'{output_string}')
+
+            if missing_ids2:
+                missing_string2 = f'(continued) '
+                item_names = db_query(False, f'select item_name from grail_items '
+                                             f'where template_id in ({missing_ids2[:-1]}) '
+                                             f'and category = \'{category_value.capitalize()}\' '
+                                             f'and type = \'{type_value.capitalize()}\'')
+                for item_name in item_names:
+                    missing_string2 += f'`{item_name[0]}`, '
+                # print(len(missing_string2))
+                await ctx.send(f'{missing_string2[:-2]}')
+
+                return
+        else:
+            output_string = (f'`{(int(count_of_items) / len(item_name_dict)):.1%}` - '
+                             f'`{count_of_items} of {len(item_name_dict)} '
+                             f'{category_value.capitalize()} {type_value.capitalize()}s`')
+            # print(len(output_string))
+            await ctx.reply(f'{output_string}')
+            return
 
     @commands.command(name='onlinecharinfo')
     @commands.has_any_role('Admin')

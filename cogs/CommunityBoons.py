@@ -20,6 +20,7 @@ load_dotenv('data/server.env')
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 
+
 class CommunityBoons(commands.Cog):
     """Cog class containing commands related to server status.
 
@@ -145,7 +146,7 @@ class CommunityBoons(commands.Cog):
 
             await ctx.send(f'Prepared activation command: `v/boonset activate {outputString}`')
             return
-        #add input checking for material type
+        # add input checking for material type
 
         validMaterials = {'chitin', 'brimstone', 'resin', 'tar', 'twine', 'dung',
                           'compositeobsidian', 'crystal', 'kits', 'cochineal', 'blood', 'demonblood'}
@@ -193,7 +194,7 @@ class CommunityBoons(commands.Cog):
         for toLog in updateList:
             toLog = ast.literal_eval(str(toLog))
             # print(toLog)
-            #toLog = toLog.split(',')
+            # toLog = toLog.split(',')
             cur.execute(f'update boonlog set remaining = {toLog[6]} where record_num = {toLog[0]}')
             con.commit()
 
@@ -201,7 +202,7 @@ class CommunityBoons(commands.Cog):
 
         for toTitle in consumedMaterials:
             toTitle = ast.literal_eval(str(toTitle))
-            #toTitle = toTitle.split(',')
+            # toTitle = toTitle.split(',')
             cur.execute(f'insert into boon_consumption (date,contributor,item,quantity) values '
                         f'(\'{date}\',\'{toTitle[0]}\',\'{toTitle[1]}\',{toTitle[2]})')
             con.commit()
@@ -331,7 +332,7 @@ class CommunityBoons(commands.Cog):
                         return
                     else:
                         outputString += logboon(name, int(intHelper),
-                                                args[x+1].casefold().capitalize())
+                                                args[x + 1].casefold().capitalize())
             else:
                 await ctx.send(f'Wrong number of arguments provided. Try again!')
                 return
@@ -360,18 +361,20 @@ class CommunityBoons(commands.Cog):
                          ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier', 'Skull of Yog'],
                          ['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier', 'Heart of Nordheimer'],
                          ['Finesse (Stamina Cost)', 'StaminaCostMultiplier', 'Molten Heart'],
+                         ['Havoc (Elder Thing Respawn)', 'ElderThingSpawnRate', 'Flesh of Krllyand'],
+                         ['Malice (Siege Elder Thing Respawn)', 'SiegeElderThingRespawnRate', 'Light of Krllyand'],
                          ['Returning (v/home Discount)', 'BoonOfReturning', 'Eye of Set'],
-                         ['Event Teleport', 'EventTeleport', 'N/A'],]
+                         ['Event Teleport', 'EventTeleport', 'N/A'], ]
 
-        #['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],
-        #['Preservation (Item Spoil Rate)', 'ItemSpoilRateScale'],
-        #['Training (XP From Kills)', 'PlayerXPKillMultiplier'],
-        #['Maintenance (Durability)', 'DurabilityMultiplier'],
-        #['Abundance (Harvest Amount)', 'HarvestAmountMultiplier'],
-        #['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier'],
-        #['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier'],
-        #['Starfall (Meteor Shower)', 'dc meteor spawn'],
-        #['Freedom (Thrallable Patron)', 'AddPatron Patron_Thrallable 0']]
+        # ['Manufacture (Crafting Speed)', 'ItemConvertionMultiplier'],
+        # ['Preservation (Item Spoil Rate)', 'ItemSpoilRateScale'],
+        # ['Training (XP From Kills)', 'PlayerXPKillMultiplier'],
+        # ['Maintenance (Durability)', 'DurabilityMultiplier'],
+        # ['Abundance (Harvest Amount)', 'HarvestAmountMultiplier'],
+        # ['Regrowth (Resource Respawn)', 'ResourceRespawnSpeedMultiplier'],
+        # ['Proliferation (NPC Respawn)', 'NPCRespawnMultiplier'],
+        # ['Starfall (Meteor Shower)', 'dc meteor spawn'],
+        # ['Freedom (Thrallable Patron)', 'AddPatron Patron_Thrallable 0']]
 
         for setting in settings_list:
             (boon_name, setting_name, item) = setting
@@ -379,20 +382,24 @@ class CommunityBoons(commands.Cog):
 
             if 'Starfall' in boon_name or 'Freedom' in boon_name:
                 if int(value) >= int_epoch_time():
-                    #current_expiration = datetime.fromtimestamp(float(value))
+                    # current_expiration = datetime.fromtimestamp(float(value))
                     outputString += f'Boon of {boon_name} will be available at: <t:{int(value)}> in your time zone.\n'
                 else:
                     outputString += f'Boon of {boon_name} is available to be triggered.\n'
                 continue
 
             if int(value) >= int_epoch_time():
-                #current_expiration = datetime.fromtimestamp(float(value))
-                #{current_expiration}
-                outputString += (f'Boon of {boon_name} is active until: <t:{int(value)}> in your time zone. '
-                                 f'Turn in a `{item}` at the Profession Hub to extend it.\n')
+                # current_expiration = datetime.fromtimestamp(float(value))
+                # {current_expiration}
+                outputString += f'Boon of {boon_name} is active until: <t:{int(value)}> in your time zone. '
+                if 'EventTeleport' not in setting_name:
+                    outputString += f'Turn in a `{item}` at the Profession Hub to extend it.\n'
             else:
-                outputString += (f'Boon of {boon_name} is not currently active. '
-                                 f'Turn in a `{item}` at the Profession Hub to activate it.\n')
+                outputString += f'Boon of {boon_name} is not currently active. '
+                if 'EventTeleport' not in setting_name:
+                    outputString += f'Turn in a `{item}` at the Profession Hub to extend it.\n'
+
+            outputString += f'\n'
 
         global_xp = int(get_bot_config(f'global_profession_xp_mult'))
         blacksmith_xp = int(get_bot_config(f'blacksmith_xp_multiplier')) * global_xp
@@ -906,7 +913,7 @@ class CommunityBoons(commands.Cog):
 
         if results:
             if set_title:
-                titleRecord = results.pop(int(set_title)-1)
+                titleRecord = results.pop(int(set_title) - 1)
 
                 try:
                     await ctx.author.edit(nick=f'{character.char_name} {titleRecord[0]}')
@@ -918,7 +925,7 @@ class CommunityBoons(commands.Cog):
                 return
             else:
                 for index, result in enumerate(results):
-                    outputString += f'{index+1} - {result[0]}\n'
+                    outputString += f'{index + 1} - {result[0]}\n'
 
                 await ctx.reply(f'{outputString}')
                 return

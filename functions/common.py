@@ -1,4 +1,5 @@
 import datetime
+import logging
 import math
 import random
 
@@ -29,6 +30,16 @@ REGHERE_CHANNEL = int(os.getenv('REGHERE_CHANNEL'))
 CURRENT_SEASON = int(os.getenv('CURRENT_SEASON'))
 PREVIOUS_SEASON = int(os.getenv('PREVIOUS_SEASON'))
 BOT_DB_FILE_LOCATION= os.getenv('BOT_DB_FILE_LOCATION')
+
+def get_last_boon_broadcast(boon_name):
+    last_broadcast = int(get_bot_config(f'{boon_name}_last_broadcast'))
+    print(f'Last boon broadcast: {last_broadcast}')
+    return last_broadcast
+
+def set_last_boon_broadcast(boon_name):
+    print(f'setting {boon_name}_last_broadcast to {str(int_epoch_time())}')
+    set_bot_config(f'{boon_name}_last_broadcast', str(int_epoch_time()))
+    return
 
 def add_reward_record(char_id: int, itemId: int, quantity: int, reasonString: str):
     if quantity == 0:
@@ -96,6 +107,7 @@ class Registration:
         self.id = 0
         self.char_name = ''
         self.discord_id = ''
+        self.account_id = ''
 
     def reset(self):
         self.__init__()
@@ -104,6 +116,7 @@ def update_boons(indv_boon: str = ''):
     command_prep = []
     command_list = []
     currentTime = int_epoch_time()
+    elder_things = ''
 
     if int(get_bot_config(f'maintenance_flag')) == 1:
         print(f'Skipping boons loop, server in maintenance mode')
@@ -113,18 +126,36 @@ def update_boons(indv_boon: str = ''):
         print(f'Skipping boons loop, boons globally disabled')
         return
 
+    if not indv_boon:
+        all_boons_last_set = get_bot_config(f'all_boons_last_set')
+        if int(all_boons_last_set) > int_epoch_time() - 575:
+            print(f'Skipping boons loop, set too recently')
+            return
+        else:
+            set_bot_config(f'all_boons_last_set', str(int_epoch_time()))
+
+    elder_things = get_bot_config(f'ElderThingSpawnRate')
+    print(f'elder things: {elder_things}')
+    set_bot_config(f'AmbientElderThingRespawnRate', elder_things)
+
+    print(f'we set it')
+
     if indv_boon:
         boonList = [f'{indv_boon}']
+        if indv_boon == f'ElderThingSpawnRate':
+            boonList.append('AmbientElderThingRespawnRate')
     else:
         boonList = ['ItemConvertionMultiplier', 'ItemSpoilRateScale', 'PlayerXPKillMultiplier',
                     'PlayerXPRateMultiplier', 'DurabilityMultiplier', 'HarvestAmountMultiplier',
-                    'ResourceRespawnSpeedMultiplier', 'NPCRespawnMultiplier', 'StaminaCostMultiplier']
+                    'ResourceRespawnSpeedMultiplier', 'NPCRespawnMultiplier', 'StaminaCostMultiplier',
+                    'AmbientElderThingRespawnRate', 'ElderThingSpawnRate', 'SiegeElderThingRespawnRate']
 
     for boon in boonList:
         if int(get_bot_config(boon)) >= currentTime:
             result = db_query(False, f'select active_value from boon_settings where setting_name = \'{boon}\'')
         else:
             result = db_query(False, f'select inactive_value from boon_settings where setting_name = \'{boon}\'')
+        print(f'boon {boon}{result}')
         setting = flatten_list(result)
         # print(f'{setting}')
         command_prep.append([boon, setting[0]])
@@ -215,6 +246,18 @@ def get_member_from_userid(ctx, user_id: int):
 
 def get_character_id(name: str):
     response = runRcon(f'sql select id, char_name from characters where char_name = \'{name}\' order by id desc limit 1')
+    response.output.pop(0)
+
+    if response.output:
+        for x in response.output:
+            # print(x)
+            match = re.findall(r'\s+\d+ | [^|]*', x)
+            return match[0]
+    else:
+        return None
+
+def get_account_user(char_id):
+    response = runRcon(f'sql select account.id from account left join characters on account.playerId = characters.id where character.id = {int(char_id)} order by id desc limit 1')
     response.output.pop(0)
 
     if response.output:
@@ -332,6 +375,23 @@ def get_registration_by_char_id(character_id, last_season: bool = False):
     else:
         return False
 
+def get_account_details(name):
+
+    response = runRcon(
+        f'sql select account.user, account.platformId from characters '
+        f'left join account on characters.playerId = account.id where char_name = \'{name}\' '
+        f'order by characters.id desc limit 1')
+
+    if response.output:
+        response.output.pop(0)
+        match = re.findall(r'#\d+\s([0-9a-zA-Z]-[0-9a-zA-Z]+)\s[|]\s+([0-9]+)\s', response.output[0])
+        print(match)
+        match = flatten_list(match)
+        print(match)
+        return match[0], match[1]
+    else:
+        return False, False
+
 def is_registered(discord_id: int, last_season: bool = False):
 
     # returnValue = RegistrationOLD()
@@ -423,10 +483,10 @@ def get_single_registration_new(char_name: str = '', char_id: int = 0):
     # character = RegistrationOLD()
     character = Registration()
     if char_id:
-        query_string = (f'select game_char_id, character_name, discord_user from registration '
+        query_string = (f'select game_char_id, character_name, discord_user, account from registration '
                         f'where game_char_id = {char_id} and season = {CURRENT_SEASON} limit 1')
     else:
-        query_string = (f'select game_char_id, character_name, discord_user from registration '
+        query_string = (f'select game_char_id, character_name, discord_user, account from registration '
                         f'where character_name like \'%{char_name}%\' and season = {CURRENT_SEASON} limit 1')
 
     con = sqlite3.connect(f'data/VeramaBot.db'.encode('utf-8'))
@@ -443,6 +503,7 @@ def get_single_registration_new(char_name: str = '', char_id: int = 0):
         character.discord_id = results[2]
 
     return character
+
 
 def get_single_registration(char_name):
 
@@ -714,6 +775,31 @@ def consume_from_inventory(char_id, char_name, template_id, item_slot=-1):
         return False
     return None
 
+def check_inventory_multiple(owner_id, list_of_items, inv_type, container_type):
+    clause = ''
+    if container_type:
+        clause = f' and actor_position.class like \'%{container_type}%\''
+
+    query = (f'sql select count(distinct template_id) from item_inventory left join actor_position on item_inventory.owner_id = actor_position.id '
+             f'where owner_id in ( select object_id from buildings where owner_id = '
+             f'( select guildId from guilds left join characters on guilds.guildId = characters.guild where characters.id = {owner_id}) ) '
+             f'and template_id in ({list_of_items})')
+             # f'and inv_type = {inv_type}{clause}')
+    print(query)
+    results = runRcon(f'{query}')
+    if results.error:
+        print(f'RCON error received in check_inventory_multiple')
+        return False
+
+    if not results.output:
+        return False
+    else:
+        results.output.pop(0)
+        print(results.output)
+        count_of_items = re.search(r'#\d+\s+(\d+)\s[|]', results.output[0]).group(1)
+        print(count_of_items)
+        return count_of_items
+
 def check_inventory(owner_id, inv_type, template_id):
     matched_template_id = 0
     slot = -1
@@ -946,8 +1032,18 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
             result = db_query(False, f'select boon_name from boon_settings '
                                      f'where setting_name = \'{reward_boon}\'')
             boon_name = flatten_list(result)[0]
-            notify_all(7, f'-Boon-', f'{boon_name} +3 hours')
+            try:
+                last_broadcast = int(get_bot_config(f'{reward_boon}_last_broadcast'))
+            except TypeError:
+                last_broadcast = 0
+            # last_broadcast = int(get_last_boon_broadcast(reward_boon))
+            # set_bot_config(f'{reward_boon}_last_broadcast', str(last_broadcast))
+            # set_last_boon_broadcast(reward_boon)
             update_boons(f'{reward_boon}')
+            print(f'last broadcast for {reward_boon}: {last_broadcast}. current time {(int_epoch_time())} diff: {int_epoch_time() - last_broadcast}')
+            if last_broadcast + 300 < int_epoch_time():
+                notify_all(7, f'-Boon-', f'{boon_name} +3 hours')
+                set_bot_config(f'{reward_boon}_last_broadcast', str(int_epoch_time()))
             continue
         if reward_command:
             match reward_command:
@@ -1083,13 +1179,15 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
                     chance, value, bonus_message = slayer_bonus_item_chance(notorious_multiplier, character)
                     if chance:
                         print(f'Notoriety {notorious_multiplier} target slain, chance: {value}%, bonus item earned.')
-                        results = db_query(False, f'select item_id, item_name from treasure_rewards '
-                                                  f'where reward_category = 1 order by RANDOM() limit 1')
+                        # results = db_query(False, f'select item_id, item_name from treasure_rewards '
+                        #                           f'where reward_category = 1 order by RANDOM() limit 1')
+                        results = db_query(False, f'select template_id, item_name from monster_weapons '
+                                                  f'order by RANDOM() limit 1')
                         reward_list.append(flatten_list(results))
                         for hunt_treasure in reward_list:
                             # print(f'{reward}')
                             outputMessage += f'`{hunt_treasure[1]}` | '
-                            add_reward_record(int(character.id), int(hunt_treasure[0]), 1, f'Treasure Hunt: {hunt_treasure[1]}')
+                            add_reward_record(int(character.id), int(hunt_treasure[0]), 1, f'Beast Slayer: {hunt_treasure[1]}')
 
                     else:
                         print(f'Notoriety {notorious_multiplier} target slain, chance: {value}%, no bonus item.')
@@ -1121,6 +1219,7 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
 def grant_slayer_rewards(character, current_target):
     item_list = []
     outputString = ''
+    item_string = ''
 
     reroll_cost = int(get_bot_config(f'beast_slayer_reroll_cost'))
     reward_quantity = int(get_bot_config(f'beast_slayer_reward'))
@@ -1148,8 +1247,10 @@ def grant_slayer_rewards(character, current_target):
 
     chance, value, bonus_message = slayer_bonus_item_chance(notorious_multiplier, character)
     if chance:
-        results = db_query(False, f'select item_id, item_name from treasure_rewards '
-                                  f'where reward_category = 1 order by RANDOM() limit 1')
+        # results = db_query(False, f'select item_id, item_name from treasure_rewards '
+        #                           f'where reward_category = 1 order by RANDOM() limit 1')
+        results = db_query(False, f'select template_id, item_name from monster_weapons '
+                                  f'order by RANDOM() limit 1')
         item_list.append(flatten_list(results))
         for item in item_list:
             add_reward_record(int(character.id), int(item[0]), 1, f'Beast Slayer: {item[1]}')
@@ -1444,7 +1545,8 @@ def get_slayer_target(character: Registration):
 def slayer_bonus_item_chance(notoriety: int, character):
     notoriety_value = int(get_bot_config('notoriety_bonus_item_mult'))
     bonus_message = f'Lucky Coin Bonus: `+0%`\n'
-    reward_chance = 10 + ( notoriety * notoriety_value )
+    base_slayer_item_chance = int(get_bot_config('base_slayer_item_chance'))
+    reward_chance = base_slayer_item_chance + ( notoriety * notoriety_value )
 
     count_lucky_coins = get_bot_config(f'slayer_count_lucky_coins')
     slayer_lucky_coin_multiplier = float(get_bot_config(f'slayer_lucky_coin_multiplier'))

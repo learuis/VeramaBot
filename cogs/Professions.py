@@ -1,3 +1,4 @@
+import logging
 import os
 import math
 import random
@@ -21,6 +22,7 @@ PROFESSION_CHANNEL = int(os.getenv('PROFESSION_CHANNEL'))
 PROFESSION_MESSAGE = int(os.getenv('PROFESSION_MESSAGE'))
 LEADERBOARD_MESSAGE = int(os.getenv('LEADERBOARD_MESSAGE'))
 
+logger = logging.getLogger('conan')
 
 class ProfessionTier:
     def __init__(self):
@@ -340,6 +342,8 @@ async def updateProfessionBoard(message, leaderboard_message, displayOnly: bool 
     if int(get_bot_config(f'disable_professions')) == 1:
         # print(f'Skipping profession loop, server in maintenance mode')
         return False
+
+    logger.debug(f'The profession board update was called')
 
     last_profession_update = int(get_bot_config(f'last_profession_update'))
     profession_update_interval = int(get_bot_config(f'profession_update_interval'))

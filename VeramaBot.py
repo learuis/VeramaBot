@@ -3,6 +3,8 @@ import discord
 import time
 import os
 import traceback
+import logging
+import logging.handlers
 from time import localtime, strftime
 from discord.ext import commands
 from discord.ext.commands import Bot
@@ -14,7 +16,8 @@ from cogs.Professions import updateProfessionBoard, LEADERBOARD_MESSAGE
 from cogs.QuestSystem import oneStepQuestUpdate, pull_online_character_info, treasure_broadcast
 from cogs.Roleplaying import RoleplayingButton
 from cogs.Utilities import is_character_online
-from functions.common import is_docker, editStatus, place_markers, fillThrallCages, update_boons, get_bot_config
+from functions.common import is_docker, editStatus, place_markers, fillThrallCages, update_boons, get_bot_config, \
+    set_bot_config
 from cogs.CharRegistration import RegistrationButton
 
 load_dotenv('data/server.env')
@@ -30,6 +33,7 @@ LEADERBOARD_MESSAGE = int(os.getenv('LEADERBOARD_MESSAGE'))
 SERVER_PORT = int(os.getenv('SERVER_PORT'))
 ADMIN_LOG_CHANNEL = int(os.getenv('ADMIN_LOG_CHANNEL'))
 LOBBY_CHANNEL = int(os.getenv('LOBBY_CHANNEL'))
+LOG_FILE_NAME = os.getenv('LOG_FILE_NAME')
 
 intents = discord.Intents.all()
 intents.message_content = True
@@ -41,8 +45,19 @@ else:
 
 bot.quest_running = False
 
-# @bot.event
-# async def on_ready():
+logger = logging.getLogger('conan')
+logger.setLevel(logging.DEBUG)
+
+handler = logging.handlers.RotatingFileHandler(
+    filename=f'{LOG_FILE_NAME}',
+    encoding='utf-8',
+    maxBytes=32 * 1024 * 1024,  # 32 MiB
+    backupCount=5,  # Rotate through 5 files
+)
+dt_fmt = '%Y-%m-%d %H:%M:%S'
+formatter = logging.Formatter('[{asctime}] [{levelname:<8}] {name}: {message}', dt_fmt, style='{')
+handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 @bot.event
 async def on_ready():
@@ -272,4 +287,4 @@ async def on_command_error(ctx, error):
         await ctx.send(error)
         raise error
 
-bot.run(TOKEN)
+bot.run(TOKEN, log_handler=None)

@@ -33,8 +33,9 @@ class Inn:
         self.map_square = ''
         self.loc_map = ''
         self.teleport_counter = 0
+        self.subsidized_amount = 0
 
-    def structure_inn(self, inn_id, clan_id, owner_id, name, x, y, z, map_square, loc_map, teleport_counter):
+    def structure_inn(self, inn_id, clan_id, owner_id, name, x, y, z, map_square, loc_map, teleport_counter, subsidized_amount):
         self.inn_id = inn_id
         self.clan_id = clan_id
         self.owner_id = owner_id
@@ -45,6 +46,7 @@ class Inn:
         self.map_square = map_square
         self.loc_map = loc_map
         self.teleport_counter = teleport_counter
+        self.subsidized_amount = subsidized_amount
         return self
 
 
@@ -78,7 +80,7 @@ def get_all_inns():
     inn_list = []
 
     results = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x, y, z, '
-                               f'map_square, loc_map, teleport_counter from inn_locations')
+                               f'map_square, loc_map, teleport_counter, subsidized_amount from inn_locations')
     if not results:
         return False
     for result in results:
@@ -151,17 +153,20 @@ def does_object_exist(object_id):
 def get_inn_details(inn_id: str):
     inn = Inn()
     results = db_query(False, f'select inn_id, clan_id, owner_id, inn_name, x,y,z, '
-                              f'map_square, loc_map, teleport_counter '
+                              f'map_square, loc_map, teleport_counter, subsidized_amount '
                               f'from inn_locations where inn_id = \'{inn_id}\' limit 1')
     if results:
         results = flatten_list(results)
         print(results)
         inn = inn.structure_inn(results[0],results[1],results[2],results[3],results[4],results[5],
-                                results[6],results[7],results[8],results[9])
+                                results[6],results[7],results[8],results[9], results[10])
         # (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z,
         #  inn.map_square, inn.loc_map, inn.teleport_counter) = results
     return inn
 
+def set_subsidized_amount(inn_id, amount):
+    db_query(True, f'update inn_locations set subsidized_amount = {amount} where inn_id = \'{inn_id}\'')
+    return
 
 def checkin_to_inn(character, inn):
     length = int(get_bot_config(f'inn_checkin_length'))
@@ -179,9 +184,9 @@ def clear_all_checkins(inn_id):
 
 def create_inn(inn):
     db_query(True, f'insert or replace into inn_locations '
-                   f'(inn_id, clan_id, owner_id, inn_name, x, y, z, map_square, loc_map, teleport_counter) values '
+                   f'(inn_id, clan_id, owner_id, inn_name, x, y, z, map_square, loc_map, teleport_counter, subsidized_amount) values '
                    f'(\'{inn.inn_id}\', {inn.clan_id}, {inn.owner_id}, \'{inn.name}\', '
-                   f'\'{inn.x}\', \'{inn.y}\', \'{inn.z}\', \'{inn.map_square}\', \'{inn.loc_map}\', 0)')
+                   f'\'{inn.x}\', \'{inn.y}\', \'{inn.z}\', \'{inn.map_square}\', \'{inn.loc_map}\', 0, 0)')
 
 
 def delete_inn(inn_id):
@@ -206,18 +211,23 @@ def get_inn_id(clan_id):
 
     return inn_id
 
-def inn_transaction(inn, character, cost, revenue):
-    eld_transaction(character, f'Inn TP to {inn.name}', -cost)
-    inn_owner = get_single_registration_new(char_id=int(inn.owner_id))
-    # guests = count_checkins(inn.clan_id)
-    # bonus_revenue = guests * bonus_mult
-    # print(bonus_revenue)
-    # final_revenue = bonus_revenue + revenue
-    # if final_revenue > 10:
-    #     final_revenue = 10
-    # print(final_revenue)
-    eld_transaction(inn_owner, f'{character.char_name} teleported to {inn.name}', revenue)
+def inn_transaction(inn, character, cost, revenue, owner_character):
+    if inn.subsidized_amount > 0:
+        extra_output = f' (Subsidized)'
+        if cost > 0:
+            # guest pays cost, owner pays subsidy. no revenue
+            eld_transaction(character, f'Inn TP to {inn.name}', -cost )
+            eld_transaction(character, f'{character.char_name} teleported to {inn.name}{extra_output}', -inn.subsidized_amount)
+        else:
+            # owner pays subsidy. no revenue
+            eld_transaction(owner_character, f'{character.char_name} teleported to {inn.name}{extra_output}', -cost)
+    else:
+        # guest pays cost. owner receives full revenue
+        eld_transaction(character, f'Inn TP to {inn.name}', -cost)
+        eld_transaction(owner_character, f'{character.char_name} teleported to {inn.name}', revenue)
+
     increment_inn_teleport_counter(inn)
+
     return
 
 
@@ -378,7 +388,7 @@ class InnSystem(commands.Cog):
         sq_x, sq_y, loc_map = transform_coordinates(x, y)
         map_square = f'{sq_x}{sq_y}'
 
-        inn = inn.structure_inn(carpet_id, clan_id, character.id, inn_name, x, y, z, map_square, loc_map, 0)
+        inn = inn.structure_inn(carpet_id, clan_id, character.id, inn_name, x, y, z, map_square, loc_map, 0, 0)
         create_inn(inn)
 
         await ctx.reply(f'`{character.char_name}` of clan `{clan_name}` has established an inn - `{inn_name}` with Inn ID `{carpet_id}`!\n'
@@ -506,6 +516,7 @@ class InnSystem(commands.Cog):
 
             if is_checked_in(character, destination_inn):
                 inn = get_inn_details(destination_inn.inn_id)
+                owner_character = get_single_registration_new(char_id=inn.owner_id)
 
                 if does_object_exist(inn.inn_id):
                     pass
@@ -513,17 +524,38 @@ class InnSystem(commands.Cog):
                     outputString = f'The carpet which was used to register `{destination_inn.name}` no longer exists. You may not teleport there.'
                     await ctx.reply(f'{outputString}')
                     return
+                if inn.subsidized_amount > 0:
+                    adjusted_cost = cost - int(inn.subsidized_amount)
+                    adjusted_revenue = revenue - int(inn.subsidized_amount)
+                    owner_balance = get_balance(owner_character)
+                    if owner_balance >= inn.subsidized_amount:
+                        pass
+                    else:
+                        await ctx.reply(f'`{owner_character.char_name}` does not have the required `{cost}` '
+                                        f'Bronze Coins to subsidize your teleport to your inn room at `{inn.name}`.\n'
+                                        f'You must pay the full price.\n')
+                        adjusted_cost = cost
+                        adjusted_revenue = revenue
+                        pass
+                else:
+                    adjusted_cost = cost
+                    adjusted_revenue = revenue
+                    pass
 
                 balance = get_balance(character)
-                if balance >= cost:
-                    inn_transaction(inn, character, cost, revenue)
+                if balance >= adjusted_cost:
+                    inn_transaction(inn, character, adjusted_cost, adjusted_revenue, owner_character)
                 else:
                     await ctx.reply(f'`{character.char_name}` does not have the required `{cost}` '
                                     f'Bronze Coins to teleport to their inn room at `{inn.name}`.')
                     return
                 runRcon(f'con {rconCharId} TeleportPlayer {inn.x} {inn.y}, {inn.z}')
-                await ctx.reply(f'Returned `{character.char_name}` into their inn room at `{inn.name}`\n'
-                                f'`{cost}` Bronze Coins have been deducted from your account.')
+                outputString += f'Returned `{character.char_name}` into their inn room at `{inn.name}`'
+                if adjusted_cost > 0:
+                    outputString += f'\n`{adjusted_cost}` Bronze Coins have been deducted from your account.\n'
+                if inn.subsidized_amount > 0:
+                    outputString += f'\n`{inn.subsidized_amount}` Bronze Coins have been deducted from `{owner_character.char_name}`\'s account due to the subsidized amount.'
+                await ctx.reply(f'{outputString}')
                 return
             else:
                 outputString += (f'You are not checked in at that inn.\n\n'
@@ -610,6 +642,48 @@ class InnSystem(commands.Cog):
             await ctx.reply(f'Character `{character.char_name}` is not located at an inn!')
             return
 
+    @commands.command(name='subsidize')
+    @commands.check(check_channel)
+    @commands.has_any_role('Outcasts')
+    async def subsidize(self, ctx, amount: int = 0):
+        """- Subsidize the cost of teleporting to your inn, reducing the cost guests pay but charging you instead.
+
+        Parameters
+        ----------
+        ctx
+        amount
+
+        Returns
+        -------
+
+        """
+        outputString = ''
+        character = is_registered(ctx.author.id)
+        cost = int(get_bot_config('inn_teleport_cost'))
+
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            return
+
+        clan_id, clan_name = get_clan(character)
+        if not clan_id:
+            outputString += f'`{character.char_name}` is not a member of a clan with an inn.'
+        else:
+            inn_id = get_inn_id(str(clan_id))
+            inn = get_inn_details(inn_id)
+            if inn.inn_id:
+                if amount not in list(range(0, cost + 1, 1)):
+                    await ctx.reply(f'You must specify an integer <= to the inn teleport cost of `{cost}`.')
+                    return
+                else:
+                    set_subsidized_amount(inn.inn_id, amount)
+                    await ctx.reply(f'Teleports to your inn now cost `{cost-amount}` for guests. '
+                                    f'The subsidized balance of `{amount}` will be paid from your account when it is used. '
+                                    f'You will not earn any revenue from teleports to the inn.')
+                    return
+
+        await ctx.reply(f'{outputString}')
+
     @commands.command(name='innlist')
     @commands.check(check_channel)
     @commands.has_any_role('Outcasts')
@@ -638,7 +712,7 @@ class InnSystem(commands.Cog):
             return
 
         for result in results:
-            (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.map_square, inn.loc_map, inn.teleport_counter) = result
+            (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.map_square, inn.loc_map, inn.teleport_counter, inn.subsidized_amount) = result
             owner = get_single_registration_new(char_id=inn.owner_id)
             clan_id, clan_name = get_clan(owner)
             # new_x, new_y = transform_coordinates(inn.x, inn.y)

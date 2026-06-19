@@ -10,7 +10,7 @@ import io
 from functions.common import custom_cooldown
 
 
-async def generate_maps():
+async def generate_maps(flag):
 
     lons1 = []
     lats1 = []
@@ -35,21 +35,33 @@ async def generate_maps():
     # filter_strings = ['BasePlayerChar_C']
     once = False
     where_clause = ''
+    flag_int = 0
 
-    if len(filter_strings) > 1:
-        for strings in filter_strings:
-            if not once:
-                where_clause += f'where class like \'%{strings}%\' '
-                once = True
-            else:
-                where_clause += f'or class like \'%{strings}%\' '
-    elif len(filter_strings) == 0:
+    try:
+        flag_int = int(flag)
+        flag = 'clan'
+    except ValueError:
+        print(f'The flag was not an integer')
         pass
-    else:
-        where_clause = f'where class like \'%{filter_strings[0]}%\' '
 
-    print(where_clause)
+    if flag == 'buildings':
+        if len(filter_strings) > 1:
+            for strings in filter_strings:
+                if not once:
+                    where_clause += f'where class like \'%{strings}%\' '
+                    once = True
+                else:
+                    where_clause += f'or class like \'%{strings}%\' '
+        elif len(filter_strings) == 0:
+            pass
+        else:
+            where_clause = f'where class like \'%{filter_strings[0]}%\' '
 
+        print(where_clause)
+    elif flag == f'clan':
+        where_clause = f'where buildings.owner_id = {flag_int} and class not like \'%BasePlayerChar_C%\' '
+    elif flag == f'all':
+        where_clause = ''
     matplotlib.use('Agg')
 
     print(os.getcwd())
@@ -150,6 +162,8 @@ async def generate_maps():
 
     ax1.scatter(lons1, lats1, linewidth=0.2, color=colors1, edgecolors='black', marker='o', s=3)
     ax2.scatter(lons2, lats2, linewidth=0.2, color=colors2, edgecolors='black', marker='o', s=3)
+    # ax1.scatter(lons1, lats1, linewidth=0.2, color=colors1, edgecolors=colors1, marker='o', s=3)
+    # ax2.scatter(lons2, lats2, linewidth=0.2, color=colors2, edgecolors=colors2, marker='o', s=3)
 
     # ax1.set_cmap('plasma')
     # ax2.set_cmap('plasma')
@@ -173,20 +187,22 @@ class BuildMap(commands.Cog):
         self.bot = bot
 
     @commands.command(name='buildinfo', aliases=['buildmap'])
-    @commands.has_any_role('Admin')
-    async def buildinfo(self, ctx):
+    @commands.has_any_role('Admin', 'Moderator')
+    async def buildinfo(self, ctx, flag: str = 'buildings'):
         """
         Generates a build map
 
         Parameters
         ----------
         ctx
+        flag
+            Filter to use for build pieces
 
         Returns
         -------
 
         """
-        image_file = await generate_maps()
+        image_file = await generate_maps(flag)
         await ctx.reply(f'Build map has been generated', file=image_file)
         return
 
