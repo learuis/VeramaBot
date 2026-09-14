@@ -603,8 +603,47 @@ class QuestSystem(commands.Cog):
 
         await ctx.send(f'Displayed text for quest {quest_id} to {char_name}')
 
+    @commands.command(name='grailboard')
+    @commands.has_any_role('Outcasts')
+    @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
+    async def grailboard(self, ctx):
+        """
+
+        Parameters
+        ----------
+        ctx
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+
+        output_string = ''
+        output_name = ''
+
+        results = db_query(False, f'select * from grail_completed order by rank desc')
+
+        results = db_query(False, f'select * from grail_leaderboard order by count desc limit 3')
+        if results:
+            for result in results:
+                rcon_result = runRcon(f'sql select char_name as name from characters where id = {result[0]} union select name as name from guilds where guildId = {result[0]}')
+                if rcon_result:
+                    rcon_result.output.pop(0)
+                    output_name = re.search(r'#\d+\s+([0-9a-zA-Z\s+]+)\s[|]', rcon_result.output[0]).group(1)
+                    output_string += f'{output_name} - {result[1]}\n'
+                else:
+                    output_string += f'DELETED\n'
+        else:
+            output_string += 'No results'
+
+        await ctx.reply(f'{output_string}')
+        return
+
     @commands.command(name='grail')
-    @commands.has_any_role('Admin', 'Moderator')
+    @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(custom_cooldown, type=commands.BucketType.user)
     async def grail(self, ctx, category: str = '', item_type: str = ''):
         """
@@ -619,7 +658,6 @@ class QuestSystem(commands.Cog):
         -------
 
         """
-
         character = is_registered(ctx.author.id)
         if not character:
             await no_registered_char_reply(self.bot, ctx)
@@ -646,9 +684,32 @@ class QuestSystem(commands.Cog):
                 item_name_dict = dict(item_name_list)
                 selection_string = ', '.join(str(i) for i in item_name_dict.keys())
                 count_of_items = check_inventory_multiple(character.id, selection_string, inv_type, container_type)
-                outputString += f'`{(int(count_of_items)/len(item_name_dict)):.1%}` - `{count_of_items} of {len(item_name_dict)} {category_value.capitalize()} {type_value.capitalize()}s`\n'
+                outputString += f'{category_value.capitalize()} {type_value.capitalize()}s - `{(int(count_of_items)/len(item_name_dict)):.1%}` - `{count_of_items} of {len(item_name_dict)}` (`v/grail {category_value} {type_value}`)\n'
                 total_count += int(count_of_items)
                 total_possible += int(len(item_name_dict))
+
+            clan_id, clan_name = get_clan(character)
+            if clan_id:
+                leader_id = clan_id
+            else:
+                leader_id = character.id
+
+            db_query(True, f'insert or replace into grail_leaderboard (owner_id,count) values ({leader_id},{total_count})')
+
+            if total_count == total_possible:
+                print(f'Grail done')
+                db_query(True, f'insert into grail_completed (owner_id) select {leader_id} '
+                               f'where not exists ( select owner_id from grail_completed where owner_id = {leader_id} )')
+                ranking = db_query(False, f'select rank from grail_completed where owner_id = {leader_id}')
+                print(f'did the insert')
+                ranking = flatten_list(ranking)
+                outputString += (f'\n`{(int(total_count) / total_possible):.1%}` - `{total_count} of {total_possible} Grail Items`\n\n'
+                                 f'You have completed The Grail! Final Ranking: `{ranking[0]}`.')
+                GRAIL_ROLE = int(os.getenv('GRAIL_ROLE'))
+                member = await ctx.guild.fetch_member(ctx.author.id)
+                await member.add_roles(ctx.guild.get_role(GRAIL_ROLE))
+                await ctx.reply(f'{outputString}')
+                return
 
             outputString += f'\n`{(int(total_count) / total_possible):.1%}` - `{total_count} of {total_possible} Grail Items`'
             await ctx.reply(f'{outputString}')
@@ -711,6 +772,7 @@ class QuestSystem(commands.Cog):
                      f'where grail_items.category = \'{category_value.capitalize()}\' and grail_items.type = \'{type_value.capitalize()}\' )')
             print(query)
             results = runRcon(f'sql {query}')
+            print(results.output)
             if results:
                 results.output.pop(0)
                 if results.output:

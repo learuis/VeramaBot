@@ -610,13 +610,14 @@ class InnSystem(commands.Cog):
         inn_list = get_all_inns()
         print(inn_list)
         if not inn_list:
-            await ctx.reply(f'Character `{character.char_name}` is not located at an inn!')
+            await ctx.reply(f'There are no inns set up to check in to!')
             return
 
         for inn in inn_list:
             # (inn.inn_id, inn.clan_id, inn.owner_id, inn.name, inn.x, inn.y, inn.z, inn.map_square,
             #  inn.loc_map, inn.teleport_counter) = inn_record
             result_id, result_name = character_in_radius(inn.x, inn.y, inn.z, 2500, character.id)
+            print(f'{result_id} {result_name}')
             if result_id:
                 clan_id, clan_name = get_clan(character)
                 # print(f'Player Clan: {clan_id}, Inn Clan Id: {inn.clan_id}')

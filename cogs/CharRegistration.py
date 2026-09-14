@@ -40,6 +40,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
 
     async def on_submit(self, interaction: discord.Interaction):
 
+        print(f'we are triyng to register someone')
         charId = get_character_id(f'{self.charName}')
         # combine these later
         user, platformId = get_account_details(f'{self.charName}')
@@ -195,7 +196,11 @@ class CharRegistration(commands.Cog):
         await ctx.send(f'Registered character {name} (id {game_char_id} funcom {funcom_id}) '
                        f'to {discord_user.mention}.')
 
-        await ctx.invoke(self.bot.get_command('registrationlist'))
+        # try:
+        #     await ctx.invoke(self.bot.get_command('registrationlist'))
+        # except Exception:
+        #     await ctx.reply(f'There was some problem calling reglist {self.bot.get_command('registrationlist')}')
+        #     return
 
         channel = ctx.author.guild.get_channel(AUTOREG_CHANNEL)
         if season == CURRENT_SEASON:
@@ -206,7 +211,10 @@ class CharRegistration(commands.Cog):
         else:
             await ctx.reply(f'Done!')
 
-        await ctx.author.add_roles(ctx.author.guild.get_role(REG_ROLE))
+        try:
+            await ctx.author.add_roles(ctx.author.guild.get_role(REG_ROLE))
+        except Exception:
+            await ctx.reply('There was some problem setting roles')
 
         return
 

@@ -75,6 +75,19 @@ def get_current_objective(profession, tier):
 
     return objective
 
+def get_max_profession_tier(char_id):
+    query = db_query(False,
+                     f'select max(tier) '
+                     f'from character_progression '
+                     f'where char_id = {char_id} '
+                     f'and season = {CURRENT_SEASON} '
+                     f'limit 1')
+    print(query)
+    if not query:
+        max_tier = 0
+    else:
+        max_tier = query[0][0]
+    return max_tier
 
 def get_profession_tier(char_id, profession):
     player_profession_tier = ProfessionTier()
@@ -1055,6 +1068,61 @@ class Professions(commands.Cog):
             await ctx.reply(f'Not enough materials to repair! Available Bronze Coins: `{balance}`, '
                             f'Needed: `{repair_cost}`')
             return
+
+
+    @commands.command(name='stacksize')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def stacksize(self, ctx, help: str = ''):
+        """ - Modifies the maximum stack size for items in your first backpack slot
+
+        Parameters
+        ----------
+        ctx
+        help
+
+        Returns
+        -------
+
+        """
+        character = is_registered(ctx.author.id)
+        max_stack_size = get_bot_config(f'max_stack_size')
+
+        if not character:
+            await ctx.reply(f'Could not find a character registered to {ctx.author.mention}.')
+            return
+
+        max_tier = get_max_profession_tier(character.id)
+        if not max_tier:
+            max_tier = 0
+        print(f'{max_tier} for {character.char_name}')
+        if not (max_tier >= 1):
+            await ctx.reply(f'Only Crafters who have achieved Tier 1 can modify stack sizes. \n'
+                            f'Current Profession Tier: `T{max_tier}`')
+            return
+
+        if 'help' in help.lower():
+            await ctx.reply(
+                f'This command will modify the maximum stack size of the item in your backpack '
+                f'slot 1 to `{max_stack_size}`. Make sure your inventory sorting is set to '
+                f'`No Sorting` to ensure you get the right item.\n\n'
+                f'If you want to do this, use `v/stacksize`')
+            return
+
+        message = await ctx.reply(f'Modifying max stack size of item in backpack slot 1, please wait... '
+                                  f'Do not move the item until the process is complete!')
+
+        run_console_command_by_name(character.char_name, f'setinventoryitemintstat 0 0 {max_stack_size} 0')
+
+        await message.edit(content=f'`{character.char_name}` changed the maximum stack size of the item '
+                                   f'in backpack slot 1 to `{max_stack_size}`. \n\nPlease note that if item later '
+                                   f'becomes unstacked (stack of 1), it will revert to the default stack size. If you '
+                                   f'made something stackable that normally isn\'t stackable, be mindful that there may'
+                                   f' be unexpected issues. \n\nIf you are turning in an item to the bot for '
+                                   f'professions, it __CANNOT__ differentiate stacked from unstacked items and '
+                                   f'will consume an entire stack of items if its in the slot to be consumed.')
+        return
+
 
     @commands.command(name='reforge')
     @commands.has_any_role('Outcasts')
@@ -2197,10 +2265,10 @@ class Professions(commands.Cog):
                         if once:
                             once = False
                             await message.edit(content=str(splitOutput))
-                            splitOutput = '(continued)\n'
+                            splitOutput = '@silent (continued)\n'
                         else:
                             await ctx.send(f'@silent {str(splitOutput)}')
-                            splitOutput = '(continued)\n'
+                            splitOutput = '@silent (continued)\n'
                     else:
                         continue
                 await ctx.send(f'@silent {str(splitOutput)}')

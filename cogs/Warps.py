@@ -78,7 +78,7 @@ class Warps(commands.Cog):
             await ctx.reply(f'Teleported `{name}` to {description}.')
             return
 
-    @commands.command(name='stuck', aliases=['floor'])
+    @commands.command(name='stuck', aliases=['floor', 'unstuck'])
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def stuck(self, ctx, option: str = f''):

@@ -2,6 +2,7 @@ import datetime
 import logging
 import math
 import random
+from math import ceil
 
 import discord
 import re
@@ -179,6 +180,12 @@ def update_boons(indv_boon: str = ''):
 
     return
 
+
+def twos(val_str, bytes):
+    import sys
+    val = int(val_str, 2)
+    b = val.to_bytes(bytes, byteorder=sys.byteorder, signed=False)
+    return int.from_bytes(b, byteorder=sys.byteorder, signed=True)
 
 def check_channel(ctx):
     whitelist = {'Admin', 'Moderator', 'BuildHelper', 'bot_tester'}
@@ -1176,6 +1183,8 @@ def grant_reward(char_id, char_name, quest_id, repeatable, tier: int = 0):
 
                     reward_quantity = reward_quantity + (reroll_cost * notorious_multiplier)
 
+                    quarry_penalty('remove', character)
+
                     chance, value, bonus_message = slayer_bonus_item_chance(notorious_multiplier, character)
                     if chance:
                         print(f'Notoriety {notorious_multiplier} target slain, chance: {value}%, bonus item earned.')
@@ -1249,12 +1258,17 @@ def grant_slayer_rewards(character, current_target):
     if chance:
         # results = db_query(False, f'select item_id, item_name from treasure_rewards '
         #                           f'where reward_category = 1 order by RANDOM() limit 1')
-        results = db_query(False, f'select template_id, item_name from monster_weapons '
+        # results = db_query(False, f'select template_id, item_name from monster_weapons '
+        #                           f'order by RANDOM() limit 1')
+        results = db_query(False, f'select template_id, item_name from ( '
+                                  f'select template_id, item_name from monster_weapons '
+                                  f'union '
+                                  f'select template_id, item_name from grail_items ) '
                                   f'order by RANDOM() limit 1')
         item_list.append(flatten_list(results))
         for item in item_list:
             add_reward_record(int(character.id), int(item[0]), 1, f'Beast Slayer: {item[1]}')
-            item_string = f'You found `{item[1]}` hidden in a nearby loot cache! Use `v/claim` to receive it.\n'
+            item_string = f'You found `{item[1]}` hidden in a nearby loot cache (`{value}%`)! Use `v/claim` to receive it.\n'
     else:
         item_string = (f'You had a `{value}%` chance to find a loot cache, but didn\'t find one this time.\n'
                        f'{bonus_message}')
@@ -1542,22 +1556,52 @@ def get_slayer_target(character: Registration):
     else:
         return False
 
+def quarry_penalty(mode, character):
+    if 'add' in mode:
+        db_query(True, f'insert or replace into beast_slayer_quarry_penalty (char_id) values ({character.id})')
+        return True
+    elif 'remove' in mode:
+        db_query(True, f'delete from beast_slayer_quarry_penalty where char_id = {character.id}')
+        return False
+    elif 'check' in mode:
+        results = db_query(False, f'select char_id from beast_slayer_quarry_penalty where char_id = {character.id}')
+        if results:
+            return True
+        else:
+            return False
+    else:
+        return False
+
 def slayer_bonus_item_chance(notoriety: int, character):
     notoriety_value = int(get_bot_config('notoriety_bonus_item_mult'))
     bonus_message = f'Lucky Coin Bonus: `+0%`\n'
     base_slayer_item_chance = int(get_bot_config('base_slayer_item_chance'))
-    reward_chance = base_slayer_item_chance + ( notoriety * notoriety_value )
+    # reward_chance = base_slayer_item_chance + ( notoriety * notoriety_value )
+    reward_chance = base_slayer_item_chance
 
     count_lucky_coins = get_bot_config(f'slayer_count_lucky_coins')
-    slayer_lucky_coin_multiplier = float(get_bot_config(f'slayer_lucky_coin_multiplier'))
+    # slayer_lucky_coin_multiplier = float(get_bot_config(f'slayer_lucky_coin_multiplier'))
+    slayer_lucky_coin_scaling_factor = int(get_bot_config(f'slayer_lucky_coin_scaling_factor'))
     if 'yes' in count_lucky_coins:
         lucky_coins = count_inventory_qty(character.id, 0, 80256)
         if lucky_coins:
-            coin_bonus = slayer_lucky_coin_multiplier * lucky_coins
+            # coin_bonus = slayer_lucky_coin_multiplier * lucky_coins
+            if int(lucky_coins) <= 10:
+                coin_bonus = int(lucky_coins)
+            else:
+                coin_bonus = math.ceil((lucky_coins/(lucky_coins+slayer_lucky_coin_scaling_factor)) * 100)
             reward_chance += coin_bonus
+            print(f'{character.char_name} has {lucky_coins} lucky coins. Coin Bonus: {coin_bonus}. Reward Chance: {reward_chance}.')
             bonus_message = f'Lucky Coin Bonus: `+{coin_bonus}%`\n'
 
 
+    penalty = quarry_penalty('check', character)
+    if penalty:
+        reward_chance = 0
+        bonus_message = f'With this successful hunt, your quarry penalty has been lifted and you can find loot caches once again.\n'
+        return False, reward_chance, bonus_message
+
+    reward_chance = min(99, reward_chance)
     item_roll = random.randint(int(1), int(100))
     if item_roll <= reward_chance:
         return True, reward_chance, bonus_message

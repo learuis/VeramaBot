@@ -1,4 +1,5 @@
 import os
+import re
 
 import discord
 from discord.ext import commands
@@ -101,7 +102,7 @@ class NameChange(commands.Cog):
 
         """
         outputString = ''
-        response = runRcon(f'sql select id, char_name from characters where char_name like \'%{char_name}%\'')
+        response = runRcon(f'sql select id, char_name, lastTimeOnline from characters where char_name like \'%{char_name}%\'')
 
         if response.error == 1:
             outputString += f'\n\nRCON Error.'
@@ -110,8 +111,15 @@ class NameChange(commands.Cog):
         else:
             outputString = f'Matching ID and characters:\n'
             message = await ctx.reply(content=outputString)
-            for x in response.output:
-                outputString += f'{x}\n'
+            response.output.pop(0)
+            if response.output:
+                for line in response.output:
+                    print(line)
+                    matches = re.findall(r'#\d+\s+(\d+)\s[|]\s+(.+)\s[|]\s+\s(.+)\s[|]',line)
+                    if matches:
+                        for match in matches:
+                            print(match)
+                            outputString += f'`{match[0]}` - `{match[1]}` Last Online: <t:{match[2]}:f>\n'
                 await message.edit(content=outputString)
             return
 

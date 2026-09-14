@@ -7,7 +7,7 @@ from functions.common import is_registered, get_bot_config, no_registered_char_r
     check_channel, modify_favor, display_quest_text, grant_reward, eld_transaction, get_balance, \
     sufficient_funds, killed_target, set_slayer_target, clear_slayer_target, get_slayer_target, get_notoriety, \
     increase_notoriety, increment_killed_total, grant_slayer_rewards, toggle_arachnophobia, set_slayer_reroll_exclusion, \
-    clear_slayer_reroll
+    clear_slayer_reroll, quarry_penalty
 from dotenv import load_dotenv
 
 from functions.externalConnections import db_query
@@ -67,11 +67,13 @@ class Hunter(commands.Cog):
                 (notorious_target, notorious_multiplier) = increase_notoriety(exclude_target)
                 total_bounty = reward_quantity + (reroll_cost * notorious_multiplier)
 
+                quarry_penalty('add', character)
+
                 await ctx.reply(
                     f'Consumed {abs(amount)} Bronze Coins from {character.char_name}\'s account\n'
                     f'New Balance: {new_balance}\n\n'
                     f'You will not be assigned to slay `{exclude_target.display_name}` again until '
-                    f'it has been slain by someone else.\n\n'
+                    f'it has been slain by someone else. You will not find a loot cache on your next successful hunt.\n\n'
                     f'`{character.char_name}` was assigned a new Beast Slayer quarry: `{current_target.map} - {current_target.display_name}`'
                     f' on <t:{current_target.start_time}:f>.'
                     f'\n\nThe bounty on `{exclude_target.map} - {exclude_target.display_name}` has increased to `{total_bounty}` '
@@ -86,7 +88,7 @@ class Hunter(commands.Cog):
             await ctx.reply(f'`{character.char_name}`\'s current quarry: `{exclude_target.map} - {exclude_target.display_name}`.\n\n'
                             f'This command will clear your quarry and assign you a new one for {reroll_cost} Bronze Coins. '
                             f'You will not be able to claim any reward for the current quarry, even if you already '
-                            f'killed it.\n\nIf you are sure want to be assigned a new quarry, '
+                            f'killed it. You will not find a loot cache on your next successful hunt.\n\nIf you are sure want to be assigned a new quarry, '
                             f'use `v/quarry confirm`.')
             return
 
@@ -266,6 +268,7 @@ class Hunter(commands.Cog):
                 output_string = grant_slayer_rewards(character, current_target)
                 clear_slayer_reroll(current_target)
                 clear_slayer_target(character)
+                quarry_penalty('remove', character)
                 await ctx.reply(output_string)
                 return
             else:

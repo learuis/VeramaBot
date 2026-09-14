@@ -641,7 +641,6 @@ class Utilities(commands.Cog):
 
         """
         outputString = ''
-        print(f'wtf')
         try:
             int(target_object)
             float(size)
@@ -663,12 +662,14 @@ class Utilities(commands.Cog):
     @commands.has_any_role('Outcasts')
     @commands.check(check_channel)
     async def sizechange(self, ctx, target_object: str = None, size: float = 1.0, confirm: str = ''):
-        """ - Requests a size change of a nearby object
+        """ - Stand near the object you want to alter, wait 1 minute, then use the command.
+        The bot will identify the nearest matching object to your location.
+        You must remain nearby while making the request.
 
         Parameters
         ----------
         ctx
-        object
+        target_object
         size
         confirm
 
@@ -687,6 +688,7 @@ class Utilities(commands.Cog):
         x_result = 0
         y_result = 0
         distance = 0
+        valid_options = {}
 
         if not character:
             await no_registered_char_reply(self.bot, ctx)
@@ -696,22 +698,38 @@ class Utilities(commands.Cog):
 
         target_object = target_object.lower()
 
-        valid_options = {'map': 'BP_PL_Maproom',
-                         'maproom': 'BP_PL_Maproom',
-                         'vault': 'BP_PL_Chest_Vault',
-                         'stable': 'BP_PL_Crafting_Station_AnimalPen_Stables',
-                         'bigpen': 'BP_PL_Crafting_Station_AnimalPen_Tier',
-                         'smallpen': 'BP_PL_Crafting_Station_AnimalPen_Small',
-                         'wheel': 'BP_PL_CraftingStation_WheelOfPain',
-                         'plinth': 'BP_PL_Trophy_IronPlinth',
-                         't2tannertable': 'BP_PL_WorkStation_Tanner_T2_C'}
+        results = db_query(False, f'select short_name, class_name from object_mappings')
+        if results:
+            for result in results:
+                valid_options[result[0]] = result[1]
+
+        # valid_options = {'map': 'BP_PL_Maproom',
+        #                  'maproom': 'BP_PL_Maproom',
+        #                  'vault': 'BP_PL_Chest_Vault',
+        #                  'stable': 'BP_PL_Crafting_Station_AnimalPen_Stables',
+        #                  'bigpen': 'BP_PL_Crafting_Station_AnimalPen_Tier',
+        #                  'smallpen': 'BP_PL_Crafting_Station_AnimalPen_Small',
+        #                  'wheel': 'BP_PL_CraftingStation_WheelOfPain',
+        #                  'plinth': 'BP_PL_Trophy_IronPlinth',
+        #                  't2tannertable': 'BP_PL_WorkStation_Tanner_T2',
+        #                  'dyebench': 'BP_PL_WorkStation_DyeingVat',
+        #                  'planter': 'BP_PL_Crafting_Planter',
+        #                  'vendhyanplanter': 'BP_PL_Vendhyan_Planter',
+        #                  't3derketo': 'BP_PL_Altar_Derketo_T3',
+        #                  't3jhebbal': 'BP_PL_Altar_JhebbalSag_T3',
+        #                  't3zath': 'BP_PL_Altar_Zath_T3',
+        #                  't3set': 'BP_PL_Altar_Set_T3',
+        #                  't3mitra': 'BP_PL_Altar_Mitra_T3',
+        #                  't3ymir': 'BP_PL_Altar_Ymir_T3',
+        #                  't3yog': 'BP_PL_Altar_Yog_T3',
+        #                  'conanstatue': 'BP_PL_Statue_Conan'}
         try:
             search_term = valid_options[target_object]
         except KeyError:
             for key in valid_options:
-                key_str += f'{key}|'
+                key_str += f' {key} |'
             key_str = key_str[:-1]
-            await ctx.reply(f'Invalid option. Use `v/lo {key_str}`')
+            await ctx.reply(f'Invalid option. Use `v/lo{key_str}`')
             return
 
         try:

@@ -5,7 +5,7 @@ import discord
 from discord.ext import commands
 
 from functions.common import is_registered, get_rcon_id, last_season_char, get_bot_config, no_registered_char_reply, \
-    flatten_list, run_console_command_by_name, check_channel, eld_transaction, get_balance, one_per_min
+    flatten_list, run_console_command_by_name, check_channel, eld_transaction, get_balance, one_per_min, twos
 
 from dotenv import load_dotenv
 
@@ -158,6 +158,99 @@ class Reroll(commands.Cog):
     #                             f'then use `v/featrestore` to learn them.')
     #         return
     #
+
+    @commands.command(name='lockattributes')
+    @commands.has_any_role('Outcasts')
+    @commands.check(check_channel)
+    async def lockattributes(self, ctx):
+        """
+        Grants you earned prestige points
+
+        Parameters
+        ----------
+        ctx
+
+        """
+        outputString = ''
+
+        character = is_registered(ctx.author.id)
+        if not character:
+            await no_registered_char_reply(self.bot, ctx)
+            return
+        else:
+            message = await ctx.reply(f'Working...')
+
+        rconCharId = get_rcon_id(character.char_name)
+        if rconCharId:
+            outputString += f'Character `{character.char_name}` must be offline to lock attributes!'
+            await message.edit(content=f'{outputString}')
+            return
+
+        results = runRcon(f'sql select substr(hex(value),25,2) from properties where object_id = {character.id} '
+                          f'and name = \'BP_ProgressionSystem_C.AttributePointsTotal\'')
+        results.output.pop(0)
+        if len(results.output) == 1:
+            hex_total_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
+            total_points = int(hex_total_points, 16)
+            print(f'Dist: {total_points}')
+
+        results = runRcon(f'sql select substr(hex(value),25,2) from properties where object_id = {character.id} '
+                          f'and name = \'BP_ProgressionSystem_C.AttributePointsDistributed\'')
+        results.output.pop(0)
+        if len(results.output) == 1:
+            hex_distributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
+            distributed_points = int(hex_distributed_points, 16)
+            print(f'Dist: {distributed_points}')
+
+        results = runRcon(f'sql select substr(hex(value),25,2) from properties where object_id = {character.id} '
+                          f'and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
+        results.output.pop(0)
+        if len(results.output) == 1:
+            hex_undistributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
+            print(f'Undistributed: {hex_undistributed_points}')
+            undistributed_points = int(hex_undistributed_points, 16)
+            print(f'UnDist: {undistributed_points}')
+
+        difference = total_points - distributed_points
+        print(difference)
+        data = hex((difference + (1 << 32)) % (1 << 32))
+        inverted= bytes.fromhex(data[2:])[::-1].hex()
+
+        # num_bits = len(difference) * 4
+        # mask = (1 << num_bits) - 1
+        #
+        # inverted_bits = f"{int(difference, 16) ^ mask:0{len(difference)}x}"
+        #
+        # print(inverted_bits)
+
+        target_value = f'0C020000F903000000000000{inverted}'
+        runRcon(f'sql update properties set value = unhex(\'{target_value}\') '
+                 f'where object_id = {character.id} and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
+        print(f'Total: {total_points} | Dist: {distributed_points} | Undist: {undistributed_points} | Difference: {total_points-distributed_points}')
+        outputString += f'Your attribute points have been locked, and should no longer reset when you log in.'
+        await message.edit(content=f'{outputString}')
+        return
+
+
+        # results = runRcon(f'sql select substr(hex(value),25,2) from properties where object_id = {character.id} '
+        #                   f'and name = \'BP_ProgressionSystem_C.AttributePointsUndistributed\'')
+        # print(f'Undist result: {results.output}')
+        # results.output.pop(0)
+        # if len(results.output) == 1:
+        #     undistributed_points = re.search(r'[0-9a-fA-F]{2}', results.output[0]).group()
+        #     print(undistributed_points, int(undistributed_points, 16))
+        #     if int(undistributed_points, 16) > 0:
+        #         outputString += f'You must allocate all attribute points in order to claim prestige points! (You currently have undistributed points)'
+        #         await message.edit(content=f'{outputString}')
+        #         return
+        #
+        # runRcon(f'sql update properties set value = ( select value from properties where object_id = {character.id} '
+        #         f'and name \'BP_ProgressionSystem_C.AttributePointsTotal\' ) '
+        #         f'where object_id = {character.id} and name = \'BP_ProgressionSystem_C.AttributePointsDistributed\'')
+        # outputString += f'Your attribute points have been locked, and should no longer reset when you log in.'
+        # await message.edit(content=f'{outputString}')
+        # return
+
     @commands.command(name='prestige')
     @commands.has_any_role('Outcasts')
     @commands.dynamic_cooldown(one_per_min, type=commands.BucketType.user)
