@@ -58,7 +58,7 @@ async def is_character_online(channel):
         try:
             filesize = round(int(filesize) / 1024 / 1024,2)
             if filesize > 15:
-                await channel.send(f'<@&1024017048935874581> Log File Size is {filesize} MB.')
+                await channel.send(f'<@&1024017048935874581> Log File Size is {filesize} Megabytes.')
             else:
                 print(f'Log below threshhold')
         except ValueError:
