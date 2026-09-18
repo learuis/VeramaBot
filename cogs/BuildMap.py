@@ -62,6 +62,8 @@ async def generate_maps(flag):
         where_clause = f'where buildings.owner_id = {flag_int} and class not like \'%BasePlayerChar_C%\' '
     elif flag == f'all':
         where_clause = ''
+    elif flag == f'bed':
+        where_clause += f'where class like \'%bed%\' '
     matplotlib.use('Agg')
 
     print(os.getcwd())

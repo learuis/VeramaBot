@@ -16,7 +16,7 @@ from cogs.InnSystem import Character
 from functions.externalConnections import runRcon, downloadSave, db_query, rcon_all, send_rcon_command
 from functions.common import custom_cooldown, is_registered, get_rcon_id, get_single_registration, \
     get_bot_config, set_bot_config, add_bot_config, int_epoch_time, no_registered_char_reply, \
-    run_console_command_by_name, flatten_list, check_channel, Registration
+    run_console_command_by_name, flatten_list, check_channel, Registration, check_log_filesize
 from datetime import datetime
 from datetime import timezone
 from time import strftime, localtime
@@ -317,6 +317,16 @@ class Admin(commands.Cog):
         await ctx.reply(f'Command sync completed.')
         return
 
+    @commands.command(name='logsize')
+    @commands.has_any_role('Admin')
+    @commands.check(check_channel)
+    async def logsize(self, ctx):
+        filesize = check_log_filesize()
+        if filesize:
+            await ctx.reply(f'Log file size: {filesize} bytes')
+        else:
+            await ctx.reply('Log file size cannot be read.')
+        return
 
     @commands.command(name='restart')
     @commands.has_any_role('Admin')

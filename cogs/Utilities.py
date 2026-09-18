@@ -9,6 +9,7 @@ import discord
 from discord.ext import commands
 from dotenv import load_dotenv
 
+from cogs.Admin import check_log_filesize
 from cogs.QuestSystem import pull_online_character_info_new, pull_online_character_info_direct
 from functions.common import custom_cooldown, ununicode, is_registered, get_single_registration, get_rcon_id, \
     flatten_list, get_bot_config, check_channel, no_registered_char_reply, get_clan, run_console_command_by_name, \
@@ -51,6 +52,20 @@ async def is_character_online(channel):
                 # await channel.send(f'<@{mention}> `{x[1].strip()}` is online with rcon ID `{x[0].strip()}`.')
                 await channel.send(f'<`{x[1].strip()}` is online with rcon ID `{x[0].strip()}`.')
                 return True
+
+    filesize = check_log_filesize()
+    if filesize:
+        try:
+            filesize = round(int(filesize) / 1024 / 1024,2)
+            if filesize > 15:
+                await channel.send(f'<@&1024017048935874581> Log File Size is {filesize} MB.')
+            else:
+                print(f'Log below threshhold')
+        except ValueError:
+            print(f'Error converting filesize')
+
+    else:
+        print(f'No log filesize detected')
     return False
 
 

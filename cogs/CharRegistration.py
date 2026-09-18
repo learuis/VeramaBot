@@ -118,7 +118,7 @@ class RegistrationForm(ui.Modal, title='Character Registration'):
         try:
             await interaction.user.edit(nick=str(self.charName))
         except discord.errors.Forbidden:
-            print(f'Missing persmissions to change nickname on {interaction.user.name}')
+            print(f'Missing permissions to change nickname on {interaction.user.name}')
 
         channel = interaction.client.get_channel(AUTOREG_CHANNEL)
         previous_char = last_season_char(interaction.user.id)

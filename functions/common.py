@@ -113,6 +113,17 @@ class Registration:
     def reset(self):
         self.__init__()
 
+def check_log_filesize():
+    DB_LOCATION = os.getenv('DB_LOCATION')
+    CONAN_LOG_LOCATION = os.getenv('CONAN_LOG_LOCATION')
+    CON_LOG_PATH = f'{DB_LOCATION}/{CONAN_LOG_LOCATION}'
+
+    try:
+        filesize = os.path.getsize(CON_LOG_PATH)
+        return filesize
+    except FileNotFoundError:
+        return False
+
 def update_boons(indv_boon: str = ''):
     command_prep = []
     command_list = []
